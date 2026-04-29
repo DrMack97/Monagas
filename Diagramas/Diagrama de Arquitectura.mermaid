@@ -1,0 +1,42 @@
+flowchart TD
+    subgraph Campo ["Capa de Campo (App Android / PWA)"]
+        UI["Interfaz de Usuario<br>(React + Tailwind)"]
+        Calc["Motor Lógico Independiente<br>(Cálculos de Tanques y Gas)"]
+        LocalDB[("Caché Local / Offline (LocalForage)")]
+        WA["Aplicación WhatsApp<br>(Nativa)"]
+        
+        UI <--> Calc
+        Calc <--> LocalDB
+        UI -->|Genera URL con texto| WA
+    end
+
+    subgraph Backend ["Capa de Nube (BaaS - Firebase)"]
+        Auth{"Firebase Authentication<br>(Seguridad y Accesos)"}
+        Firestore[("Cloud Firestore<br>(Base de Datos NoSQL)")]
+    end
+
+    subgraph Oficina ["Capa de Oficina (Dashboard Web)"]
+        WebUI["Panel de Monitoreo Web<br>(React)"]
+        Export["Generador de Reportes<br>(CSV / jsPDF)"]
+        
+        WebUI --> Export
+    end
+
+    %% Conexiones Móvil -> Nube con texto simple para evitar errores
+    LocalDB <-->|Sync Automático Offline| Firestore
+    UI -.->|Validación de Usuario| Auth
+
+    %% Conexiones Nube -> Oficina
+    Firestore <-->|Escucha en Tiempo Real| WebUI
+    Auth -.->|Validación de Roles| WebUI
+
+    %% Estilos visuales
+    classDef mobile fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0f172a
+    classDef cloud fill:#ffedd5,stroke:#ea580c,stroke-width:2px,color:#0f172a
+    classDef office fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#0f172a
+    classDef db fill:#f3f4f6,stroke:#4b5563,stroke-width:2px
+
+    class UI,Calc,WA mobile
+    class Auth cloud
+    class WebUI,Export office
+    class LocalDB,Firestore db

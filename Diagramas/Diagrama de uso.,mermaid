@@ -1,0 +1,33 @@
+flowchart LR
+    %% Actores
+    Operador((Operador de Campo))
+    Supervisor((Supervisor en Oficina))
+
+    %% Sistema Móvil
+    subgraph App ["App Well Testing (Móvil / Offline)"]
+        direction TB
+        UC1([Ingreso de Niveles de Tanque])
+        UC2([Ingreso de Variables de Gas AGA-3])
+        UC3([Generación de Reporte Flash WhatsApp])
+        UC4([Guardado Local y Sincronización])
+    end
+
+    %% Sistema Web
+    subgraph Cloud ["Plataforma Central (Web)"]
+        direction TB
+        UC5([Monitoreo de Pozos en Tiempo Real])
+        UC6([Exportación de Data a Excel/PDF])
+    end
+
+    %% Relaciones Operador
+    Operador --> UC1
+    Operador --> UC2
+    Operador --> UC3
+    Operador --> UC4
+
+    %% Conexión de Sincronización
+    UC4 -.->|Al detectar 3G/WiFi| UC5
+
+    %% Relaciones Supervisor
+    Supervisor --> UC5
+    Supervisor --> UC6
