@@ -1,5 +1,5 @@
 // DESCRIPCION DEL PROYECTO 
-|_____// requerimientos Funcionales 
+|_____// Requerimientos Funcionales (doc funcional)
 |
 // Documento tecnico 
 |_____//Requerimentos tecnicos
