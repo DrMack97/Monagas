@@ -214,3 +214,6 @@ Monagas/
 ├── package.json                            # 🛡️ Player 3 - Scripts globales (dev, build, test, lint, firebase:emulate)
 └── README.md                               # 📜 Player 4 - Documentación técnica de proyecto y onboarding
 
+💎 Al final del dia vamos a cobrar por objetivos 💎
+tienes lo que necesitas dentro de las carpetas para cumplir tu funcion
+muy buena suerte!!!
