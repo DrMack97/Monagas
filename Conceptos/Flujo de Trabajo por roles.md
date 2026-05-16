@@ -34,6 +34,7 @@ Para asegurar que cada rol revise lo que le corresponde, configuramos el archivo
 
 
 # Monagas/.github/CODEOWNERS
+
 # El orden importa: las reglas de abajo tienen prioridad.
 
 # El Player 3 (DevOps) revisa configuraciones globales de la raíz
@@ -92,5 +93,29 @@ jobs:
         
       - name: Ejecutar Tests Unitarios (AGA3 y Tanques)
         run: pnpm --filter core test
-        
+
+
+
 🛡️ Garantía técnica: Si el 🛡️ Player 3 modifica un cálculo en aga3.ts y rompe accidentalmente un caso de prueba del pozo MFB-950, la herramienta de CI/CD fallará, el botón de Merge se volverá gris y se notificará inmediatamente al equipo por un hilo de Discord. El código defectuoso nunca llegará a producción.
+
+# Resumen de Responsabilidades por Rol
+
+Player 1 🧙‍♂️ Backend /firebase, /packages/core/src/typesCloud Functions, 
+Firestore Schema, Custom Claims, Reglas de Seguridad
+
+Player 2 🎨 Frontend/apps/mobile-operator/src/pages, 
+/apps/mobile-operator/src/components, 
+/apps/web-supervisor/src/pages, /apps/web-supervisor/src/componentsUI
+
+de operador, UI de supervisor, Estilos, Mockups
+
+Player 3 🛡️ Fullstack /packages/core/src/calculos, 
+/apps/*/src/hooks, /apps/*/src/services, 
+/.github, /firebase/functions/testsCálculos.
+
+Integración Firestore, Tests, CI/CD, DevOps
+
+Player 4 📜 Product Manager
+/docs,/docs/business,/docs/technical/firestore-schema.mdRequerimientos.
+
+Documentación, Validación con cliente, Decisiones arquitectónicas.
