@@ -1,0 +1,36 @@
+# TODO: Workflow de deploy automático a Firebase - Player 3 (Fullstack)
+# Paso 1: Trigger en push a main
+# Paso 2: Deploy web-supervisor a Firebase Hosting
+# Paso 3: Deploy functions a Firebase Functions
+# Entregable: main se despliega automáticamente a producción
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build
+        run: pnpm build -r
+      
+      - name: Deploy to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          channelId: live
+          projectId: ${{ vars.FIREBASE_PROJECT_ID }}

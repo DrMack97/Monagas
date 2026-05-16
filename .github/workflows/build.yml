@@ -1,0 +1,27 @@
+# TODO: Workflow de build en main/staging - Player 3 (Fullstack)
+# Paso 1: Trigger en push a main o staging
+# Paso 2: Build de todas las apps y packages
+# Entregable: Build exitoso antes de deploy
+name: Build
+
+on:
+  push:
+    branches: [main, staging]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build all packages
+        run: pnpm build -r

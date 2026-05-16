@@ -1,0 +1,18 @@
+{
+  // TODO: Alias de proyectos Firebase - Player 1 (Backend)
+  // Paso 1: Definir proyectos dev, staging, prod
+  // Paso 2: Configurar projectId para cada ambiente
+  // Paso 3: Usar firebase use dev/staging/prod para switch
+  // Prompt de implementación rápida:
+  // "Crear .firebaserc con projects: dev, staging, prod"
+  // Entregable:
+  // - firebase use dev → projectId: monagas-dev
+  // - firebase use staging → projectId: monagas-staging
+  // - firebase use prod → projectId: monagas-prod
+  "projects": {
+    "default": "monagas-dev",
+    "dev": "monagas-dev",
+    "staging": "monagas-staging",
+    "prod": "monagas-prod"
+  }
+}

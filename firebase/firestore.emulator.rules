@@ -1,0 +1,13 @@
+// TODO: Reglas de seguridad Firestore (emulator local) - Player 1 (Backend)
+// Paso 1: Reglas más permisivas para desarrollo
+// Paso 2: Permisos sin validación de rol
+// Entregable: Desarrollo rápido sin bloqueos de seguridad local
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // TODO: Modo desarrollo - más permisivo
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

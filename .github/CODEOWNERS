@@ -1,0 +1,26 @@
+# TODO: Code owners para code review - Player 3 (Fullstack)
+# Paso 1: Definir quién revisa qué carpeta
+# Paso 2: Asignar Player 1 a firebase/, Player 2 a apps/, Player 3 a packages/
+# Entregable: PR en carpeta requiere review de owner
+# Default owner para todo el repositorio
+* @player3-fullstack
+
+# Backend y Firebase
+/firebase/ @player1-backend
+/packages/core/src/types/ @player1-backend
+/packages/core/src/constants/ @player4-pm
+
+# Frontend
+/apps/mobile-operator/src/components/ @player2-frontend
+/apps/web-supervisor/src/components/ @player2-frontend
+/apps/mobile-operator/src/pages/ @player2-frontend
+/apps/web-supervisor/src/pages/ @player2-frontend
+
+# Fullstack y lógica compartida
+/packages/core/src/calculos/ @player3-fullstack
+/packages/core/src/utils/ @player3-fullstack
+/apps/*/src/hooks/ @player3-fullstack
+/apps/*/src/services/ @player3-fullstack
+
+# Documentación
+/docs/ @player4-pm
