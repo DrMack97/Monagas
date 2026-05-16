@@ -1,0 +1,11 @@
+/*TODO: Reglas de formato de código - Player 3 (Fullstack)
+// Paso 1: Definir tabWidth, semi, singleQuote, trailingComma
+// Paso 2: Aplicar a todos los apps y packages
+// Entregable: pnpm format aplica estilo consistente"
+{
+  "semi": true,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "trailingComma": "es5",
+  "printWidth": 100
+}

@@ -1,0 +1,15 @@
+{
+  // TODO: TypeScript para web-supervisor - Player 3 (Fullstack)
+  // Paso 1: Extender ../../tsconfig.base.json
+  // Paso 2: Definir jsx, lib (DOM), outDir
+  // Entregable: tsc compila sin errores
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

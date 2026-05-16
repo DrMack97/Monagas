@@ -1,0 +1,14 @@
+# TODO: Archivos a ignorar en Git - Player 3 (Fullstack)
+# Paso 1: Ignorar node_modules, dist, .env, builds
+# Paso 2: Ignorar logs, cache, IDE files
+# Entregable: git status solo muestra archivos de código
+node_modules/
+dist/
+.build/
+.env
+.env.local
+*.log
+.DS_Store
+.idea/
+.vscode/
+coverage/
