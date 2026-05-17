@@ -56,3 +56,84 @@ Monagas/
             ├── build.yml           # Build en push a main
             └── deploy.yml          # Deploy automático a Firebase
 
+            Rol por archivo
+
+            
+ARCHIVOS RAÍZ
+package.json → Player 3
+
+pnpm-workspace.yaml → Player 3
+
+tsconfig.base.json → Player 3
+
+tsconfig.json → Player 3
+
+.gitignore → Player 4
+
+.prettierrc → Player 4
+
+eslint.config.js → Player 3
+
+.env.example → Player 3
+
+README.md → Player 4
+
+APPS / MOBILE
+apps/mobile-operator/package.json → Player 2
+
+apps/mobile-operator/tsconfig.json → Player 2
+
+apps/mobile-operator/vite.config.ts → Player 2
+
+apps/mobile-operator/capacitor.config.ts → Player 2
+
+apps/mobile-operator/src/App.tsx → Player 2
+
+APPS / WEB
+apps/web-supervisor/package.json → Player 2
+
+apps/web-supervisor/tsconfig.json → Player 2
+
+apps/web-supervisor/vite.config.ts → Player 2
+
+apps/web-supervisor/src/App.tsx → Player 2
+
+PACKAGES / CORE
+packages/core/package.json → Player 3
+
+packages/core/tsconfig.json → Player 3
+
+packages/core/index.ts → Player 3
+
+packages/core/src/index.ts → Player 3
+
+packages/core/src/calculos/index.ts → Player 3
+
+packages/core/src/types/index.ts → Player 3
+
+packages/core/src/constants/index.ts → Player 3
+
+packages/core/src/utils/index.ts → Player 3
+
+FIREBASE
+firebase/package.json → Player 1
+
+firebase/tsconfig.json → Player 1
+
+firebase/.firebaserc → Player 1
+
+firebase/firebase.json → Player 1
+
+firebase/firestore.rules → Player 1
+
+firebase/storage.rules → Player 1
+
+firebase/functions/src/index.ts → Player 1
+
+GITHUB / CI-CD
+.github/workflows/test.yml → Player 3
+
+.github/workflows/build.yml → Player 3
+
+.github/workflows/deploy.yml → Player 1
+
