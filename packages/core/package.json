@@ -1,8 +1,4 @@
 {
-  // TODO: Exportaciones del paquete @core - Player 3 (Fullstack)
-  // Paso 1: Definir name: "@monagas/core", main: index.ts
-  // Paso 2: Exportar subpaths: calculos, types, constants, utils
-  // Entregable: apps pueden importar @core/calculos, @core/types
   "name": "@monagas/core",
   "version": "0.1.0",
   "private": true,

@@ -32,8 +32,8 @@ export interface CohortData {
 }
 
 export class AnalyticsDashboard {
-  // Get metrics
-  async getMetrics startDate: string, endDate: string): Promise<AnalyticsMetrics> {
+  // Get metrics - ¡Corregido abriendo paréntesis aquí!
+  async getMetrics(startDate: string, endDate: string): Promise<AnalyticsMetrics> {
     try {
       const [users, evaluations] = await Promise.all([
         getDocs(collection(db, 'users')),
@@ -109,8 +109,8 @@ export class AnalyticsDashboard {
     return total.size > 0 ? (snapshot.size / total.size) * 100 : 0
   }
 
-  // Get funnel
-  async getFunnel funnelName: string, startDate: string, endDate: string): Promise<FunnelData[]> {
+  // Get funnel - ¡Corregido abriendo paréntesis aquí también!
+  async getFunnel(funnelName: string, startDate: string, endDate: string): Promise<FunnelData[]> {
     const steps = [
       { name: 'Inicio', count: 1000 },
       { name: 'Ingresar datos', count: 850 },
@@ -137,8 +137,8 @@ export class AnalyticsDashboard {
     })
   }
 
-  // Get cohorts
-  async getCohorts startDate: string, endDate: string): Promise<CohortData[]> {
+  // Get cohorts - ¡Corregido abriendo paréntesis aquí!
+  async getCohorts(startDate: string, endDate: string): Promise<CohortData[]> {
     // Group users by signup week
     const cohorts = [
       { cohort: 'Semana 1', users: 100, retention: 75, avgEvaluations: 12 },
@@ -164,7 +164,7 @@ export class AnalyticsDashboard {
   }
 
   // Generate report
-  async generateReport startDate: string, endDate: string): Promise<string> {
+  async generateReport(startDate: string, endDate: string): Promise<string> {
     const metrics = await this.getMetrics(startDate, endDate)
     const funnel = await this.getFunnel('evaluation', startDate, endDate)
     const cohorts = await this.getCohorts(startDate, endDate)

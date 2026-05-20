@@ -1,9 +1,4 @@
 {
-  // TODO: Scripts globales del monorepo - Player 3 (Fullstack)
-  // Paso 1: Definir scripts para dev, build, test, lint
-  // Paso 2: Definir packageManager: "pnpm@8.x"
-  // Entregable: pnpm dev, pnpm build, pnpm test funcionan
-  "name": "monagas",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@8.15.0",
