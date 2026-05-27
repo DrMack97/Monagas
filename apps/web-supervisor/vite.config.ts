@@ -13,6 +13,9 @@ export default defineConfig({
       '@core': path.resolve(__dirname, '../../packages/core/src')
     }
   },
-  server: { port: 5174 },
+  server: { 
+    port: 5174,
+    host: true // <--- Esto forzará a Vite a exponer la IP de red local (Network) siempre
+  },
   build: { outDir: 'dist' }
 })

@@ -1,7 +1,5 @@
 # Modelo de Coste por Archivo — Proyecto Completo (Fases 0→4)
-
 ---
-
 ## Parte 1 — La Fórmula, Simple
 
 Hay una sola pregunta que responde el modelo:
@@ -17,12 +15,10 @@ La respuesta en 3 pasos:
 
 Pago = Coste_dev_en_fase × (LOC_archivo / LOC_dev_total_en_fase)
 ```
-
 **Ejemplo real (P2, Fase 1):**
 - P2 cobra $8,800 en Fase 1
 - P2 escribe 2,030 líneas en Fase 1
 - `RegistroPage.tsx` tiene 480 líneas
-
 ```
 Pago = $8,800 × (480 / 2,030) = $8,800 × 23.6% = $2,080
 ```
