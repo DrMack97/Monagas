@@ -1,15 +1,11 @@
 {
-  // TODO: Configuración base de TypeScript - Player 3 (Fullstack)
-  // Paso 1: Definir compilerOptions con baseUrl y paths
-  // Paso 2: Extender en cada app/package con extends: "../../tsconfig.base.json"
-  // Entregable: TypeScript resuelve imports como @core/calculos
   "compilerOptions": {
     "target": "ES2020",
     "module": "ESNext",
-    "lib": ["ES2020"],
-    "moduleResolution": "node",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "allowJs": true,
+    "allowJs": false,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

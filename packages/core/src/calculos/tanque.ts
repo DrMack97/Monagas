@@ -1,48 +1,39 @@
-// TODO: Cálculos de BPH, BPD, Netos - Player 3 (Fullstack)
-// Paso 1: Implementar fórmula BPH = (Lectura tanque - Lectura anterior) / tiempo
-// Paso 2: Implementar fórmula BPD = BPH * factor conversión
-// Paso 3: Implementar Netos = BPD - agua (si aplica)
-// Prompt de implementación rápida:
-// "Crear calcularBPH, calcularBPD, calcularNetos con fórmulas del mockup"
-// Entregable:
-// - calcularBPH(lecturaActual, lecturaAnterior, horas) → number
-// - calcularBPD(bph) → number
-// - calcularNetos(bpd, porcentajeAgua) → number
-// - Validar MFB-950: 133.10 Bls Netos/Día
-export function calcularBPH(
-  lecturaActual: number,
-  lecturaAnterior: number,
-  horas: number
-): number {
-  if (horas <= 0) {
-    throw new Error('Horas debe ser > 0')
+// packages/core/src/calculos/tanque.ts
+//
+// Motor de cálculo de volumen de tanque.
+
+export interface TankInput {
+  mi: number        // Medida Inicial (pulg)
+  mf: number        // Medida Final (pulg)
+  ft: number        // Factor Tanque — kk individual por tanque (BBL/pulg)
+  th: number        // Tiempo de medición (horas)
+  reductor: number  // Corrección manual (Bls)
+  aysPct: number    // Agua y Sedimentos (%)
+}
+
+export interface TankResult {
+  dif: number      // Diferencia de nivel (pulg)
+  bph: number      // Barriles por Hora
+  bpd: number      // Bruto por Día
+  aysBls: number   // Agua y Sedimentos (Bls)
+  netos: number    // Netos por Día
+}
+
+export function calcTanque(input: TankInput): TankResult {
+  const { mi, mf, ft, th, reductor, aysPct } = input
+
+  if (th <= 0) {
+    throw new Error('Tiempo debe ser > 0')
   }
-  const diferencia = lecturaActual - lecturaAnterior
-  return diferencia / horas
-}
-
-export function calcularBPD(bph: number): number {
-  const factorConversion = 24 // horas por día
-  return bph * factorConversion
-}
-
-export function calcularNetos(bpd: number, porcentajeAgua: number = 0): number {
-  if (porcentajeAgua < 0 || porcentajeAgua > 100) {
-    throw new Error('Porcentaje de agua debe estar entre 0 y 100')
+  if (aysPct < 0 || aysPct > 100) {
+    throw new Error('AyS% debe estar entre 0 y 100')
   }
-  const agua = bpd * (porcentajeAgua / 100)
-  return bpd - agua
-}
 
-export function calcularTotalTanque(capacidad: number, nivel: number): number {
-  if (nivel < 0 || nivel > 100) {
-    throw new Error('Nivel debe estar entre 0 y 100')
-  }
-  return capacidad * (nivel / 100)
-}
+  const dif    = Math.max(0, mf - mi)
+  const bph    = Math.max(0, (dif * ft - reductor) / th)
+  const bpd    = bph * 24
+  const aysBls = bpd * (aysPct / 100)
+  const netos  = Math.max(0, bpd - aysBls)
 
-// Validación para MFB-950
-export function validarMFB950(): { valid: boolean; expected: number } {
-  // Expected: 133.10 Bls Netos/Día
-  return { valid: true, expected: 133.10 }
+  return { dif, bph, bpd, aysBls, netos }
 }

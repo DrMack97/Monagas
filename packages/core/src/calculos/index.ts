@@ -2,6 +2,6 @@
 // Paso 1: Exportar tanque.ts, aga3.ts, validators.ts
 // Paso 2: Permitir import { calcularBPH } from '@core/calculos'
 // Entregable: todos los cálculos exportados correctamente
-export * from './tanque'
-export * from './aga3'
-export * from './validators'
+export * from './tanque.js'
+export * from './aga3.js'
+export * from './validators.js'

@@ -73,10 +73,10 @@ select.inp{appearance:none}
 const san=v=>parseFloat(String(v||0).replace(',','.'))||0;
 const fmt=(n,d=2)=>isNaN(n)?'—':Number(n).toFixed(d);
 
-function calcTanque(tank, ft){
-  const mi=san(tank.mi), mf=san(tank.mf), fac=san(ft);
+function calcTanque(tank, ftOverride){
+  const mi=san(tank.mi), mf=san(tank.mf), fac=san(ftOverride!=null?ftOverride:tank.ft)||2.4;
   const th=san(tank.th)||1, red=san(tank.reductor);
-  const ays=san(tank.aysPct), dh=san(tank.dilHora);
+  const ays=san(tank.aysPct), dh=0; // Norte de Monagas: sin diluyente
   const dif=Math.max(0,mf-mi);
   const bph=Math.max(0,(dif*fac-red)/th);
   const bpd=bph*24, dilDia=dh*24;
@@ -88,9 +88,16 @@ function calcTanque(tank, ft){
 function calcAGA3(g){
   const pf=san(g.pf),hw=san(g.hw),T=san(g.tGas)||60;
   const Gg=san(g.gg)||0.65,d=san(g.diam)||2;
-  const Fb=218.527*d*d,Fg=Math.sqrt(1/Gg),Ftf=Math.sqrt(520/(T+460));
+  // AGA-3 / API 14.3: Meter Run D — diámetro interno real del tubo de medición
+  const D=san(g.meterRun)||0;
+  const beta=(D>0&&d>0)?Math.min(d/D,0.75):0; // β = d/D, clamp a 0.75 (AGA-3 Sec.3)
+  const Fc=(D>0)?1/Math.sqrt(1-Math.pow(beta,4)):1; // Ev — velocidad de aproximación AGA-3: 1/√(1-β⁴)
+  // 218.527 = Fn, factor de conversión numérica AGA-3 (AGA Report No.3 Part 4, 1992 / API MPMS 14.3)
+  // Absorbe: π/4, conversión de unidades SCFH→MPCGD, condiciones base Tb=519.67°R, Pb=14.73 psia
+  const Fb=218.527*d*d*Fc,Fg=Math.sqrt(1/Gg),Ftf=Math.sqrt(520/(T+460));
   const qg=Math.max(0,(Fb*Fg*Ftf*Math.sqrt(Math.max(0,hw*pf)))/1000);
-  return{Fb:Fb.toFixed(2),Fg:Fg.toFixed(4),Ftf:Ftf.toFixed(4),Fpv:'1.0000',qg};
+  return{Fb:Fb.toFixed(2),Fg:Fg.toFixed(4),Ftf:Ftf.toFixed(4),Fpv:'1.0000',
+         beta:beta.toFixed(4),Fc:Fc.toFixed(4),qg};
 }
 
 function checkAl(pCab,pozo){
@@ -104,12 +111,12 @@ function checkAl(pCab,pozo){
 // DATOS
 // ═══════════════════════════════════════════════════
 const POZOS=[
-  {id:'p1',nombre:'MFB-950',campo:'Bare',zona:'FAJA',ft:'2.40',limResorte:'300',limGamma:'60',estado:'EN_CURSO',netos:133.10,pCab:'190',pSep:'110',torque:'632',rpm:'160',amp:'67',
-   tanques:[{id:'t1',nombre:'Tanque 1',mi:'12.50'},{id:'t2',nombre:'Tanque 2',mi:'8.20'}]},
-  {id:'p2',nombre:'MFB-919',campo:'Bare',zona:'FAJA',ft:'2.20',limResorte:'350',limGamma:'70',estado:'PENDIENTE',netos:57.05,pCab:'290',pSep:'180',torque:'705',rpm:'70',amp:'73',
-   tanques:[{id:'t1',nombre:'Tanque 1',mi:'10.00'}]},
-  {id:'p3',nombre:'MFB-882',campo:'Norte',zona:'MONAGAS',ft:'2.10',limResorte:'280',limGamma:'55',estado:'OFICIAL',netos:89.40,pCab:'145',pSep:'90',torque:'480',rpm:'120',amp:'58',
-   tanques:[{id:'t1',nombre:'Tanque 1',mi:'9.50'}]},
+  {id:'p1',nombre:'MFB-950',campo:'Bare',zona:'FAJA',ft:'2.40',limResorte:'300',limGamma:'60',estado:'EN_CURSO',netos:133.10,pCab:'190',pSep:'110',
+   tanques:[{id:'t1',nombre:'Tanque 1',mi:'12.50',ft:'2.40'},{id:'t2',nombre:'Tanque 2',mi:'8.20',ft:'2.40'}]},
+  {id:'p2',nombre:'MFB-919',campo:'Bare',zona:'FAJA',ft:'2.20',limResorte:'350',limGamma:'70',estado:'PENDIENTE',netos:57.05,pCab:'290',pSep:'180',
+   tanques:[{id:'t1',nombre:'Tanque 1',mi:'10.00',ft:'2.20'}]},
+  {id:'p3',nombre:'MFB-882',campo:'Norte',zona:'MONAGAS',ft:'2.10',limResorte:'280',limGamma:'55',estado:'OFICIAL',netos:89.40,pCab:'145',pSep:'90',
+   tanques:[{id:'t1',nombre:'Tanque 1',mi:'9.50',ft:'2.10'}]},
 ];
 
 const LECT_DEMO=[
@@ -121,20 +128,21 @@ const LECT_DEMO=[
 ];
 
 // campos persistentes vs borrados al guardar
-// MANTIENE: mf->mi, apiXp, apiDil, aysPct, dilHora, reductor, diam, gg
-// BORRA: pCab, pSep, torque, rpm, amp, pf, hw, tGas, factorEspuma, mf
+// MANTIENE: mf->mi, apiXp, aysPct, reductor, diam, gg, meterRun
+// BORRA: pCab, pSep, pf, hw, tGas, mf
 
 function defaultForm(pozo){
   // una entrada por tanque
-  const tanks=(pozo.tanques||[{id:'t1',nombre:'Tanque 1',mi:'0'}]).map(t=>({
-    id:t.id, nombre:t.nombre, mi:t.mi, mf:'', th:'1', reductor:'0', reductorTocado:false,
-    aysPct:'2.4', dilHora:'1.05', apiXp:'9.80', apiDil:'18.40', factorEspuma:'0'
+  const ftDefault=pozo.ft||pozo.factorTanque||'2.40';
+  const tanks=(pozo.tanques||[{id:'t1',nombre:'Tanque 1',mi:'0',ft:ftDefault}]).map(t=>({
+    id:t.id, nombre:t.nombre, mi:t.mi, ft:t.ft||ftDefault, mf:'', th:'1', reductor:'0', reductorTocado:false,
+    aysPct:'2.4', apiXp:'9.80'
   }));
   return{
     tanks,
     sumar:tanks.length>1,
-    pCab:'',pSep:'',torque:'',rpm:'',amp:'',
-    pf:'',hw:'',tGas:'',gg:'0.65',diam:'2',
+    pCab:'',pSep:'',
+    pf:'',hw:'',tGas:'',gg:'0.65',diam:'2',meterRun:'',
   };
 }
 
@@ -146,7 +154,7 @@ let S={
   pozo:POZOS[0],lecturas:[],
   form:defaultForm(POZOS[0]),
   tab:'tanque',
-  nuevoPozoData:{nombre:'',campo:'',zona:'FAJA',ft:'',horas:'5',limResorte:'300',limGamma:'60',
+  nuevoPozoData:{nombre:'',campo:'',zona:'FAJA',ft:'',horas:'5',limResorte:'300',limGamma:'60',meterRun:'',
     tanques:[{id:'t1',nombre:'Tanque 1',mi:''}]}
 };
 
@@ -308,7 +316,7 @@ function buildDashboard(){
 
   // Nota de rol
   const roleNote=e('div',{style:'background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:#a5b4fc'});
-  ap(roleNote,e('span',{html:'🔒 Configuración de pozos: solo Supervisor de Campo, Supervisor Mayor y Coordinador'}));
+  ap(roleNote,e('span',{html:'🔒 Configuración de pozos: solo Supervisores (Campo y Mayor)'}));
   ap(wrap,roleNote);
 
   POZOS.forEach(p=>{
@@ -323,12 +331,12 @@ function buildDashboard(){
     );
     ap(hdr,titW,statusBadge(p.estado));
     const grid=e('div',{cls:'g3'});
-    [{l:'Netos/Día',v:fmt(p.netos),u:'Bls',amber:true},{l:'P.Cabezal',v:p.pCab,u:'psi'},{l:'Amp',v:p.amp,u:'A'}].forEach(({l,v,u,amber})=>{
+    [{l:'Netos/Día',v:fmt(p.netos),u:'Bls',amber:true},{l:'P.Cabezal',v:p.pCab,u:'psi'},{l:'P.Sep',v:p.pSep,u:'psi'}].forEach(({l,v,u,amber})=>{
       const box=e('div',{style:'background:rgba(255,255,255,.03);border:1px solid #1f2937;border-radius:8px;padding:8px 10px'});
       ap(box,
         e('div',{style:'font-size:10px;color:#6b7280',html:l}),
-        e('div',{style:'font-size:14px;font-weight:700;color:'+(amber?'#f59e0b':'#e2e8f0')+';font-family:monospace;margin-top:2px',html:v}),
-        e('div',{style:'font-size:10px;color:#4b5563',html:u})
+        e('div',{style:'font-size:15px;font-weight:700;color:'+(amber?'#f59e0b':'#cbd5e1')+';font-family:monospace;margin-top:3px',html:v}),
+        e('div',{style:'font-size:10px;color:#4b5563;margin-top:1px',html:u})
       );
       ap(grid,box);
     });
@@ -346,7 +354,7 @@ function buildDashboard(){
 function buildNuevo(){
   const sc=e('div',{cls:'screen active'});
   const wrap=e('div',{cls:'wrap'});
-  ap(wrap,topbar('Configurar Pozo','Solo Supervisores y Coordinador',()=>go('DASHBOARD')));
+  ap(wrap,topbar('Configurar Pozo','Solo Supervisores',()=>go('DASHBOARD')));
 
   let nd=S.nuevoPozoData;
   function syncNd(k,v){S.nuevoPozoData={...S.nuevoPozoData,[k]:v};nd=S.nuevoPozoData;rebuildNuevo();}
@@ -369,7 +377,7 @@ function buildNuevo(){
       e('span',{style:'font-size:14px',html:'🛡️'}),
       e('div',{},[
         e('div',{style:'font-size:11px;font-weight:700;color:#a5b4fc',html:'Acceso restringido'}),
-        e('div',{style:'font-size:10px;color:#6366f1;margin-top:2px',html:'Supervisor Campo · Supervisor Mayor · Coordinador'})
+        e('div',{style:'font-size:10px;color:#6366f1;margin-top:2px',html:'Supervisor Campo · Supervisor Mayor'})
       ].reduce((p,c)=>{ap(p,c);return p;},e('div')))
     );
     ap(body,rn);
@@ -392,7 +400,6 @@ function buildNuevo(){
     const c2=e('div',{cls:'card'});
     ap(c2,sectionHdr('🛢️','Parámetros del Tanque'));
     const g2=e('div',{cls:'g2'});
-    ap(g2,field('Factor Tanque (compartido)',nd.ft,v=>syncNd('ft',v),{unit:'BBL/pulg',hint:'Aplica a todos los tanques'}));
     ap(g2,field('Horas de Evaluación',nd.horas,v=>syncNd('horas',v),{unit:'H'}));
     ap(c2,g2);ap(body,c2);
 
@@ -414,14 +421,28 @@ function buildNuevo(){
       const tg=e('div',{cls:'g2'});
       ap(tg,field('Nombre del Tanque',tank.nombre,v=>syncTank(idx,'nombre',v)));
       ap(tg,field('Medida Inicial',tank.mi,v=>syncTank(idx,'mi',v),{unit:'pulg',hint:'Remanente/intransegable'}));
-      ap(tb,tg);ap(c3,tb);
+      ap(tb,tg);
+      const ftRow=e('div',{style:'margin-top:8px'});
+      ap(ftRow,field('Factor Tanque (kk)',tank.ft||'',v=>syncTank(idx,'ft',v),{unit:'BBL/pulg',hint:'Geometría individual de este tanque'}));
+      ap(tb,ftRow);ap(c3,tb);
     });
 
     const addBtn=e('button',{cls:'btn-add',html:'+ Agregar Tanque',click:()=>{
       const n=S.nuevoPozoData.tanques.length+1;
-      S.nuevoPozoData.tanques.push({id:'t'+n,nombre:'Tanque '+n,mi:''});rebuildNuevo();
+      const lastFt=(S.nuevoPozoData.tanques[S.nuevoPozoData.tanques.length-1]||{}).ft||'2.40';
+      S.nuevoPozoData.tanques.push({id:'t'+n,nombre:'Tanque '+n,mi:'',ft:lastFt});rebuildNuevo();
     }});
     ap(c3,addBtn);ap(body,c3);
+
+    // Gas AGA-3 config — Meter Run
+    const cGas=e('div',{cls:'card'});
+    ap(cGas,sectionHdr('🔥','Configuración Gas AGA-3'));
+    const gMR=e('div',{cls:'g2'});
+    const mrLblRow=e('div',{style:'display:flex;align-items:center;gap:6px;margin-bottom:4px'});
+    ap(mrLblRow,e('label',{cls:'lbl',style:'margin-bottom:0',html:'Meter Run (D)'}),e('span',{style:'font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;background:rgba(139,92,246,.15);color:#a78bfa;border:1px solid rgba(139,92,246,.25)',html:'AGA-3'}));
+    ap(gMR,e('div',{},mrLblRow,e('input',{cls:'inp',type:'text',value:nd.meterRun||'',placeholder:'ej: 4.026',input:ev=>syncNd('meterRun',ev.target.value)}),e('span',{style:'font-size:10px;color:#4b5563;margin-top:3px;display:block',html:'Ø interno real del tubo (pulg) · AGA-3 / API 14.3'})));
+    ap(gMR,field('Diámetro Placa (d)',nd.diamOrif||'',v=>syncNd('diamOrif',v),{unit:'pulg',hint:'Placa de orificio instalada'}));
+    ap(cGas,gMR);ap(body,cGas);
 
     // Alertas
     const c4=e('div',{cls:'card'});
@@ -431,10 +452,10 @@ function buildNuevo(){
     ap(g4,field('Gamma (inH₂O)',nd.limGamma,v=>syncNd('limGamma',v),{unit:'inH₂O',hint:'Diferencial Barton máximo'}));
     ap(c4,g4);ap(body,c4);
 
-    const valid=nd.nombre&&nd.ft&&nd.tanques.every(t=>t.mi!=='');
+    const valid=nd.nombre&&nd.tanques.every(t=>t.mi!==''&&t.ft!=='');
     const confBtn=e('button',{cls:'btn btn-p',html:valid?'Iniciar Evaluación →':'Complete todos los campos requeridos',disabled:!valid,
       click:()=>{
-        const newPozo={...nd,id:'nuevo',estado:'EN_CURSO',netos:0,pCab:'',pSep:'',torque:'',rpm:'',amp:''};
+        const newPozo={...nd,id:'nuevo',estado:'EN_CURSO',netos:0,pCab:'',pSep:''};
         set({pozo:newPozo,lecturas:[],form:defaultForm(newPozo),screen:'REGISTRO'});
       }
     });
@@ -466,18 +487,15 @@ function setForm(updater) {
 function patchCalcBoxes() {
   const f = S.form;
   const pozo = S.pozo;
-  const ft = san(pozo.ft || pozo.factorTanque || 2.4);
+  const tankCalcs = f.tanks.map(tk => calcTanque(tk));
 
-  const tankCalcs = f.tanks.map(tk => calcTanque(tk, ft));
-
-  let totalBph = 0, totalBpd = 0, totalNetos = 0, totalDilDia = 0;
+  let totalBph = 0, totalBpd = 0, totalNetos = 0;
   if (f.sumar) {
-    tankCalcs.forEach(c => { totalBph += c.bph; totalBpd += c.bpd; totalNetos += c.netos; totalDilDia += c.dilDia; });
+    tankCalcs.forEach(c => { totalBph += c.bph; totalBpd += c.bpd; totalNetos += c.netos; });
   } else {
     totalBph = tankCalcs[0]?.bph || 0;
     totalBpd = tankCalcs[0]?.bpd || 0;
     totalNetos = tankCalcs[0]?.netos || 0;
-    totalDilDia = tankCalcs[0]?.dilDia || 0;
   }
 
   const ga = calcAGA3(f);
@@ -488,7 +506,7 @@ function patchCalcBoxes() {
   patch('rc-bpd',   fmt(totalBpd));
   patch('rc-netos', fmt(totalNetos));
   patch('rc-dif',   fmt(tankCalcs[0]?.dif, 1));
-  patch('rc-dil',   fmt(totalDilDia));
+  // rc-dil eliminado — sin diluyente en Norte de Monagas
   patch('rc-qg',    fmt(ga.qg, 2));
 
   // Título del panel de cálculo
@@ -529,6 +547,19 @@ function patchCalcBoxes() {
     const over = san(f.hw) > san(S.pozo.limGamma) && f.hw !== '';
     hwInput.classList.toggle('inp-alert', over);
   }
+  // Actualizar hint y alerta de Meter Run (β)
+  const mrInput = document.getElementById('rc-mr-input');
+  const mrHint  = document.getElementById('rc-mr-hint');
+  if (mrInput) {
+    const mrBad = san(f.meterRun) > 0 && san(f.diam) >= san(f.meterRun);
+    mrInput.classList.toggle('inp-alert', mrBad);
+  }
+  if (mrHint && san(f.meterRun) > 0 && san(f.diam) > 0) {
+    const gaR = calcAGA3(f);
+    const betaOver = san(gaR.beta) > 0.75;
+    mrHint.textContent = 'β = ' + gaR.beta + (betaOver ? ' ⚠️ > 0.75 (AGA-3 límite)' : ' ✓') + '  ·  Fc = ' + gaR.Fc;
+    mrHint.style.color = betaOver ? '#f87171' : '#4b5563';
+  }
 
   // Toggle de suma — actualizar texto y estilo
   const togBtn = document.getElementById('rc-tog-btn');
@@ -562,8 +593,7 @@ function switchTab(newTab) {
 function buildTabContent(tab) {
   const f = S.form;
   const pozo = S.pozo;
-  const ft = san(pozo.ft || pozo.factorTanque || 2.4);
-  const tankCalcs = f.tanks.map(tk => calcTanque(tk, ft));
+  const tankCalcs = f.tanks.map(tk => calcTanque(tk));
   let totalBpd = 0, totalNetos = 0;
   if (f.sumar) { tankCalcs.forEach(c => { totalBpd += c.bpd; totalNetos += c.netos; }); }
   else { totalBpd = tankCalcs[0]?.bpd || 0; totalNetos = tankCalcs[0]?.netos || 0; }
@@ -573,7 +603,7 @@ function buildTabContent(tab) {
   // ── TAB TANQUES ──────────────────────────────────────────────────
   if (tab === 'tanque') {
     const card = e('div', { cls: 'card' });
-    ap(card, sectionHdr('🛢️', 'Medición de Tanques', 'Factor compartido: ' + (pozo.ft || pozo.factorTanque) + ' BBL/pulg'));
+    ap(card, sectionHdr('🛢️', 'Medición de Tanques', f.tanks.length > 1 ? 'Factor independiente por tanque' : 'Factor: ' + (f.tanks[0]?.ft || pozo.ft || '2.40') + ' BBL/pulg'));
 
     f.tanks.forEach((tank, idx) => {
       const tc = tankCalcs[idx] || {};
@@ -679,9 +709,9 @@ function buildTabContent(tab) {
       ap(tb, divider());
 
       const tg3 = e('div', { cls: 'g2' });
-      // API XP
+      // API (gravedad del crudo)
       const apiXpW = e('div');
-      ap(apiXpW, e('label', { cls: 'lbl', html: 'API XP' }));
+      ap(apiXpW, e('label', { cls: 'lbl', html: 'Gravedad API' }));
       const apiXpRow = e('div', { style: 'position:relative' });
       const apiXpInp = e('input', {
         cls: 'inp', type: 'text', value: tank.apiXp || '', placeholder: '0',
@@ -696,29 +726,12 @@ function buildTabContent(tab) {
       ap(apiXpW, apiXpRow);
       ap(tg3, apiXpW);
 
-      if (pozo.zona === 'FAJA' || !pozo.zona) {
-        const apiDilW = e('div');
-        ap(apiDilW, e('label', { cls: 'lbl', html: 'API Dil' }));
-        const apiDilRow = e('div', { style: 'position:relative' });
-        const apiDilInp = e('input', {
-          cls: 'inp', type: 'text', value: tank.apiDil || '', placeholder: '0',
-          input: ev => {
-            setForm(prev => {
-              const ts = prev.tanks.map((t, i) => i === idx ? { ...t, apiDil: ev.target.value } : t);
-              return { ...prev, tanks: ts };
-            });
-          }
-        });
-        ap(apiDilRow, apiDilInp, e('span', { style: 'position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#6b7280;pointer-events:none', html: '°API' }));
-        ap(apiDilW, apiDilRow);
-        ap(tg3, apiDilW);
-      }
+      // API Dil eliminado — sin diluyente en Norte de Monagas
       ap(tb, tg3);
 
-      const tg4 = e('div', { cls: 'g2', style: 'margin-top:10px' });
-      // AyS
-      const aysW = e('div');
-      ap(aysW, e('label', { cls: 'lbl', html: 'AyS %' }));
+      // AyS — campo único, ancho completo
+      const aysW = e('div', { style: 'margin-top:10px' });
+      ap(aysW, e('label', { cls: 'lbl', html: 'Agua y Sedimentos' }));
       const aysRow = e('div', { style: 'position:relative' });
       const aysInp = e('input', {
         cls: 'inp', type: 'text', value: tank.aysPct || '', placeholder: '0',
@@ -730,43 +743,8 @@ function buildTabContent(tab) {
         }
       });
       ap(aysRow, aysInp, e('span', { style: 'position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#6b7280;pointer-events:none', html: '%' }));
-      ap(aysW, aysRow);
-      ap(tg4, aysW);
-      // Cont Dil/H
-      const dilW = e('div');
-      ap(dilW, e('label', { cls: 'lbl', html: 'Cont. Dil./H' }));
-      const dilRow = e('div', { style: 'position:relative' });
-      const dilInp = e('input', {
-        cls: 'inp', type: 'text', value: tank.dilHora || '', placeholder: '0',
-        input: ev => {
-          setForm(prev => {
-            const ts = prev.tanks.map((t, i) => i === idx ? { ...t, dilHora: ev.target.value } : t);
-            return { ...prev, tanks: ts };
-          });
-        }
-      });
-      ap(dilRow, dilInp, e('span', { style: 'position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#6b7280;pointer-events:none', html: 'Bls/H' }));
-      ap(dilW, dilRow);
-      ap(tg4, dilW);
-      ap(tb, tg4);
-
-      // Factor Espuma
-      ap(tb, e('div', { style: 'margin-top:10px' }));
-      const feW = e('div');
-      ap(feW, e('label', { cls: 'lbl', html: 'Factor Espuma' }));
-      const feRow = e('div', { style: 'position:relative' });
-      const feInp = e('input', {
-        cls: 'inp', type: 'text', value: tank.factorEspuma || '0', placeholder: '0',
-        input: ev => {
-          setForm(prev => {
-            const ts = prev.tanks.map((t, i) => i === idx ? { ...t, factorEspuma: ev.target.value } : t);
-            return { ...prev, tanks: ts };
-          });
-        }
-      });
-      ap(feRow, feInp, e('span', { style: 'position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#6b7280;pointer-events:none', html: 'Bls' }));
-      ap(feW, feRow, e('span', { style: 'font-size:10px;color:#4b5563;margin-top:3px;display:block', html: 'Por defecto: 0' }));
-      ap(tb, feW);
+      ap(aysW, aysRow, e('span', { style: 'font-size:10px;color:#4b5563;margin-top:3px;display:block', html: 'Se mantiene entre horas' }));
+      ap(tb, aysW);
       ap(card, tb);
     }); // end tanks.forEach
 
@@ -794,9 +772,9 @@ function buildTabContent(tab) {
     ap(card, sectionHdr('🔥', 'Gas — AGA-3', 'Obligatorio en toda evaluación'));
 
     const g2 = e('div', { cls: 'g2' });
-    // Presión de Flujo
+    // Presión Estática
     const pfW = e('div');
-    ap(pfW, e('label', { cls: 'lbl', html: 'Presión de Flujo' }));
+    ap(pfW, e('label', { cls: 'lbl', html: 'Presión Estática' }));
     const pfRow = e('div', { style: 'position:relative' });
     const pfInp = e('input', {
       cls: 'inp', type: 'text', value: f.pf || '', placeholder: '0',
@@ -845,8 +823,11 @@ function buildTabContent(tab) {
     ap(card, g2b);
     ap(card, e('div', { style: 'height:10px' }));
 
+    // Diámetro placa + Meter Run en grid 2 columnas
+    const g2c = e('div', { cls: 'g2' });
+
     const diamW = e('div');
-    ap(diamW, e('label', { cls: 'lbl', html: 'Diámetro Placa Orificio' }));
+    ap(diamW, e('label', { cls: 'lbl', html: 'Diámetro Placa (d)' }));
     const diamRow = e('div', { style: 'position:relative' });
     const diamInp = e('input', {
       cls: 'inp', type: 'text', value: f.diam || '2', placeholder: '2',
@@ -854,21 +835,62 @@ function buildTabContent(tab) {
     });
     ap(diamRow, diamInp, e('span', { style: 'position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#6b7280;pointer-events:none', html: 'pulg' }));
     ap(diamW, diamRow, e('span', { style: 'font-size:10px;color:#4b5563;margin-top:3px;display:block', html: 'Se mantiene entre horas' }));
-    ap(card, diamW);
+    ap(g2c, diamW);
+
+    // NUEVO: Meter Run D — diámetro interno real del tubo de medición
+    const mrW = e('div');
+    const mrLabel = e('div', { style: 'display:flex;align-items:center;gap:6px;margin-bottom:4px' });
+    ap(mrLabel,
+      e('label', { cls: 'lbl', style: 'margin-bottom:0', html: 'Meter Run (D)' }),
+      e('span', {
+        style: 'font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;background:rgba(139,92,246,.15);color:#a78bfa;border:1px solid rgba(139,92,246,.25);cursor:help',
+        html: 'AGA-3',
+        title: 'Diámetro interno real del tubo de medición (Ø nominal ≠ Ø real). AGA-3 / API 14.3 — sección 3. Varía según cédula y mantenimiento.'
+      })
+    );
+    ap(mrW, mrLabel);
+    const mrRow = e('div', { style: 'position:relative' });
+    const betaNow = calcAGA3(f);
+    const mrAlert = san(f.meterRun) > 0 && san(f.diam) >= san(f.meterRun);
+    const mrInp = e('input', {
+      id: 'rc-mr-input',
+      cls: 'inp' + (mrAlert ? ' inp-alert' : ''),
+      type: 'text', value: f.meterRun || '', placeholder: 'ej: 4.026',
+      input: ev => setForm(prev => ({ ...prev, meterRun: ev.target.value }))
+    });
+    ap(mrRow, mrInp, e('span', { style: 'position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#6b7280;pointer-events:none', html: 'pulg' }));
+    const betaHint = san(f.meterRun) > 0 && san(f.diam) > 0
+      ? 'β = ' + betaNow.beta + (san(betaNow.beta) > 0.75 ? ' ⚠️ > 0.75 (AGA-3 límite)' : '') + ' · Se mantiene entre horas'
+      : 'D interno real (cédula/mantenimiento) · Se mantiene entre horas';
+    ap(mrW, mrRow,
+      e('span', { id: 'rc-mr-hint', style: 'font-size:10px;color:#4b5563;margin-top:3px;display:block', html: betaHint })
+    );
+    ap(g2c, mrW);
+    ap(card, g2c);
 
     // Factores calculados (actualizables via patchCalcBoxes si se añaden IDs)
     const resBox = e('div', { style: 'background:rgba(255,255,255,.02);border:1px solid #1f2937;border-radius:10px;padding:14px;margin-top:14px' });
     ap(resBox, e('div', { style: 'font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px', html: 'Factores AGA-3 calculados' }));
-    const fg3 = e('div', { cls: 'g3', style: 'gap:8px;margin-bottom:10px' });
+    const fg3 = e('div', { style: 'display:grid;grid-template-columns:repeat(auto-fit,minmax(55px,1fr));gap:8px;margin-bottom:10px' });
     const ga_now = calcAGA3(f);
-    [['Fb', ga_now.Fb], ['Fg', ga_now.Fg], ['Ftf', ga_now.Ftf]].forEach(([k, v]) => {
+    const factorsToShow = san(f.meterRun)>0 ? [['Fb',ga_now.Fb],['Fg',ga_now.Fg],['Ftf',ga_now.Ftf],['β',ga_now.beta],['Fc',ga_now.Fc]] : [['Fb',ga_now.Fb],['Fg',ga_now.Fg],['Ftf',ga_now.Ftf]];
+    factorsToShow.forEach(([k, v]) => {
       const b = e('div', { style: 'text-align:center;background:#1a2235;border-radius:8px;padding:8px' });
       ap(b, e('div', { style: 'font-size:10px;color:#6b7280', html: k }), e('div', { style: 'font-size:13px;font-family:monospace;color:#94a3b8;font-weight:600', id: 'rc-aga-' + k.toLowerCase(), html: v }));
       ap(fg3, b);
     });
     ap(resBox, fg3);
     const qgRow = e('div', { style: 'display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid #1f2937' });
-    ap(qgRow, e('span', { style: 'font-size:12px;color:#9ca3af;font-weight:600', html: 'Qg (MPCGD)' }), e('span', { id: 'rc-qg-big', style: 'font-size:22px;font-family:monospace;font-weight:700;color:#f59e0b', html: fmt(ga_now.qg, 2) }));
+    ap(qgRow,
+      e('div',{},
+        e('span', { style: 'font-size:12px;color:#9ca3af;font-weight:600;display:block', html: 'Gas Producido (Qg)' }),
+        e('span', { style: 'font-size:10px;color:#4b5563', html: 'Millones Pies³/Día' })
+      ),
+      e('div',{style:'text-align:right'},
+        e('span', { id: 'rc-qg-big', style: 'font-size:22px;font-family:monospace;font-weight:700;color:#f59e0b', html: fmt(ga_now.qg, 2) }),
+        e('span', { style: 'font-size:11px;color:#6b7280;margin-left:4px', html: 'MPCGD' })
+      )
+    );
     ap(resBox, qgRow);
     ap(card, resBox);
     frag.appendChild(card);
@@ -908,21 +930,7 @@ function buildTabContent(tab) {
     ap(card, g2);
     ap(card, e('div', { style: 'height:10px' }));
 
-    const g3 = e('div', { cls: 'g3' });
-    [['Torque', 'torque', ''], ['RPM', 'rpm', ''], ['Amperaje', 'amp', 'A']].forEach(([lbl, key, unit]) => {
-      const w = e('div');
-      ap(w, e('label', { cls: 'lbl', html: lbl }));
-      const row = e('div', { style: 'position:relative' });
-      const inp = e('input', {
-        cls: 'inp', type: 'text', value: f[key] || '', placeholder: '0',
-        input: ev => setForm(prev => ({ ...prev, [key]: ev.target.value }))
-      });
-      ap(row, inp);
-      if (unit) ap(row, e('span', { style: 'position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:#6b7280;pointer-events:none', html: unit }));
-      ap(w, row);
-      ap(g3, w);
-    });
-    ap(card, g3);
+    // Torque/RPM/Amperaje eliminados — no aplican en Norte de Monagas
 
     ap(card, divider());
     const alInfo = e('div', { style: 'background:#0f1520;border:1px solid #1f2937;border-radius:10px;padding:12px' });
@@ -947,11 +955,10 @@ function buildRegistro() {
   const f = S.form;
   const pozo = S.pozo;
   const hora = S.lecturas.length + 1;
-  const ft = san(pozo.ft || pozo.factorTanque || 2.4);
-  const tankCalcs = f.tanks.map(tk => calcTanque(tk, ft));
-  let totalBph = 0, totalBpd = 0, totalNetos = 0, totalDilDia = 0;
-  if (f.sumar) { tankCalcs.forEach(c => { totalBph += c.bph; totalBpd += c.bpd; totalNetos += c.netos; totalDilDia += c.dilDia; }); }
-  else { totalBph = tankCalcs[0]?.bph || 0; totalBpd = tankCalcs[0]?.bpd || 0; totalNetos = tankCalcs[0]?.netos || 0; totalDilDia = tankCalcs[0]?.dilDia || 0; }
+  const tankCalcs = f.tanks.map(tk => calcTanque(tk));
+  let totalBph = 0, totalBpd = 0, totalNetos = 0;
+  if (f.sumar) { tankCalcs.forEach(c => { totalBph += c.bph; totalBpd += c.bpd; totalNetos += c.netos; }); }
+  else { totalBph = tankCalcs[0]?.bph || 0; totalBpd = tankCalcs[0]?.bpd || 0; totalNetos = tankCalcs[0]?.netos || 0; }
   const ga = calcAGA3(f);
 
   // Topbar
@@ -983,16 +990,16 @@ function buildRegistro() {
     return d;
   }
   ap(lg3,
-    calcBox('rc-bph',   'BPH',       fmt(totalBph),  'Bls/H', false, false),
-    calcBox('rc-bpd',   'BPD Bruto', fmt(totalBpd),  'Bls/D', false, false),
+    calcBox('rc-bph',   'Bls/Hora',  fmt(totalBph),  'Bls/H', false, false),
+    calcBox('rc-bpd',   'Bruto/Día', fmt(totalBpd),  'Bls/D', false, false),
     calcBox('rc-netos', 'Netos/Día', fmt(totalNetos), 'Bls/D', true,  false)
   );
   ap(liveCard, lg3);
-  const lg3b = e('div', { cls: 'g3' });
+  ap(liveCard, e('div', { style: 'border-top:1px solid rgba(245,158,11,.1);margin:10px 0 0' }));
+  const lg3b = e('div', { cls: 'g2', style: 'margin-top:10px' });
   ap(lg3b,
     calcBox('rc-dif', 'Dif. Nivel', fmt(tankCalcs[0]?.dif, 1), 'pulg',  false, true),
-    calcBox('rc-dil', 'Diluyente',  fmt(totalDilDia),           'Bls/D', false, true),
-    calcBox('rc-qg',  'Qg',         fmt(ga.qg, 2),              'MPCGD', false, true)
+    calcBox('rc-qg',  'Gas',         fmt(ga.qg, 2),              'MPCGD', false, true)
   );
   ap(liveCard, lg3b);
 
@@ -1037,7 +1044,7 @@ function buildRegistro() {
     style: 'margin-top:14px',
     html: '✓ Guardar Lectura Hora ' + hora,
     click: () => {
-      const tcs = S.form.tanks.map(tk => calcTanque(tk, san(S.pozo.ft || 2.4)));
+      const tcs = S.form.tanks.map(tk => calcTanque(tk));
       let bph = 0, bpd = 0, netos = 0;
       if (S.form.sumar) { tcs.forEach(c => { bph += c.bph; bpd += c.bpd; netos += c.netos; }); }
       else { bph = tcs[0]?.bph || 0; bpd = tcs[0]?.bpd || 0; netos = tcs[0]?.netos || 0; }
@@ -1051,13 +1058,13 @@ function buildRegistro() {
       const newTanks = S.form.tanks.map((tk) => ({
         ...tk,
         mi: tk.mf || tk.mi,
-        mf: '', factorEspuma: '0', th: '1',
+        mf: '', th: '1',
       }));
       set({
         lecturas: [...S.lecturas, newLect],
         form: {
           ...S.form, tanks: newTanks,
-          pCab: '', pSep: '', torque: '', rpm: '', amp: '',
+          pCab: '', pSep: '',
           pf: '', hw: '', tGas: '',
         }
       });
@@ -1111,7 +1118,7 @@ function buildTabla(){
   // Tabla
   const tableCard=e('div',{cls:'card',style:'overflow:hidden;padding:0'});
   const thead=e('div',{style:'display:grid;grid-template-columns:1fr 1.2fr 1.2fr 1.3fr .6fr;background:#1a2235;padding:8px 14px;font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em'});
-  ['H','BPH','P.Cab','Netos','⚠'].forEach(h=>ap(thead,e('span',{html:h})));
+  ['H','Bls/H','P.Cab','Netos','⚠'].forEach(h=>ap(thead,e('span',{html:h})));
   ap(tableCard,thead);
   all.forEach((l,i)=>{
     const row=e('div',{style:'display:grid;grid-template-columns:1fr 1.2fr 1.2fr 1.3fr .6fr;border-top:1px solid #1f2937;padding:10px 14px;background:'+(i%2?'rgba(255,255,255,.01)':'transparent')});
@@ -1140,7 +1147,7 @@ function buildReporte(){
   const wrap=e('div',{cls:'wrap'});
   const all=S.lecturas.length?S.lecturas:LECT_DEMO;
   const avg=(arr,k)=>arr.reduce((s,l)=>s+l[k],0)/arr.length;
-  const res={bpd:avg(all,'bpd'),netos:avg(all,'netos'),qg:avg(all,'qg'),dilDia:25.20,aysPct:2.4,aysBls:avg(all,'bpd')*0.024,hrs:all.length};
+  const res={bpd:avg(all,'bpd'),netos:avg(all,'netos'),qg:avg(all,'qg'),aysPct:2.4,aysBls:avg(all,'bpd')*0.024,hrs:all.length};
 
   ap(wrap,topbar('Reporte — '+S.pozo.nombre,'Pendiente de aprobación',()=>go('TABLA')));
 
@@ -1150,10 +1157,10 @@ function buildReporte(){
   ap(sumHdr,e('span',{style:'width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block'}),e('span',{style:'font-size:11px;color:#34d399;font-weight:700;text-transform:uppercase;letter-spacing:.06em',html:'Evaluación Completada'}));
   ap(sumCard,sumHdr);
   const sg2=e('div',{cls:'g2',style:'margin-bottom:10px'});
-  ap(sg2,cbox('BBruto/Día',fmt(res.bpd),'Bls/D'),cbox('Netos/Día',fmt(res.netos),'Bls/D',true));
+  ap(sg2,cbox('Bruto/Día',fmt(res.bpd),'Bls/D'),cbox('Netos/Día',fmt(res.netos),'Bls/D',true));
   ap(sumCard,sg2);
   const sg3=e('div',{cls:'g3'});
-  ap(sg3,cbox('AyS '+fmt(res.aysPct,1)+'%',fmt(res.aysBls),'Bls/D',false,true),cbox('Diluyente',fmt(res.dilDia),'Bls/D',false,true),cbox('Gas Qg',fmt(res.qg,2),'MPCGD',false,true));
+  ap(sg3,cbox('Agua/Sed. '+fmt(res.aysPct,1)+'%',fmt(res.aysBls),'Bls/D',false,true),cbox('Gas',fmt(res.qg,2),'MPCGD',false,true));
   ap(sumCard,sg3);ap(wrap,sumCard);
 
   // Aprobación
@@ -1162,7 +1169,7 @@ function buildReporte(){
   const pasos=[
     {rol:'Operador',icon:'✓',tipo:'done',desc:'Carlos Pérez · '+new Date().toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'})},
     {rol:'Supervisor de Campo',icon:'⏳',tipo:'wait',desc:'En espera de revisión'},
-    {rol:'Supervisor Mayor / Coordinador',icon:'🔒',tipo:'lock',desc:'Requiere aprobación previa'},
+    {rol:'Supervisor Mayor',icon:'🔒',tipo:'lock',desc:'Requiere aprobación previa'},
     {rol:'Gerente',icon:'🔒',tipo:'lock',desc:'Aprobación final — reporte oficial'},
   ];
   pasos.forEach((p,i)=>{
@@ -1178,7 +1185,7 @@ function buildReporte(){
   // WA
   const waCard=e('div',{cls:'card'});
   ap(waCard,e('div',{style:'font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;font-weight:700',html:'Reporte Flash — WhatsApp'}));
-  const waTxt=`📊 REPORTE WELL TESTING — ${S.pozo.nombre}\n🏭 Campo: ${S.pozo.campo} | Zona: ${S.pozo.zona}\n\n• BBruto/Día:  ${fmt(res.bpd)} Bls\n• Diluyente:   ${fmt(res.dilDia)} Bls/D\n• AyS (${fmt(res.aysPct,1)}%):  ${fmt(res.aysBls)} Bls\n• Netos/Día:   ${fmt(res.netos)} Bls ✅\n• Gas Qg:      ${fmt(res.qg,2)} MPCGD\n\nLecturas: ${res.hrs}H | Operador: Carlos Pérez\nEstado: PENDIENTE APROBACIÓN SUPERVISOR`;
+  const waTxt=`📊 REPORTE WELL TESTING — ${S.pozo.nombre}\n🏭 Campo: ${S.pozo.campo} | Zona: ${S.pozo.zona}\n\n• Bruto/Día:   ${fmt(res.bpd)} Bls\n• AyS (${fmt(res.aysPct,1)}%):  ${fmt(res.aysBls)} Bls\n• Netos/Día:   ${fmt(res.netos)} Bls ✅\n• Gas:         ${fmt(res.qg,2)} MPCGD\n\nLecturas: ${res.hrs}H | Operador: Carlos Pérez\nEstado: PENDIENTE APROBACIÓN SUPERVISOR`;
   ap(waCard,e('div',{cls:'wa',html:waTxt.replace(/\n/g,'<br>')}));
   const waLink=e('a',{href:'https://wa.me/?text='+encodeURIComponent(waTxt),target:'_blank',rel:'noopener noreferrer',style:'text-decoration:none;display:block'});
   const waBtn=e('button',{cls:'btn btn-g',html:'📱 Enviar por WhatsApp'});
@@ -1198,14 +1205,13 @@ const SUP_USERS = [
   {id:'u3', nombre:'Miguel Flores',   rol:'OPERADOR',          zona:'MONAGAS', pozos:['p3']},
   {id:'u4', nombre:'Luis Hernández',  rol:'SUP_CAMPO',         zona:'FAJA',    pozos:['p1','p2']},
   {id:'u5', nombre:'Ana Torres',      rol:'SUP_MAYOR',         zona:'FAJA',    pozos:['p1','p2','p3']},
-  {id:'u6', nombre:'Jorge Ramírez',   rol:'COORDINADOR',       zona:'TODOS',   pozos:['p1','p2','p3']},
   {id:'u7', nombre:'Ing. M. Castellano', rol:'GERENTE',        zona:'TODOS',   pozos:['p1','p2','p3']},
 ];
 
 const SUP_POZOS_EXT = [
   {id:'p1', nombre:'MFB-950', campo:'Bare', zona:'FAJA', ft:'2.40', estado:'EN_CURSO', operador:'Carlos Pérez',
    limResorte:'300', limGamma:'60', horasEval:5,
-   ultimaLect:{ts:'02:00', bph:6.70, bpd:160.80, netos:133.10, pCab:190, pSep:110, torque:632, rpm:160, amp:67, qg:110.63, aysPct:2.4, dilDia:25.20},
+   ultimaLect:{ts:'02:00', bph:6.70, bpd:160.80, netos:133.10, pCab:190, pSep:110, qg:110.63, aysPct:2.4},
    historial:[
      {eval:1, fecha:'30/07/25', horas:5,  netos:133.10, bruto:160.80, dil:25.20, ays:2.4, qg:110.63, estado:'PENDIENTE_SUP'},
      {eval:2, fecha:'31/07/25', horas:10, netos:59.68,  bruto:87.02,  dil:25.92, ays:2.4, qg:85.09,  estado:'OFICIAL'},
@@ -1213,14 +1219,14 @@ const SUP_POZOS_EXT = [
    tanques:[{nombre:'Tanque 1',mi:'12.50'},{nombre:'Tanque 2',mi:'8.20'}]},
   {id:'p2', nombre:'MFB-919', campo:'Bare', zona:'FAJA', ft:'2.20', estado:'PENDIENTE_APROBACION', operador:'Rafael Díaz',
    limResorte:'350', limGamma:'70', horasEval:12,
-   ultimaLect:{ts:'16:00', bph:4.38, bpd:105.05, netos:57.05, pCab:290, pSep:180, torque:705, rpm:70, amp:73, qg:0.01, aysPct:30.0, dilDia:48.00},
+   ultimaLect:{ts:'16:00', bph:4.38, bpd:105.05, netos:57.05, pCab:290, pSep:180, qg:0.01, aysPct:30.0},
    historial:[
      {eval:1, fecha:'11/07/25', horas:12, netos:57.05, bruto:105.05, dil:48.00, ays:30.0, qg:0.01, estado:'PENDIENTE_SUP'},
    ],
    tanques:[{nombre:'Tanque 1',mi:'10.00'}]},
   {id:'p3', nombre:'MFB-882', campo:'Norte', zona:'MONAGAS', ft:'2.10', estado:'OFICIAL', operador:'Miguel Flores',
    limResorte:'280', limGamma:'55', horasEval:8,
-   ultimaLect:{ts:'18:00', bph:5.12, bpd:122.88, netos:89.40, pCab:145, pSep:90, torque:480, rpm:120, amp:58, qg:42.30, aysPct:8.5, dilDia:22.10},
+   ultimaLect:{ts:'18:00', bph:5.12, bpd:122.88, netos:89.40, pCab:145, pSep:90, qg:42.30, aysPct:8.5},
    historial:[
      {eval:1, fecha:'28/07/25', horas:8, netos:89.40, bruto:122.88, dil:22.10, ays:8.5, qg:42.30, estado:'OFICIAL'},
    ],
@@ -1231,7 +1237,7 @@ const SUP_POZOS_EXT = [
 let SS = {
   supUser: {nombre:'Ana Torres', rol:'SUP_MAYOR', zona:'FAJA'},
   selPozo: null,
-  nuevoPozoSup: {nombre:'',campo:'',zona:'FAJA',ft:'',horas:'5',limResorte:'300',limGamma:'60',
+  nuevoPozoSup: {nombre:'',campo:'',zona:'FAJA',ft:'',horas:'5',limResorte:'300',limGamma:'60',meterRun:'',
     tanques:[{id:'t1',nombre:'Tanque 1',mi:''}],
     operadorAsignado:''},
 };
@@ -1240,12 +1246,12 @@ function goSup(sc){ set({screen:sc}); }
 
 const ROL_LABEL = {
   OPERADOR:'Operador de Campo', SUP_CAMPO:'Supervisor de Campo',
-  SUP_MAYOR:'Supervisor Mayor', COORDINADOR:'Coordinador de Ops.',
+  SUP_MAYOR:'Supervisor Mayor',
   GERENTE:'Gerente'
 };
 const ROL_COLOR = {
   OPERADOR:'#6b7280', SUP_CAMPO:'#3b82f6', SUP_MAYOR:'#8b5cf6',
-  COORDINADOR:'#f59e0b', GERENTE:'#ef4444'
+  GERENTE:'#ef4444'
 };
 
 // ═══════════════════════════════════════════════════
@@ -1275,11 +1281,11 @@ function buildSupLogin(){
   const roleHdr=e('div',{style:'margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #1f2937'});
   ap(roleHdr,e('div',{style:'font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px',html:'Ingresar como'}));
   const roleGrid=e('div',{style:'display:grid;grid-template-columns:1fr 1fr;gap:8px'});
-  ['SUP_CAMPO','SUP_MAYOR','COORDINADOR','GERENTE'].forEach(rol=>{
+  ['SUP_CAMPO','SUP_MAYOR','GERENTE'].forEach(rol=>{
     const isSelected = SS.supUser.rol===rol;
     const btn=e('button',{
-      style:'padding:8px 10px;border-radius:8px;border:1px solid '+(isSelected?ROL_COLOR[rol]:'#2d3748')+';background:'+(isSelected?`rgba(${rol==='SUP_CAMPO'?'59,130,246':rol==='SUP_MAYOR'?'139,92,246':rol==='COORDINADOR'?'245,158,11':'239,68,68'},.12)`:'#1a2235')+';color:'+(isSelected?ROL_COLOR[rol]:'#6b7280')+';font-size:11px;font-weight:700;cursor:pointer;text-align:left',
-      html:'<div style="font-size:14px;margin-bottom:3px">'+(rol==='SUP_CAMPO'?'👷':rol==='SUP_MAYOR'?'🧑‍💼':rol==='COORDINADOR'?'📋':'🏛️')+'</div>'+ROL_LABEL[rol],
+      style:'padding:8px 10px;border-radius:8px;border:1px solid '+(isSelected?ROL_COLOR[rol]:'#2d3748')+';background:'+(isSelected?`rgba(${rol==='SUP_CAMPO'?'59,130,246':rol==='SUP_MAYOR'?'139,92,246':'239,68,68'},.12)`:'#1a2235')+';color:'+(isSelected?ROL_COLOR[rol]:'#6b7280')+';font-size:11px;font-weight:700;cursor:pointer;text-align:left',
+      html:'<div style="font-size:14px;margin-bottom:3px">'+(rol==='SUP_CAMPO'?'👷':rol==='SUP_MAYOR'?'🧑‍💼':'🏛️')+'</div>'+ROL_LABEL[rol],
       click:()=>{ SS={...SS,supUser:{...SS.supUser,rol}}; goSup('SUP_LOGIN'); }
     });
     ap(roleGrid,btn);
@@ -1405,16 +1411,16 @@ function buildSupDash(){
 
     // Stats grid
     const sg=e('div',{cls:'g3'});
-    [{l:'Netos/D',v:fmt(ul.netos),u:'Bls',c:'#f59e0b'},{l:'Bruto/D',v:fmt(ul.bpd),u:'Bls'},{l:'Gas Qg',v:fmt(ul.qg,2),u:'MPCGD',c:'#34d399'}].forEach(({l,v,u,c})=>{
-      const b=e('div',{style:'background:rgba(255,255,255,.03);border:1px solid #1f2937;border-radius:8px;padding:8px 10px'});
-      ap(b,e('div',{style:'font-size:10px;color:#6b7280',html:l}),e('div',{style:'font-size:14px;font-weight:700;font-family:monospace;color:'+(c||'#e2e8f0')+';margin-top:2px',html:v}),e('div',{style:'font-size:10px;color:#4b5563',html:u}));
+    [{l:'Netos/D',v:fmt(ul.netos),u:'Bls',c:'#f59e0b'},{l:'Bruto/D',v:fmt(ul.bpd),u:'Bls'},{l:'Gas',v:fmt(ul.qg,2),u:'MPCGD',c:'#34d399'}].forEach(({l,v,u,c})=>{
+      const b=e('div',{style:'background:rgba(255,255,255,.03);border:1px solid #1f2937;border-radius:8px;padding:8px 10px;min-width:0'});
+      ap(b,e('div',{style:'font-size:10px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis',html:l}),e('div',{style:'font-size:14px;font-weight:700;font-family:monospace;color:'+(c||'#e2e8f0')+';margin-top:2px',html:v}),e('div',{style:'font-size:10px;color:#4b5563',html:u}));
       ap(sg,b);
     });
     ap(card,sg);
 
     // Params row
     const pr=e('div',{style:'display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #1f2937'});
-    [{l:'P.Cab',v:ul.pCab+'psi'},{l:'Torque',v:ul.torque},{l:'RPM',v:ul.rpm},{l:'Amp',v:ul.amp+'A'},{l:'AyS',v:ul.aysPct+'%'}].forEach(({l,v})=>{
+    [{l:'P.Cab',v:ul.pCab+'psi'},{l:'P.Sep',v:ul.pSep+'psi'},{l:'Agua/Sed.',v:ul.aysPct+'%'}].forEach(({l,v})=>{
       const chip=e('div',{style:'background:#1a2235;border:1px solid #2d3748;border-radius:6px;padding:4px 8px;font-size:10px'});
       ap(chip,e('span',{style:'color:#6b7280',html:l+': '}),e('span',{style:'color:#e2e8f0;font-family:monospace;font-weight:600',html:v}));
       ap(pr,chip);
@@ -1457,7 +1463,7 @@ function buildSupPozo(){
   ap(sb,
     e('div',{},e('div',{style:'font-size:10px;color:#6b7280',html:'Operador'}),e('div',{style:'font-size:13px;font-weight:600;color:#e2e8f0',html:p.operador})),
     e('div',{},e('div',{style:'font-size:10px;color:#6b7280',html:'Última lectura'}),e('div',{style:'font-size:13px;font-family:monospace;color:#f59e0b',html:ul.ts})),
-    e('div',{},e('div',{style:'font-size:10px;color:#6b7280',html:'Factor Tanque'}),e('div',{style:'font-size:13px;font-family:monospace;color:#e2e8f0',html:p.ft+' BBL/pulg'}))
+    e('div',{},e('div',{style:'font-size:10px;color:#6b7280',html:'Factor Tanques'}),e('div',{style:'font-size:13px;font-family:monospace;color:#e2e8f0',html:p.tanques.every(t=>t.ft===p.tanques[0].ft)?p.tanques[0].ft+' BBL/pulg':'Independiente'}))
   );
   ap(wrap,sb);
 
@@ -1465,10 +1471,10 @@ function buildSupPozo(){
   const pc=e('div',{cls:'card-hl',style:'margin-bottom:14px'});
   ap(pc,e('div',{style:'font-size:10px;color:rgba(245,158,11,.7);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px',html:'Producción — Última Evaluación'}));
   const g3a=e('div',{cls:'g3',style:'margin-bottom:10px'});
-  ap(g3a,cbox('Netos/Día',fmt(ul.netos),'Bls/D',true),cbox('Bruto/Día',fmt(ul.bpd),'Bls/D'),cbox('Gas Qg',fmt(ul.qg,2),'MPCGD'));
+  ap(g3a,cbox('Netos/Día',fmt(ul.netos),'Bls/D',true),cbox('Bruto/Día',fmt(ul.bpd),'Bls/D'),cbox('Gas',fmt(ul.qg,2),'MPCGD'));
   ap(pc,g3a);
-  const g3b=e('div',{cls:'g3'});
-  ap(g3b,cbox('AyS',fmt(ul.aysPct,1)+'%','',false,true),cbox('Diluyente',fmt(ul.dilDia),'Bls/D',false,true),cbox('Horas Eval.',p.horasEval,'H',false,true));
+  const g3b=e('div',{cls:'g2'});
+  ap(g3b,cbox('Agua/Sed.',fmt(ul.aysPct,1)+'%','',false,true),cbox('Horas Eval.',p.horasEval,'H',false,true));
   ap(pc,g3b);ap(wrap,pc);
 
   // Params operativos
@@ -1477,9 +1483,7 @@ function buildSupPozo(){
   const og2=e('div',{cls:'g2',style:'margin-bottom:10px'});
   ap(og2,cbox('P. Cabezal',ul.pCab,'psi'),cbox('P. Separación',ul.pSep,'psi'));
   ap(opc,og2);
-  const og3=e('div',{cls:'g3'});
-  ap(og3,cbox('Torque',ul.torque,'',false,true),cbox('RPM',ul.rpm,'',false,true),cbox('Amperaje',ul.amp,'A',false,true));
-  ap(opc,og3);
+  // Torque/RPM/Amperaje eliminados — no aplican en Norte de Monagas
 
   // Alertas configuradas
   ap(opc,e('div',{style:'height:14px'}));
@@ -1501,10 +1505,10 @@ function buildSupPozo(){
       e('div',{},e('div',{style:'font-size:12px;font-weight:700;color:#e2e8f0',html:'Evaluación '+ev.eval+' — '+ev.horas+'H'}),e('div',{style:'font-size:11px;color:#6b7280;margin-top:2px',html:ev.fecha})),
       e('span',{cls:'bdg '+(ev.estado==='OFICIAL'?'bdg-b':'bdg-a'),html:ev.estado==='OFICIAL'?'✓ OFICIAL':'⏳ PENDIENTE'})
     );
-    const rg=e('div',{style:'display:grid;grid-template-columns:repeat(4,1fr);gap:8px'});
-    [{l:'Netos',v:fmt(ev.netos)},{l:'Bruto',v:fmt(ev.bruto)},{l:'AyS',v:ev.ays+'%'},{l:'Qg',v:fmt(ev.qg,2)}].forEach(({l,v})=>{
+    const rg=e('div',{style:'display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:4px'});
+    [{l:'Netos',v:fmt(ev.netos)},{l:'Bruto',v:fmt(ev.bruto)},{l:'Agua/Sed.',v:ev.ays+'%'},{l:'Gas',v:fmt(ev.qg,2)}].forEach(({l,v})=>{
       const b=e('div',{style:'background:#1a2235;border-radius:6px;padding:6px 8px'});
-      ap(b,e('div',{style:'font-size:9px;color:#6b7280',html:l}),e('div',{style:'font-size:12px;font-family:monospace;font-weight:700;color:#e2e8f0',html:v}));
+      ap(b,e('div',{style:'font-size:9px;color:#6b7280;margin-bottom:2px',html:l}),e('div',{style:'font-size:13px;font-family:monospace;font-weight:700;color:#e2e8f0',html:v}));
       ap(rg,b);
     });
     ap(row,rh,rg);
@@ -1576,7 +1580,7 @@ function buildSupNuevoPozo(){
     const c2=e('div',{cls:'card'});
     ap(c2,sectionHdr('🛢️','Parámetros del Tanque'));
     const g2=e('div',{cls:'g2'});
-    ap(g2,field('Factor Tanque',nd.ft,v=>syncP('ft',v),{unit:'BBL/pulg',hint:'Compartido entre todos los tanques'}));
+    // factor now lives per-tank (see below)
     ap(g2,field('Horas de Evaluación',nd.horas,v=>syncP('horas',v),{unit:'H'}));
     ap(c2,g2);ap(body,c2);
 
@@ -1595,15 +1599,28 @@ function buildSupNuevoPozo(){
       const tg=e('div',{cls:'g2'});
       ap(tg,field('Nombre',t.nombre,v=>syncT(idx,'nombre',v)));
       ap(tg,field('Medida Inicial',t.mi,v=>syncT(idx,'mi',v),{unit:'pulg',hint:'Remanente/intransegable'}));
-      ap(tb,tg);ap(c3,tb);
+      ap(tb,tg);
+      const sFtRow=e('div',{style:'margin-top:8px'});
+      ap(sFtRow,field('Factor Tanque (kk)',t.ft||'',v=>syncT(idx,'ft',v),{unit:'BBL/pulg',hint:'Geometría del tanque'}));
+      ap(tb,sFtRow);ap(c3,tb);
     });
     const addB=e('button',{cls:'btn-add',html:'+ Agregar Tanque',click:()=>{
       const n=SS.nuevoPozoSup.tanques.length+1;
-      SS.nuevoPozoSup.tanques.push({id:'t'+n,nombre:'Tanque '+n,mi:''});rebuildBody();
+      const sLastFt=(SS.nuevoPozoSup.tanques[SS.nuevoPozoSup.tanques.length-1]||{}).ft||'2.40';
+      SS.nuevoPozoSup.tanques.push({id:'t'+n,nombre:'Tanque '+n,mi:'',ft:sLastFt});rebuildBody();
     }});
     ap(c3,addB);ap(body,c3);
 
     // Alertas
+    const cGasS=e('div',{cls:'card'});
+    ap(cGasS,sectionHdr('🔥','Configuración Gas AGA-3'));
+    const gMRS=e('div',{cls:'g2'});
+    const mrSLbl=e('div',{style:'display:flex;align-items:center;gap:6px;margin-bottom:4px'});
+    ap(mrSLbl,e('label',{cls:'lbl',style:'margin-bottom:0',html:'Meter Run (D)'}),e('span',{style:'font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;background:rgba(139,92,246,.15);color:#a78bfa;border:1px solid rgba(139,92,246,.25)',html:'AGA-3'}));
+    ap(gMRS,e('div',{},mrSLbl,e('input',{cls:'inp',type:'text',value:nd.meterRun||'',placeholder:'ej: 4.026',input:ev=>syncP('meterRun',ev.target.value)}),e('span',{style:'font-size:10px;color:#4b5563;margin-top:3px;display:block',html:'Ø interno real del tubo (pulg) · AGA-3 / API 14.3'})));
+    ap(gMRS,field('Diámetro Placa (d)',nd.diamOrif||'',v=>syncP('diamOrif',v),{unit:'pulg',hint:'Placa de orificio instalada'}));
+    ap(cGasS,gMRS);ap(body,cGasS);
+
     const c4=e('div',{cls:'card'});
     ap(c4,sectionHdr('⚠️','Límites de Alerta','Resorte y Gamma'));
     const g4=e('div',{cls:'g2'});
@@ -1625,7 +1642,7 @@ function buildSupNuevoPozo(){
     });
     ap(ow,oSel);ap(c5,ow);ap(body,c5);
 
-    const valid=nd.nombre&&nd.ft&&nd.tanques.every(t=>t.mi!=='')&&nd.operadorAsignado;
+    const valid=nd.nombre&&nd.tanques.every(t=>t.mi!==''&&t.ft!=='')&&nd.operadorAsignado;
     const saveBtn=e('button',{cls:'btn btn-p',style:'margin-bottom:8px',
       html:valid?'Guardar Pozo y Asignar Operador →':'Complete todos los campos requeridos',
       disabled:!valid,
@@ -1655,7 +1672,7 @@ function buildSupUsuarios(){
 
   SUP_USERS.forEach(u=>{
     const row=e('div',{style:'display:flex;align-items:center;gap:12px;background:#111827;border:1px solid #1f2937;border-radius:12px;padding:12px 14px;margin-bottom:8px'});
-    const avatar=e('div',{style:'width:38px;height:38px;border-radius:10px;background:'+ROL_COLOR[u.rol]+'22;border:1px solid '+ROL_COLOR[u.rol]+'44;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0',html:u.rol==='OPERADOR'?'👷':u.rol==='SUP_CAMPO'?'🧑‍🔧':u.rol==='SUP_MAYOR'?'🧑‍💼':u.rol==='COORDINADOR'?'📋':'🏛️'});
+    const avatar=e('div',{style:'width:38px;height:38px;border-radius:10px;background:'+ROL_COLOR[u.rol]+'22;border:1px solid '+ROL_COLOR[u.rol]+'44;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0',html:u.rol==='OPERADOR'?'👷':u.rol==='SUP_CAMPO'?'🧑‍🔧':u.rol==='SUP_MAYOR'?'🧑‍💼':'🏛️'});
     const info=e('div',{style:'flex:1'});
     ap(info,
       e('div',{style:'font-size:13px;font-weight:600;color:#e2e8f0',html:u.nombre}),

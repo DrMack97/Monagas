@@ -2,7 +2,4 @@
 // Paso 1: Exportar roles.ts, states.ts, limits.ts, tank-factors.ts
 // Paso 2: Definir OPERADOR, SUP_CAMPO, EN_CURSO, APROBADA_SUPERVISOR, etc.
 // Entregable: constantes de negocio disponibles globalmente
-export * from './roles'
-export * from './states'
-export * from './limits'
-export * from './tank-factors'
+export * from './roles.js'

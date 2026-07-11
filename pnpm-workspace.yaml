@@ -1,6 +1,4 @@
-# TODO: Definir workspaces del monorepo - Player 3 (Fullstack)
-# Paso 1: Especificar apps/* y packages/*
-# Entregable: pnpm install reconoce todos los paquetes
 packages:
-  - 'apps/*'
   - 'packages/*'
+  - 'apps/*'
+  - 'firebase/functions'

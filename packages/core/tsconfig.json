@@ -1,15 +1,9 @@
 {
-  // TODO: TypeScript para packages/core - Player 3 (Fullstack)
-  // Paso 1: Extender ../../tsconfig.base.json
-  // Paso 2: Definir outDir, rootDir, lib (ES2020 sin DOM)
-  // Entregable: tsc compila paquete como TypeScript puro
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": "./src",
-    "declaration": true
+    "rootDir": "./src"
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "__tests__"]
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
 }

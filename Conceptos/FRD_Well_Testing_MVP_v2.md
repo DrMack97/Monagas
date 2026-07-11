@@ -868,14 +868,6 @@ Todos los cálculos están validados contra 3 evaluaciones reales:
 
 ---
 
-## Aprobación
-
-| Rol | Nombre | Firma | Fecha |
-|---|---|:---:|:---:|
-| **Cliente** | — | — | — |
-| **PM** | Morgan | ☐ | — |
-| **Tech Lead** | — | ☐ | — |
-
 ---
 
 *Documento FRD v2.0 — Well Testing MVP · Estructurado para Fase 0-1 · Validado contra datos reales MFB-950/919*
