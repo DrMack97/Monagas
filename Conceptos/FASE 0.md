@@ -60,9 +60,10 @@ Monagas/
 
             
 ARCHIVOS RAÍZ
-package.json → Player 3
 
-pnpm-workspace.yaml → Player 3
+package.json → Player 3 ✅
+
+pnpm-workspace.yaml → Player 3 
 
 tsconfig.base.json → Player 3
 
@@ -99,9 +100,9 @@ apps/web-supervisor/vite.config.ts → Player 2
 apps/web-supervisor/src/App.tsx → Player 2
 
 PACKAGES / CORE
-packages/core/package.json → Player 3
+packages/core/package.json → Player 3 ✅
 
-packages/core/tsconfig.json → Player 3
+packages/core/tsconfig.json → Player 3 ✅
 
 packages/core/index.ts → Player 3
 

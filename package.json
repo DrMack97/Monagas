@@ -1,4 +1,8 @@
 {
+<<<<<<< HEAD
+  "name": "monagas",
+=======
+>>>>>>> 9750d485dc2749d7c11f3ba6718d239ca49c5ebd
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@8.15.0",
