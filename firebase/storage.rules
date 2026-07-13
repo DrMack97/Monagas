@@ -1,25 +1,17 @@
-// TODO: Reglas de Firebase Storage - Player 1 (Backend)
-// Paso 1: Definir permisos para logos, PDFs, imágenes
-// Paso 2: Validar tamaño máximo de archivo
-// Paso 3: Validar tipo de archivo (jpg, png, pdf)
-// Entregable: Solo usuarios autenticados pueden subir/leer archivos
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
-    // TODO: Carpeta logos/
-    match /logos/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null && 
-                     request.resource.size < 5 * 1024 * 1024 &&
-                     request.resource.contentType.matches('image/.*');
+
+    function isSignedIn() {
+      return request.auth != null;
     }
-    
-    // TODO: Carpeta pdfs/
-    match /pdfs/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-                     request.resource.size < 10 * 1024 * 1024 &&
-                     request.resource.contentType == 'application/pdf';
+
+    // Fotos de actividad de pozo, evidencias, reportes PDF (Fase 3)
+    match /pozos/{pozoId}/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+                   && request.resource.size < 10 * 1024 * 1024; // 10MB máx
     }
   }
 }

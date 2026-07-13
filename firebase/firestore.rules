@@ -1,29 +1,62 @@
-// TODO: Reglas de seguridad Firestore (producción) - Player 1 (Backend)
-// Paso 1: Definir reglas por colección (wells, evaluations, users)
-// Paso 2: Validar custom claims (rol del usuario)
-// Paso 3: Validar ownership (usuario es dueño del pozo)
-// Entregable: Solo usuarios autenticados con rol válido pueden leer/escribir
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // TODO: Regla para colección users
-    match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && request.auth.uid == userId;
+
+    function getRole() {
+      return request.auth.token.rol;
     }
-    
-    // TODO: Regla para colección wells
-    match /wells/{wellId} {
+
+    function isRoot()     { return getRole() == 'ROOT'; }
+    function isGerente()  { return getRole() == 'GERENTE'; }
+    function isSupMayor() { return getRole() == 'SUP_MAYOR'; }
+    function isSupCampo() { return getRole() == 'SUP_CAMPO'; }
+    function isOperador() { return getRole() == 'OPERADOR'; }
+    function isSupervisor() {
+      return isSupCampo() || isSupMayor() || isGerente();
+    }
+
+    function isAssignedToPozo(pozoId) {
+      return request.auth.token.pozosAsignados.hasAny([pozoId]);
+    }
+
+    // /usuarios/{uid} — perfil del usuario
+    match /usuarios/{uid} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && 
-                     request.auth.token.role in ['OPERADOR', 'SUP_CAMPO', 'SUP_MAYOR'];
-      allow update, delete: if request.auth != null && 
-                             request.auth.token.role in ['SUP_CAMPO', 'SUP_MAYOR', 'COORDINADOR', 'GERENTE'];
+      allow write: if isRoot();
     }
-    
-    // TODO: Regla para colecciones evaluations, approvals, lectures
-    match /evaluations/{evalId} {
-      allow read, write: if request.auth != null;
+
+    // /pozos/{pozoId} — configuración de pozos
+    match /pozos/{pozoId} {
+      allow read: if request.auth != null;
+      allow create, update: if isRoot() || isSupervisor();
+      allow delete: if isRoot();
+    }
+
+    // /evaluaciones/{evalId} — sesiones de medición
+    match /evaluaciones/{evalId} {
+      allow read: if request.auth != null;
+      allow create: if isRoot() ||
+        (isOperador() && isAssignedToPozo(request.resource.data.pozoId));
+      allow update: if isRoot() || isSupervisor() ||
+        (isOperador() && resource.data.operadorId == request.auth.uid
+                       && resource.data.estado == 'EN_CURSO');
+      allow delete: if isRoot();
+
+      // /evaluaciones/{evalId}/lecturas/{lecturaId}
+      match /lecturas/{lecturaId} {
+        allow read: if request.auth != null;
+        allow create: if isRoot() ||
+          (isOperador() &&
+           get(/databases/$(database)/documents/evaluaciones/$(evalId)).data.operadorId == request.auth.uid);
+        allow update, delete: if isRoot();
+      }
+    }
+
+    // /logs/{logId} — auditoría, solo lectura/escritura de sistema
+    match /logs/{logId} {
+      allow read: if isRoot();
+      allow write: if false; // solo Cloud Functions con Admin SDK
     }
   }
 }

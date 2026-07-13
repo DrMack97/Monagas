@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "301184874401",
+    "project_id": "well-testing-prod",
+    "storage_bucket": "well-testing-prod.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:301184874401:android:b3a1d5dda339dec901fde0",
+        "android_client_info": {
+          "package_name": "Willy.Tank"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDo3_Chsye99NFefdg7uHWZ0POU1yDci7Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

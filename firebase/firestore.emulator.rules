@@ -1,7 +1,11 @@
 rules_version = '2';
+
+// ⚠️ SOLO PARA EL EMULADOR LOCAL — NUNCA DESPLEGAR A PRODUCCIÓN
+// Estas reglas permiten cualquier lectura/escritura a un usuario autenticado
+// para poder iterar rápido sin tropezar con permisos mientras desarrollas.
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // TODO: Modo desarrollo - más permisivo
     match /{document=**} {
       allow read, write: if request.auth != null;
     }

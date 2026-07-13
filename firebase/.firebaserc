@@ -1,7 +1,8 @@
-
-"projects": {
+{
+  "projects": {
     "default": "monagas-dev",
     "dev": "monagas-dev",
     "staging": "monagas-staging",
     "prod": "monagas-prod"
   }
+}
