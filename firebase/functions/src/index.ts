@@ -2,8 +2,6 @@
 // Paso 1: Importar funciones notifications Fase 2
 // Paso 2: Exportar notifyMgr, notifyOperator
 // Entregable: Functions exportadas correctamente
-import * as functions from 'firebase-functions'
-
 // Auth functions
 export { assignRole } from './auth/assignRole'
 export { setupUser } from './auth/setupUser'

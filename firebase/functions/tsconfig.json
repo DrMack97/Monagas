@@ -12,7 +12,12 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "types": ["node"]
+    "types": ["node", "mocha"],
+    "baseUrl": ".",
+    "paths": {
+      "@monagas/core/*": ["../../packages/core/*"],
+      "@monagas/core": ["../../packages/core/src/index.ts"]
+    }
   },
   "compileOnSave": true,
   "include": ["src"],

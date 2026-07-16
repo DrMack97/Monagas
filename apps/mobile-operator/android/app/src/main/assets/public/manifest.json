@@ -1,0 +1,31 @@
+{
+  // TODO: PWA manifest para mobile - Player 2 (Frontend)
+  // Paso 1: Definir nombre, short_name, icons
+  // Paso 2: Configurar theme_color, background_color
+  // Passo 3: Display mode standalone
+  // Entregable: PWA instalable desde browser
+  "name": "Monagas Operator",
+  "short_name": "Monagas",
+  "description": "Sistema de evaluación de pozos petroleros - Monagas",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1E40AF",
+  "background_color": "#FFFFFF",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "es"
+}

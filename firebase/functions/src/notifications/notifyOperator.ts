@@ -20,16 +20,16 @@ export const notifyOperator = functions.firestore
 
     // Detectar cambio a OFICIAL (aprobada)
     if (before?.estado !== 'OFICIAL' && after?.estado === 'OFICIAL') {
-      await sendNotificationToOperator(after, 'APPROVED')
+      await sendNotificationToOperator(after, 'APPROVED', evaluationId)
     }
 
     // Detectar cambio a RECHAZADA
     if (before?.estado !== 'RECHAZADA' && after?.estado === 'RECHAZADA') {
-      await sendNotificationToOperator(after, 'REJECTED')
+      await sendNotificationToOperator(after, 'REJECTED', evaluationId)
     }
   })
 
-async function sendNotificationToOperator(evaluation: any, type: 'APPROVED' | 'REJECTED') {
+async function sendNotificationToOperator(evaluation: any, type: 'APPROVED' | 'REJECTED', evaluationId: string) {
   try {
     // Obtener operador
     const operadorDoc = await admin.firestore()
@@ -42,7 +42,7 @@ async function sendNotificationToOperator(evaluation: any, type: 'APPROVED' | 'R
       return
     }
 
-    const operador = operadorDoc.data()
+    const operador = operadorDoc.data() as any
     const fcmToken = operador.fcmToken
 
     if (!fcmToken) {
@@ -71,7 +71,7 @@ async function sendNotificationToOperator(evaluation: any, type: 'APPROVED' | 'R
       notification: {
         title,
         body,
-        icon: '/logo.png'
+        imageUrl: '/logo.png'
       },
       data: {
         evaluationId,

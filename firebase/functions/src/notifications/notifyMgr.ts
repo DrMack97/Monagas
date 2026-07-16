@@ -63,8 +63,7 @@ export const notifyMgr = functions.firestore
             notification: {
               title: '🔔 Nueva evaluación pendiente',
               body: `${pozoNombre} requiere aprobación de ${evaluation.operador}`,
-              icon: '/logo.png',
-              badge: '1'
+              imageUrl: '/logo.png',
             },
             data: {
               evaluationId,

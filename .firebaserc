@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "dev": "well-testing-dev",
+    "staging": "well-testing-staging",
+    "prod": "well-testing-prod",
+    "default": "well-testing-dev"
+  }
+}

@@ -9,8 +9,6 @@
 // - Set motivoRechazo, rejectedBy, fechaRechazo
 // - Notify operador para corregir
 import * as functions from 'firebase-functions'
-import * as admin from 'firebase-admin'
-
 export const onReject = functions.firestore
   .document('evaluations/{evaluationId}')
   .onUpdate(async (change, context) => {

@@ -8,8 +8,7 @@
 // - FunctionContext: { user, role, ip }
 // - FunctionResponse: { success, message, data? }
 // - CloudFunctionHandler: type para handlers
-import { IUser, IEvaluation, IWell } from '@monagas/core/src/types'
-
+import { IUser } from '@monagas/core'
 export interface FunctionContext {
   user: IUser | null
   role: string | null
@@ -28,10 +27,10 @@ export interface FunctionResponse {
   error?: string
 }
 
-export type CloudFunctionHandler<T Request, T Response> = (
-  request: T Request,
+export type CloudFunctionHandler<TRequest, TResponse> = (
+  request: TRequest,
   context: FunctionContext
-) => Promise<T Response>
+) => Promise<TResponse>
 
 export interface EvaluationCreateData {
   pozoId: string

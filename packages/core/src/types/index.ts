@@ -2,4 +2,7 @@
 // Paso 1: Exportar database.ts, ui.ts, api.ts
 // Paso 2: Definir IWell, IEvaluation, ILecture, ITank, IUser, IApproval
 // Entregable: tipos compartidos disponibles para apps y functions
-export * from './database.js'
+// packages/core/src/types.ts
+export interface IUser { /* ... */ }
+export interface IEvaluation { /* ... */ }
+export interface IWell { /* ... */ }

@@ -63,7 +63,7 @@ export function toHttpsError(error: Error): functions.https.HttpsError {
   }
 
   if (error instanceof AppError) {
-    const codeMap: Record<string, functions.https.HttpsErrorInfo['code']> = {
+    const codeMap: Record<string, functions.https.HttpsError['code']> = {
       'validation-error': 'invalid-argument',
       'authentication-error': 'unauthenticated',
       'authorization-error': 'permission-denied',
