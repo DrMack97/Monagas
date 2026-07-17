@@ -3,7 +3,7 @@
     "module": "commonjs",
     "noImplicitReturns": true,
     "noUnusedLocals": true,
-    "outDir": "lib",
+    "outDir": "./lib",
     "sourceMap": true,
     "strict": true,
     "target": "ES2020",
@@ -20,6 +20,6 @@
     }
   },
   "compileOnSave": true,
-  "include": ["src"],
+  "include": ["./src"],
   "exclude": ["node_modules", "lib", "tests"]
 }

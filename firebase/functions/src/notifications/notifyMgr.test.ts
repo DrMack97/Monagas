@@ -4,8 +4,7 @@
 // Paso 3: Test sin gerentes activos
 // Prompt de implementación rápida:
 // "Crear tests para notifyMgr con Firestore Emulator"
-import { expect } from 'chai'
-
+import { describe, it, expect } from '@jest/globals';
 describe('notifyMgr', () => {
   it('debe enviar notificación cuando evaluación se envía', async () => {
     // TODO: Implementar test con Firestore Emulator
@@ -14,7 +13,7 @@ describe('notifyMgr', () => {
     // 3. Verificar FCM send llamado
     // 4. Verificar notificación con title correcto
 
-    expect(true).to.be.true // Placeholder
+    expect(true).toBe(true) // Placeholder
   })
 
   it('no debe hacer nada si no hay gerentes activos', async () => {
@@ -23,6 +22,6 @@ describe('notifyMgr', () => {
     // 2. Ningún gerente activo
     // 3. Verificar no se envía notificación
 
-    expect(true).to.be.true // Placeholder
+    expect(true).toBe(true) // Placeholder
   })
 })

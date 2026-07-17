@@ -8,8 +8,7 @@
 // - onEvalSubmit(CERRADA) → PENDIENTE_SUPERVISOR
 // - onApprove(APROBADA_SUPERVISOR) → OFICIAL
 // - onReject(RECHAZADA) → motivoRechazo set
-import { expect } from 'chai'
-import * as sinon from 'sinon'
+import { describe, it, expect } from '@jest/globals';
 
 describe('Approvals Workflow', () => {
   describe('onEvalSubmit', () => {
@@ -19,7 +18,7 @@ describe('Approvals Workflow', () => {
       // 2. Trigger onEvalSubmit
       // 3. Verificar estado = 'PENDIENTE_SUPERVISOR'
       // 4. Verificar supervisorId set
-      expect(true).to.be.true // Placeholder
+      expect(true).toBe(true); // Placeholder
     })
   })
 
@@ -30,7 +29,7 @@ describe('Approvals Workflow', () => {
       // 2. Trigger onApprove
       // 3. Verificar estado = 'OFICIAL'
       // 4. Verificar pozo.produccion actualizado
-      expect(true).to.be.true // Placeholder
+      expect(true).toBe(true); // Placeholder
     })
   })
 
@@ -41,7 +40,7 @@ describe('Approvals Workflow', () => {
       // 2. Trigger onReject
       // 3. Verificar motivoRechazo set
       // 4. Verificar rejectedBy, fechaRechazo
-      expect(true).to.be.true // Placeholder
+      expect(true).toBe(true);// Placeholder
     })
   })
 })

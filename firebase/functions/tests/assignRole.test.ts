@@ -8,75 +8,21 @@
 // - assignRole(admin, OPERADOR) → success
 // - assignRole(noAdmin, OPERADOR) → error permission-denied
 // - assignRole(admin, INVALID) → error invalid-argument
-import { expect } from 'chai'
-import * as sinon from 'sinon'
-import { assignRole } from '../src/auth/assignRole'
+import { describe, it, expect } from '@jest/globals';
 
 describe('assignRole', () => {
-  let adminStub: sinon.SinonStub
-
-  beforeEach(() => {
-    adminStub = sinon.stub()
-  })
-
-  afterEach(() => {
-    sinon.restore()
-  })
-
   it('debe asignar rol con admin auth', async () => {
-    const context = {
-      auth: {
-        token: { admin: true }
-      }
-    }
-
-    const data = {
-      userId: 'test-user-id',
-      rol: 'OPERADOR'
-    }
-
     // TODO: Implementar test real con Firebase Emulator
-    // const result = await assignRole(data, context)
-    // expect(result.success).to.be.true
-    // expect(result.rol).to.equal('OPERADOR')
-
-    expect(true).to.be.true // Placeholder
-  })
+    expect(true).toBe(true); // Placeholder
+  });
 
   it('debe fallar sin admin auth', async () => {
-    const context = {
-      auth: {
-        token: { admin: false }
-      }
-    }
-
-    const data = {
-      userId: 'test-user-id',
-      rol: 'OPERADOR'
-    }
-
     // TODO: Implementar test real
-    // await expect(assignRole(data, context)).to.be.rejectedWith(
-    //   functions.https.HttpsError,
-    //   'permission-denied'
-    // )
-
-    expect(true).to.be.true // Placeholder
-  })
+    expect(true).toBe(true); // Placeholder
+  });
 
   it('debe fallar con rol inválido', async () => {
-    const context = {
-      auth: {
-        token: { admin: true }
-      }
-    }
-
-    const data = {
-      userId: 'test-user-id',
-      rol: 'INVALID'
-    }
-
     // TODO: Implementar test real
-    expect(true).to.be.true // Placeholder
-  })
-})
+    expect(true).toBe(true); // Placeholder
+  });
+});

@@ -7,10 +7,10 @@
     "rules": "storage.rules"
   },
   "functions": {
-    "source": "firebase/functions",
+    "source": "functions",
     "runtime": "nodejs20",
     "predeploy": [
-      "npm --prefix firebase/functions run build"
+      "npm --prefix functions run build"
     ]
   },
   "emulators": {
