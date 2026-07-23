@@ -5,8 +5,7 @@
 // Prompt de implementación rápida:
 // "Crear PersonalizedGreeting con horario, nombre, stats"
 import React from 'react'
-import { useAuth } from '../hooks/useAuth'
-
+import { useAuth } from '../context/AuthContext';
 export default function PersonalizedGreeting() {
   const { user } = useAuth()
 

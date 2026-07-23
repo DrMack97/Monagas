@@ -14,7 +14,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
-  fullWitdh?: boolean
+  fullWidth?: boolean
   icon?: string
 }
 
@@ -22,7 +22,7 @@ export default function Button({
   variant = 'primary',
   size = 'md',
   loading = false,
-  fullWitdh = false,
+  fullWidth = false,
   icon,
   className = '',
   children,
@@ -48,7 +48,7 @@ export default function Button({
         rounded-lg font-medium transition-colors flex items-center justify-center gap-2
         ${variantClasses[variant]}
         ${sizeClasses[size]}
-        ${fullWitdh ? 'w-full' : ''}
+        ${fullWidth ? 'w-full' : ''}
         ${className}
       `}
       disabled={disabled || loading}

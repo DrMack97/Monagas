@@ -11,7 +11,7 @@
 // - Respuestas con éxito/error
 export interface AssignRoleRequest {
   userId: string
-  rol: 'OPERADOR' | 'SUP_CAMPO' | 'SUP_MAYOR' | 'COORDINADOR' | 'GERENTE'
+  rol: 'OPERADOR' | 'SUP_CAMPO' | 'SUP_AREA' | 'GERENTE'
 }
 
 export interface AssignRoleResponse {

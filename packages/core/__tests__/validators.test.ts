@@ -8,45 +8,45 @@
 // - validarRango('bph', 100).valid = true
 // - validarRango('bph', 9999).outOfRange = true
 // - validarLectura({bph: 100, bpd: 2400}).valid = true
-import { 
-  validarRango, 
-  validarLectura, 
-  getRangoNormal 
-} from '../src/calculos/validators'
-
+import {
+  validarRango,
+  validarLectura,
+  getRangoNormal
+} from '../src/utils/validators.js'
+ 
 describe('getRangoNormal', () => {
   it('debe retornar rango para bph', () => {
     const rango = getRangoNormal('bph')
     expect(rango.min).toBe(0)
     expect(rango.max).toBe(1000)
   })
-
+ 
   it('debe retornar rango para presion', () => {
     const rango = getRangoNormal('presion')
     expect(rango.min).toBe(0)
     expect(rango.max).toBe(5000)
   })
-
+ 
   it('debe retornar default para tipo desconocido', () => {
     const rango = getRangoNormal('desconocido')
     expect(rango.min).toBe(0)
     expect(rango.max).toBe(Infinity)
   })
 })
-
+ 
 describe('validarRango', () => {
   it('debe retornar valid=true para valor dentro rango', () => {
     const resultado = validarRango('bph', 100)
     expect(resultado.valid).toBe(true)
     expect(resultado.outOfRange).toBe(false)
   })
-
+ 
   it('debe retornar outOfRange=true para valor fuera rango', () => {
     const resultado = validarRango('bph', 9999)
     expect(resultado.valid).toBe(false)
     expect(resultado.outOfRange).toBe(true)
   })
-
+ 
   it('debe retornar warning para valor fuera normal pero dentro absoluto', () => {
     const resultado = validarRango('bph', 5)
     expect(resultado.valid).toBe(true)
@@ -54,7 +54,7 @@ describe('validarRango', () => {
     expect(resultado.outOfRange).toBe(false)
   })
 })
-
+ 
 describe('validarLectura', () => {
   it('debe retornar valid=true para lectura completa válida', () => {
     const resultado = validarLectura({
@@ -67,7 +67,7 @@ describe('validarLectura', () => {
     expect(resultado.valid).toBe(true)
     expect(resultado.errors.length).toBe(0)
   })
-
+ 
   it('debe retornar errors para lecturas fuera de rango', () => {
     const resultado = validarLectura({
       bph: 9999,
@@ -76,7 +76,7 @@ describe('validarLectura', () => {
     expect(resultado.valid).toBe(false)
     expect(resultado.errors.length).toBeGreaterThan(0)
   })
-
+ 
   it('debe retornar warnings para lecturas fuera de normal', () => {
     const resultado = validarLectura({
       bph: 5

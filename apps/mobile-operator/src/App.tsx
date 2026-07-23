@@ -3,8 +3,14 @@
 // Paso 2: Configurar router con rutas de LoginPage, DashboardPage, etc.
 // Paso 3: Renderizar App en root
 // Entregable: app móvil renderiza Login en pantalla
-import React from 'react'
+import React from 'react';
+import { AuthProvider } from './context/AuthContext';
+import DashboardPage from './pages/DashboardPage';
 
 export default function App() {
-  return <div>Mobile Operator App</div>
+  return (
+    <AuthProvider>
+      <DashboardPage />
+    </AuthProvider>
+  );
 }

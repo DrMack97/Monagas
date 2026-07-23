@@ -4,4 +4,3 @@
 // Entregable: todos los cálculos exportados correctamente
 export * from './tanque.js'
 export * from './aga3.js'
-export * from './validators.js'

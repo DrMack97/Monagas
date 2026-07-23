@@ -49,7 +49,7 @@ export function validarEvaluacion(lecturas: {
 }
 
 export function validarRol(rol: string): boolean {
-  const validRoles = ['OPERADOR', 'SUP_CAMPO', 'SUP_MAYOR', 'COORDINADOR', 'GERENTE']
+  const validRoles = ['OPERADOR', 'SUP_CAMPO', 'SUP_AREA', 'GERENTE']
   return validRoles.includes(rol)
 }
 

@@ -8,56 +8,23 @@
 // - isOnline state
 // - queue length
 // - sync function
-import { useState, useEffect, useCallback } from 'react'
-import NetInfo from '@react-native-community/netinfo'
-import { offlineSync } from '../services/offline-sync'
+import { useState, useEffect } from 'react';
 
-export function useOffline() {
-  const [isOnline, setIsOnline] = useState(true)
-  const [queueLength, setQueueLength] = useState(0)
-  const [isSyncing, setIsSyncing] = useState(false)
+export const useOffline = () => {
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
-  // Monitor network state
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      const online = state.isConnected ?? false
-      setIsOnline(online)
-      
-      if (online) {
-        offlineSync.sync()
-      }
-    })
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
 
-    return () => unsubscribe()
-  }, [])
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
-  // Update queue length
-  useEffect(() => {
-    const updateQueueLength = () => {
-      const status = offlineSync.getQueueStatus()
-      setQueueLength(status.pending + status.failed)
-    }
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
-    updateQueueLength()
-    const interval = setInterval(updateQueueLength, 5000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  // Manual sync
-  const sync = useCallback(async () => {
-    if (!isOnline) return
-    
-    setIsSyncing(true)
-    await offlineSync.sync()
-    setIsSyncing(false)
-  }, [isOnline])
-
-  return {
-    isOnline,
-    queueLength,
-    isSyncing,
-    sync,
-    getStatus: () => offlineSync.getQueueStatus()
-  }
-}
+  return { isOffline };
+};

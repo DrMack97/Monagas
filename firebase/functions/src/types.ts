@@ -1,14 +1,6 @@
-// TODO: Tipos TypeScript para functions - Player 1 (Backend)
-// Paso 1: Importar tipos de @core/types
-// Paso 2: Definir FunctionContext con user, role
-// Paso 3: Definir FunctionResponse con success, message
-// Prompt de implementación rápida:
-// "Crear FunctionContext, FunctionResponse, CloudFunctionHandler"
-// Entregable:
-// - FunctionContext: { user, role, ip }
-// - FunctionResponse: { success, message, data? }
-// - CloudFunctionHandler: type para handlers
-import { IUser } from '@monagas/core'
+// firebase/functions/src/types.ts
+import type { IUser } from '@monagas/core'
+
 export interface FunctionContext {
   user: IUser | null
   role: string | null
@@ -20,10 +12,10 @@ export interface FunctionContext {
   } | null
 }
 
-export interface FunctionResponse {
+export interface FunctionResponse<T = unknown> {
   success: boolean
   message: string
-  data?: any
+  data?: T
   error?: string
 }
 
@@ -34,18 +26,6 @@ export type CloudFunctionHandler<TRequest, TResponse> = (
 
 export interface EvaluationCreateData {
   pozoId: string
-  lecturas: {
-    bph: number
-    bpd: number
-    presion: number
-    temperatura: number
-  }
-  tanques: Array<{
-    numero: number
-    capacidad: number
-    nivel: number
-  }>
-  operador: string
   operadorId: string
 }
 

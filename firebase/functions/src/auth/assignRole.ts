@@ -1,44 +1,60 @@
-// TODO: Cloud Function asignarRol(userId, rol) - Player 1 (Backend)
-// Paso 1: Validar que caller es admin
-// Paso 2: Set custom claim con admin.assertCustomAuth
-// Paso 3: Retornar éxito/error
-// Prompt de implementación rápida:
-// "Crear assignRole https.onCall con admin.assertCustomAuth, setCustomUserClaims"
-// Entregable:
-// - Solo admin puede llamar
-// - Set custom claim { role: 'OPERADOR' }
-// - Retornar { success: true, userId, rol }
-import * as functions from 'firebase-functions'
-import * as admin from 'firebase-admin'
+// firebase/functions/src/auth/assignRole.ts
+//
+// Trigger: se ejecuta automáticamente cuando se crea un documento
+// en /usuarios/{uid}. Firestore Rules restringen esa escritura a ROOT,
+// por lo que este trigger no tiene problema de arranque (no requiere
+// un admin ya autenticado para asignar el primer rol).
+//
+// Asigna el Custom Claim de rol para que las Firestore Rules puedan
+// leerlo directamente del JWT sin una consulta adicional.
+//
+// Regla de negocio: OPERADOR y SUP_CAMPO tienen acceso a UN (1) solo
+// pozo a la vez (`pozoAsignado`, singular). SUP_AREA y GERENTE no
+// usan este campo — su acceso se rige por `zona`, ya presente en el
+// documento de usuario.
 
-export const assignRole = functions.https.onCall(
-  async (data: { userId: string; rol: string }, context) => {
-    // Verificar que el caller es admin
-    if (!context.auth || !context.auth.token.admin) {
-      throw new functions.https.HttpsError('permission-denied', 'No autorizados')
+import { onDocumentCreated } from 'firebase-functions/v2/firestore'
+import { getAuth } from 'firebase-admin/auth'
+import { logger } from 'firebase-functions/v2'
+
+const ROLES_VALIDOS = ['OPERADOR', 'SUP_CAMPO', 'SUP_AREA', 'GERENTE'] as const
+
+export const assignRole = onDocumentCreated(
+  'usuarios/{uid}',
+  async (event) => {
+    const snap = event.data
+    if (!snap) {
+      logger.warn('assignRole: evento sin datos, se omite')
+      return
     }
 
-    const { userId, rol } = data
+    const uid = event.params.uid
+    const data = snap.data()
+    const rolSolicitado = data.rol
 
-    // Validar rol
-    const validRoles = ['OPERADOR', 'SUP_CAMPO', 'SUP_MAYOR', 'COORDINADOR', 'GERENTE']
-    if (!validRoles.includes(rol)) {
-      throw new functions.https.HttpsError('invalid-argument', 'Rol inválido')
-    }
+    // Nunca confiar en un rol que no venga del set permitido.
+    // ROOT nunca se asigna por este flujo — solo vía script directo
+    // con Admin SDK, fuera de la app.
+    const rol = ROLES_VALIDOS.includes(rolSolicitado)
+      ? rolSolicitado
+      : 'OPERADOR'
 
-    try {
-      // Set custom claim
-      await admin.auth().setCustomUserClaims(userId, { role: rol })
+    // pozoAsignado solo aplica a OPERADOR/SUP_CAMPO. Para SUP_AREA y
+    // GERENTE queda null — su acceso lo gobierna `zona`, no un pozo
+    // específico.
+    const pozoAsignado =
+      rol === 'OPERADOR' || rol === 'SUP_CAMPO'
+        ? (data.pozoAsignado ?? null)
+        : null
 
-      return {
-        success: true,
-        userId,
-        rol,
-        message: `Rol ${rol} asignado a ${userId}`
-      }
-    } catch (error) {
-      console.error('Error assigning role:', error)
-      throw new functions.https.HttpsError('internal', 'Error asignando rol')
-    }
+    // Claves en español — deben coincidir EXACTO con lo que leen
+    // las Firestore Rules: request.auth.token.rol / .pozoAsignado / .zona
+    await getAuth().setCustomUserClaims(uid, {
+      rol,
+      pozoAsignado,
+      zona: data.zona ?? null,
+    })
+
+    logger.info(`assignRole: uid=${uid} rol=${rol} pozoAsignado=${pozoAsignado}`)
   }
 )

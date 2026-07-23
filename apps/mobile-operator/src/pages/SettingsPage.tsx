@@ -9,7 +9,7 @@
 // - Toggle notificaciones push
 // - Toggle offline mode
 import React, { useState } from 'react'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 
 export default function SettingsPage() {

@@ -8,31 +8,31 @@
 // - calcularNetos(bph, bpd) → number | error
 // - calcularQg(presion, temperatura) → number | error
 // - Validar rangos antes de calcular
-import { calcularBPH, calcularQg, validarRango } from '@core/calculos'
+import { calcTanque, calcAGA3 } from '@monagas/core/calculos';
+import { validarRango } from '@monagas/core/utils';
 
 export function useCalculations() {
-  const calcularNetos = (bph: number, bpd: number) => {
-    if (!validarRango('bph', bph)) {
-      throw new Error('BPH fuera de rango válido')
-    }
-    if (!validarRango('bpd', bpd)) {
-      throw new Error('BPD fuera de rango válido')
-    }
-    return calcularBPH(bph, bpd)
-  }
+  const calcularNetos = (mi: number, mf: number, ft: number, th: number, reductor: number, aysPct: number, dilDia?: number) => {
+    // Validaciones (opcionales)
+    if (!validarRango('mi', mi)) throw new Error('Medida Inicial fuera de rango');
+    if (!validarRango('mf', mf)) throw new Error('Medida Final fuera de rango');
+    if (!validarRango('ft', ft)) throw new Error('Factor Tanque fuera de rango');
+    if (!validarRango('th', th)) throw new Error('Tiempo fuera de rango');
 
-  const calcularGas = (presion: number, temperatura: number) => {
-    if (!validarRango('presion', presion)) {
-      throw new Error('Presión fuera de rango válido')
-    }
-    if (!validarRango('temperatura', temperatura)) {
-      throw new Error('Temperatura fuera de rango válido')
-    }
-    return calcularQg(presion, temperatura)
-  }
+    return calcTanque({ mi, mf, ft, th, reductor, aysPct, dilDia });
+  };
+
+  const calcularGas = (pf: number, hw: number, tGas: number, gg: number, diam: number, meterRun: number) => {
+    // Validaciones (opcionales)
+    if (!validarRango('pf', pf)) throw new Error('Presión Estática fuera de rango');
+    if (!validarRango('hw', hw)) throw new Error('Diferencial Barton fuera de rango');
+    if (!validarRango('tGas', tGas)) throw new Error('Temperatura del gas fuera de rango');
+
+    return calcAGA3({ pf, hw, tGas, gg, diam, meterRun });
+  };
 
   return {
     calcularNetos,
-    calcularGas
-  }
+    calcularGas,
+  };
 }

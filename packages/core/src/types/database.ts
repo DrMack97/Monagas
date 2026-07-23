@@ -3,7 +3,7 @@
 // Tipos alineados al TRD v3 — Well Testing MVP
 // Norte de Monagas / Faja del Orinoco
 
-export type Rol = 'OPERADOR' | 'SUP_CAMPO' | 'SUP_MAYOR' | 'GERENTE' | 'ROOT'
+export type Rol = 'OPERADOR' | 'SUP_CAMPO' | 'SUP_AREA' | 'GERENTE' | 'ROOT'
 export type Zona = 'FAJA' | 'MONAGAS' | 'TODOS'
 
 export type EstadoEvaluacion =
@@ -128,7 +128,14 @@ export interface IUsuario {
   email: string
   rol: Rol
   zona: Zona
-  pozosAsignados: string[]
+  /**
+   * Un único pozo asignado — aplica a OPERADOR y SUP_CAMPO.
+   * Solo pueden leer información de ESTE pozo hasta ser reasignados.
+   * SUP_AREA y GERENTE no usan este campo: su acceso se rige por `zona`.
+   * Reasignar este valor es exclusivo de SUP_AREA/GERENTE — ver
+   * firebase/functions/src/auth/reassignPozo.ts
+   */
+  pozoAsignado: string | null
   activo: boolean
   creadoEn: Date
   ultimoAcceso?: Date

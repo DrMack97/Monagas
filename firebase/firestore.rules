@@ -9,18 +9,34 @@ service cloud.firestore {
 
     function isRoot()     { return getRole() == 'ROOT'; }
     function isGerente()  { return getRole() == 'GERENTE'; }
-    function isSupMayor() { return getRole() == 'SUP_MAYOR'; }
+    function isSupArea() { return getRole() == 'SUP_AREA'; }
     function isSupCampo() { return getRole() == 'SUP_CAMPO'; }
     function isOperador() { return getRole() == 'OPERADOR'; }
-    function isSupervisor() {
-      return isSupCampo() || isSupMayor() || isGerente();
+
+    // Operador y Supervisor de Campo: acceso de lectura a UN (1) solo
+    // pozo, el que tengan asignado en este momento (Custom Claim
+    // `pozoAsignado`, singular). Se actualiza solo vía reassignPozo.ts
+    function isAssignedToPozo(pozoId) {
+      return request.auth.token.pozoAsignado == pozoId;
     }
 
-    function isAssignedToPozo(pozoId) {
-      return request.auth.token.pozosAsignados.hasAny([pozoId]);
+    // Solo Supervisor de Área (SUP_AREA) y Gerente crean/editan pozos
+    // y pueden reasignar Operadores/Supervisores de Campo.
+    // SUP_CAMPO queda deliberadamente excluido — solo lee su único pozo.
+    function canManagePozos() {
+      return isSupArea() || isGerente();
+    }
+
+    // SUP_AREA ve todos los pozos de SU zona; GERENTE ve todos sin restricción
+    function canViewPozosEnZona(pozoZona) {
+      return isGerente() || (isSupArea() && request.auth.token.zona == pozoZona);
     }
 
     // /usuarios/{uid} — perfil del usuario
+    // Escritura directa restringida a ROOT. La reasignación de pozo
+    // pasa por una Cloud Function dedicada (reassignPozo.ts) que usa
+    // Admin SDK y refresca el Custom Claim al mismo tiempo — nunca
+    // un write directo del cliente, ni siquiera de SUP_AREA/GERENTE.
     match /usuarios/{uid} {
       allow read: if request.auth != null;
       allow write: if isRoot();
@@ -28,17 +44,21 @@ service cloud.firestore {
 
     // /pozos/{pozoId} — configuración de pozos
     match /pozos/{pozoId} {
-      allow read: if request.auth != null;
-      allow create, update: if isRoot() || isSupervisor();
+      allow read: if isRoot()
+        || canViewPozosEnZona(resource.data.zona)
+        || isAssignedToPozo(pozoId);
+      allow create, update: if isRoot() || canManagePozos();
       allow delete: if isRoot();
     }
 
     // /evaluaciones/{evalId} — sesiones de medición
     match /evaluaciones/{evalId} {
-      allow read: if request.auth != null;
+      allow read: if isRoot()
+        || canViewPozosEnZona(resource.data.zona)
+        || isAssignedToPozo(resource.data.pozoId);
       allow create: if isRoot() ||
         (isOperador() && isAssignedToPozo(request.resource.data.pozoId));
-      allow update: if isRoot() || isSupervisor() ||
+      allow update: if isRoot() || canManagePozos() || isSupCampo() ||
         (isOperador() && resource.data.operadorId == request.auth.uid
                        && resource.data.estado == 'EN_CURSO');
       allow delete: if isRoot();

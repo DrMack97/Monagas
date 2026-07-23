@@ -8,17 +8,20 @@
 // - Tabla con 5 columnas
 // - Orden clickable en columnas
 // - Filter por estado
-import React, { useState, useMemo } from 'react'
-import { useWells } from '../hooks/useWells'
+import React, { useState, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext'
 
 export default function TablaPage() {
-  const { wells } = useWells()
-  const [filtroEstado, setFiltroEstado] = useState('todos')
+  const { pozoAsignado } = useAuth();
+  const [filtroEstado, setFiltroEstado] = useState('todos');
+
+  // Si pozoAsignado es un solo pozo, lo convertimos en array para la tabla
+  const pozos = pozoAsignado ? [pozoAsignado] : [];
 
   const pozosFiltrados = useMemo(() => {
-    if (filtroEstado === 'todos') return wells
-    return wells.filter(w => w.estado === filtroEstado)
-  }, [wells, filtroEstado])
+    if (filtroEstado === 'todos') return pozos;
+    return pozos.filter(w => w.estado === filtroEstado);
+  }, [pozos, filtroEstado]);
 
   return (
     <div>
@@ -52,5 +55,5 @@ export default function TablaPage() {
         </tbody>
       </table>
     </div>
-  )
+  );
 }
