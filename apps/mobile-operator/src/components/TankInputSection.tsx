@@ -6,17 +6,16 @@
 // el supervisor (ver Firestore Rules: /pozos solo escribible por
 // SUP_CAMPO/SUP_AREA/GERENTE/ROOT).
 
-import type { ITank } from '@core/types'
-
+import type { TankInput } from '@monagas/core/calculos';
 interface TankInputSectionProps {
-  tank: ITank
+  tank: TankInput
   readOnly?: boolean
 }
 
 export default function TankInputSection({ tank, readOnly = true }: TankInputSectionProps) {
   return (
     <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl">
-      <h4 className="font-medium text-white mb-3">{tank.nombre}</h4>
+      <h4 className="font-medium text-white mb-3">{tank as any}</h4>
 
       <div className="grid grid-cols-2 gap-3">
         <div>

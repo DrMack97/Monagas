@@ -4,61 +4,67 @@
 // Paso 3: Upload progress
 // Prompt de implementación rápida:
 // "Crear PhotoCapture con takePhoto, preview, upload"
-import React, { useState } from 'react'
-import { camera } from '../services/camera'
+import React, { useState } from 'react';
+import { camera } from '../services/camera';
 
 interface PhotoCaptureProps {
-  collection: string
-  documentId: string
-  onPhotoUploaded?: (url: string) => void
-  maxPhotos?: number
+  collection: string;
+  documentId: string;
+  onPhotoUploaded?: (url: string) => void;
+  maxPhotos?: number;
 }
 
 export default function PhotoCapture({
   collection,
   documentId,
   onPhotoUploaded,
-  maxPhotos = 5
+  maxPhotos = 5,
 }: PhotoCaptureProps) {
-  const [photos, setPhotos] = useState<string[]>([])
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleTakePhoto = async () => {
     if (photos.length >= maxPhotos) {
-      setError(`Máximo ${maxPhotos} fotos permitidas`)
-      return
+      setError(`Máximo ${maxPhotos} fotos permitidas`);
+      return;
     }
 
-    setUploading(true)
-    setError(null)
+    setUploading(true);
+    setError(null);
 
     try {
       // Take photo
       const photo = await camera.takePhoto({
         quality: 80,
-        correctOrientation: true
-      })
+        correctOrientation: true,
+      });
 
+      // ✅ Obtener base64 de la foto
+      const base64 = (photo as any).base64String || (photo as any).dataUrl || (photo as any).base64;
+
+      if (!base64) {
+      throw new Error('No se pudo obtener la imagen');
+      }
+      
       // Compress
-      let base64 = photo.base64String
-      base64 = await camera.compressImage(base64, 0.7)
+      const compressedBase64 = await camera.compressImage(base64, 0.7);
 
       // Upload
-      const uploaded = await camera.uploadPhoto(base64, collection, documentId)
+      const uploaded = await camera.uploadPhoto(compressedBase64, collection, documentId);
 
-      setPhotos([...photos, uploaded.url])
-      onPhotoUploaded?.(uploaded.url)
+      setPhotos([...photos, uploaded.url]);
+      onPhotoUploaded?.(uploaded.url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al tomar foto')
+      setError(err instanceof Error ? err.message : 'Error al tomar foto');
     } finally {
-      setUploading(false)
+      setUploading(false);
     }
-  }
+  };
 
   const handleRemovePhoto = (index: number) => {
-    setPhotos(photos.filter((_, i) => i !== index))
-  }
+    setPhotos(photos.filter((_, i) => i !== index));
+  };
 
   return (
     <div className="space-y-3">
@@ -101,5 +107,5 @@ export default function PhotoCapture({
         </div>
       )}
     </div>
-  )
+  );
 }

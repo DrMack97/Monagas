@@ -8,26 +8,28 @@
 // - Info usuario (nombre, email, rol)
 // - Toggle notificaciones push
 // - Toggle offline mode
-import React, { useState } from 'react'
-import { useAuth } from '../context/AuthContext'
-import { useNotifications } from '../hooks/useNotifications'
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../hooks/useNotifications';
 
 export default function SettingsPage() {
-  const { user } = useAuth()
-  const { requestPermission } = useNotifications()
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
-  const [offlineMode, setOfflineMode] = useState(false)
+  const { user } = useAuth();
+  const { requestPermission } = useNotifications();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [offlineMode, setOfflineMode] = useState(false);
 
   const handleToggleNotifications = async () => {
     if (notificationsEnabled) {
-      setNotificationsEnabled(false)
+      setNotificationsEnabled(false);
     } else {
-      const granted = await requestPermission()
-      setNotificationsEnabled(granted)
+      const granted = await requestPermission();
+      setNotificationsEnabled(granted);
     }
-  }
+  };
 
-  if (!user) return <div>Cargando...</div>
+  if (!user) return <div>Cargando...</div>;
+
+  const userData = user as any; // ← Temporal
 
   return (
     <div className="p-4">
@@ -39,15 +41,15 @@ export default function SettingsPage() {
         <div className="space-y-2">
           <div>
             <p className="text-sm text-gray-600">Nombre</p>
-            <p className="font-medium">{user.nombre}</p>
+            <p className="font-medium">{userData.nombre}</p>
           </div>
           <div>
             <p className="text-sm text-gray-600">Email</p>
-            <p className="font-medium">{user.email}</p>
+            <p className="font-medium">{userData.email}</p>
           </div>
           <div>
             <p className="text-sm text-gray-600">Rol</p>
-            <p className="font-medium">{user.rol}</p>
+            <p className="font-medium">{userData.rol}</p>
           </div>
         </div>
       </div>
@@ -97,13 +99,12 @@ export default function SettingsPage() {
       {/* Cerrar sesión */}
       <button
         onClick={() => {
-          // TODO: Implementar logout
-          console.log('Logout')
+          console.log('Logout');
         }}
         className="w-full py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
       >
         Cerrar sesión
       </button>
     </div>
-  )
+  );
 }

@@ -3,7 +3,7 @@
 // Prompt de implementación rápida:
 // "Adaptar ErrorBoundary para web"
 import React from 'react'
-import * as Sentry from '../services/sentry'
+//import * as Sentry from '../services/sentry'
 
 interface Props {
   children: React.ReactNode

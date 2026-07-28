@@ -8,70 +8,95 @@
 // - Operación se guarda en cola si offline
 // - onOnline dispara sync
 // - Cola se vacía después de sync exitoso
-import { useState, useEffect } from 'react'
-import { openDB } from 'idb'
 
-const DB_NAME = 'monagas-offline'
-const STORE_NAME = 'pending-operations'
+import { useState, useEffect } from 'react';
+import { openDB } from 'idb';
+
+const DB_NAME = 'monagas-offline';
+const STORE_NAME = 'pending-operations';
+
+// ✅ Definir el tipo de operación
+type QueueOperation = {
+  id?: number;
+  type: string;
+  data: any;
+  timestamp: number;
+};
 
 export function useOfflineSync() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine)
-  const [queue, setQueue] = useState([])
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [queue, setQueue] = useState<QueueOperation[]>([]);
 
   useEffect(() => {
     const handleOnline = () => {
-      setIsOnline(true)
-      syncQueue()
-    }
-    const handleOffline = () => setIsOnline(false)
+      setIsOnline(true);
+      syncQueue();
+    };
+    const handleOffline = () => setIsOnline(false);
     
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Cargar cola al iniciar
+    loadQueue();
     
     return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [])
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const addToQueue = async (operation: any) => {
     const db = await openDB(DB_NAME, 1, {
       upgrade(db) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true })
-      }
-    })
-    await db.add(STORE_NAME, { ...operation, timestamp: Date.now() })
-    loadQueue()
-  }
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+        }
+      },
+    });
+    await db.add(STORE_NAME, { ...operation, timestamp: Date.now() });
+    await loadQueue();
+  };
 
   const loadQueue = async () => {
-    const db = await openDB(DB_NAME, 1)
-    const ops = await db.getAll(STORE_NAME)
-    setQueue(ops)
-  }
+    try {
+      const db = await openDB(DB_NAME, 1);
+      const ops = await db.getAll(STORE_NAME);
+      setQueue(ops as QueueOperation[]); // ✅ Cast explícito
+    } catch (error) {
+      console.error('Error loading queue:', error);
+      setQueue([]);
+    }
+  };
 
   const syncQueue = async () => {
-    if (!isOnline) return
+    if (!isOnline) return;
     for (const op of queue) {
       try {
-        await executeOperation(op)
-        await deleteFromQueue(op.id)
+        await executeOperation(op);
+        if (op.id !== undefined) {
+          await deleteFromQueue(op.id);
+        }
       } catch (err) {
-        console.error('Sync failed:', err)
+        console.error('Sync failed:', err);
       }
     }
-  }
+  };
 
   const deleteFromQueue = async (id: number) => {
-    const db = await openDB(DB_NAME, 1)
-    await db.delete(STORE_NAME, id)
-    loadQueue()
-  }
+    try {
+      const db = await openDB(DB_NAME, 1);
+      await db.delete(STORE_NAME, id);
+      await loadQueue();
+    } catch (error) {
+      console.error('Error deleting from queue:', error);
+    }
+  };
 
-  return { isOnline, queue, addToQueue }
+  return { isOnline, queue, addToQueue };
 }
 
-async function executeOperation(op: any) {
+async function executeOperation(op: QueueOperation) {
   // TODO: Implementar según tipo de operación
-  console.log('Exec:', op)
+  console.log('Executing operation:', op);
 }

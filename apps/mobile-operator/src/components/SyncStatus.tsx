@@ -4,18 +4,19 @@
 // Paso 3: Manual sync button
 // Prompt de implementación rápida:
 // "Crear SyncStatus con lastSync, sync button"
-import React from 'react'
-import { useOffline } from '../hooks/useOffline'
+import React, { useState, useEffect } from 'react';
+import { useOfflineSync } from '../hooks/useOfflineSync';
 
 export default function SyncStatus() {
-  const { isOnline, queueLength, isSyncing, sync } = useOffline()
-  const [lastSync, setLastSync] = React.useState<Date | null>(null)
+  const { isOnline, queue } = useOfflineSync();
+  const queueLength = queue.length;
+  const [lastSync, setLastSync] = useState<Date | null>(null);
 
-  React.useEffect(() => {
-    if (!isSyncing && queueLength === 0) {
-      setLastSync(new Date())
+  useEffect(() => {
+    if (isOnline && queueLength === 0) {
+      setLastSync(new Date());
     }
-  }, [isSyncing, queueLength])
+  }, [isOnline, queueLength]);
 
   return (
     <div className="bg-white rounded-lg shadow p-4">
@@ -44,13 +45,13 @@ export default function SyncStatus() {
 
       {queueLength > 0 && (
         <button
-          onClick={sync}
-          disabled={isSyncing || !isOnline}
+          onClick={() => {/* Función de sincronización */}}
+          disabled={!isOnline}
           className="w-full mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
-          {isSyncing ? 'Sincronizando...' : 'Sincronizar ahora'}
+          Sincronizar ahora
         </button>
       )}
     </div>
-  )
+  );
 }

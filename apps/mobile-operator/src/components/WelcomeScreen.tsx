@@ -4,7 +4,7 @@
 // Paso 3: Skip/Complete
 // Prompt de implementación rápida:
 // "Crear WelcomeScreen con onboarding, A/B test"
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react';
 import { useABTesting } from '../hooks/useABTesting'
 
 interface Slide {

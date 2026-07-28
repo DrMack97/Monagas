@@ -8,31 +8,33 @@
 // - trackEvent con props
 // - setUserProperties
 // - Funnel tracking
-import { analytics } from 'firebase/analytics'
-import { auth } from '../services/firebase'
+import { auth } from '../services/firebase';
+import { getAnalytics, logEvent, setUserProperties, setUserId } from 'firebase/analytics';
+
+const analytics = typeof window !== 'undefined' ? getAnalytics() : null;
 
 interface EventProps {
-  [key: string]: any
+  [key: string]: any;
 }
 
 export class AdvancedAnalytics {
-  private analyticsInstance: ReturnType<typeof analytics> | null = null
+  private analyticsInstance: ReturnType<typeof getAnalytics> | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.analyticsInstance = analytics(auth.app)
+      this.analyticsInstance = getAnalytics();
     }
   }
 
   // Track custom event
   async trackEvent(eventName: string, props?: EventProps) {
-    if (!this.analyticsInstance) return
+    if (!this.analyticsInstance) return;
 
     try {
-      await this.analyticsInstance.logEvent(eventName, props)
-      console.log(`📊 Event tracked: ${eventName}`, props)
+      await logEvent(this.analyticsInstance, eventName, props);
+      console.log(`📊 Event tracked: ${eventName}`, props);
     } catch (error) {
-      console.error('Failed to track event:', error)
+      console.error('Failed to track event:', error);
     }
   }
 
@@ -40,8 +42,8 @@ export class AdvancedAnalytics {
   async trackScreenView(screenName: string, params?: EventProps) {
     await this.trackEvent('screen_view', {
       screen_name: screenName,
-      ...params
-    })
+      ...params,
+    });
   }
 
   // Track user engagement
@@ -49,8 +51,8 @@ export class AdvancedAnalytics {
     await this.trackEvent('user_engagement', {
       engagement_type: type,
       timestamp: Date.now(),
-      ...metadata
-    })
+      ...metadata,
+    });
   }
 
   // Track conversion
@@ -59,29 +61,26 @@ export class AdvancedAnalytics {
       conversion_name: conversionName,
       value: value || 0,
       currency: 'USD',
-      timestamp: Date.now()
-    })
+      timestamp: Date.now(),
+    });
   }
 
   // Set user properties
   async setUserProperties(properties: Record<string, string | number | boolean>) {
-    if (!this.analyticsInstance) return
+    if (!this.analyticsInstance) return;
 
     try {
-      const user = auth.currentUser
-      if (user) {
-        await this.analyticsInstance.setUserProperties(properties)
-        console.log('📊 User properties set:', properties)
-      }
+      await setUserProperties(this.analyticsInstance, properties);
+      console.log('📊 User properties set:', properties);
     } catch (error) {
-      console.error('Failed to set user properties:', error)
+      console.error('Failed to set user properties:', error);
     }
   }
 
   // Set user ID
   async setUserId(userId?: string) {
-    if (!this.analyticsInstance) return
-    await this.analyticsInstance.setUserId(userId || null)
+    if (!this.analyticsInstance) return;
+    await setUserId(this.analyticsInstance, userId || null);
   }
 
   // Track funnel step
@@ -90,8 +89,8 @@ export class AdvancedAnalytics {
       funnel_name: funnelName,
       step_number: stepNumber,
       step_name: stepName,
-      timestamp: Date.now()
-    })
+      timestamp: Date.now(),
+    });
   }
 
   // Track funnel completion
@@ -99,8 +98,8 @@ export class AdvancedAnalytics {
     await this.trackEvent('funnel_complete', {
       funnel_name: funnelName,
       duration_ms: duration,
-      timestamp: Date.now()
-    })
+      timestamp: Date.now(),
+    });
   }
 
   // Track error
@@ -109,8 +108,8 @@ export class AdvancedAnalytics {
       error_name: error.name,
       error_message: error.message,
       stack: error.stack,
-      ...context
-    })
+      ...context,
+    });
   }
 
   // Track performance
@@ -118,19 +117,19 @@ export class AdvancedAnalytics {
     await this.trackEvent('performance_metric', {
       metric_name: metricName,
       duration_ms: duration,
-      ...metadata
-    })
+      ...metadata,
+    });
   }
 
   // Reset analytics
   async reset() {
-    if (!this.analyticsInstance) return
-    await this.analyticsInstance.setUserId(null)
-    await this.analyticsInstance.setUserProperties({})
+    if (!this.analyticsInstance) return;
+    await setUserId(this.analyticsInstance, null);
+    await setUserProperties(this.analyticsInstance, {});
   }
 }
 
-export const advancedAnalytics = new AdvancedAnalytics()
+export const advancedAnalytics = new AdvancedAnalytics();
 
 // Predefined events
 export const EVENTS = {
@@ -138,30 +137,30 @@ export const EVENTS = {
   LOGIN: 'login',
   LOGOUT: 'logout',
   SIGNUP: 'signup',
-  
+
   // Evaluation
   CREATE_EVALUATION: 'create_evaluation',
   SUBMIT_EVALUATION: 'submit_evaluation',
   SAVE_DRAFT: 'save_draft',
-  
+
   // Approval
   APPROVE_EVALUATION: 'approve_evaluation',
   REJECT_EVALUATION: 'reject_evaluation',
-  
+
   // Export
   EXPORT_PDF: 'export_pdf',
   EXPORT_EXCEL: 'export_excel',
-  
+
   // Offline
   OFFLINE_MODE: 'offline_mode',
   ONLINE_SYNC: 'online_sync',
-  
+
   // GPS
   GPS_ENABLED: 'gps_enabled',
   GPS_DISABLED: 'gps_disabled',
   LOCATION_UPDATED: 'location_updated',
-  
+
   // Photo
   PHOTO_TAKEN: 'photo_taken',
-  PHOTO_UPLOADED: 'photo_uploaded'
-} as const
+  PHOTO_UPLOADED: 'photo_uploaded',
+} as const;
