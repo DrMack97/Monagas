@@ -1,8 +1,8 @@
 // firebase/functions/src/types.ts
-import type { IUser } from '@monagas/core'
+import type { IUsuario } from '@monagas/core'
 
 export interface FunctionContext {
-  user: IUser | null
+  user: IUsuario | null
   role: string | null
   ip: string | null
   auth: {
