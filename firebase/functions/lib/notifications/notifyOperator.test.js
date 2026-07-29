@@ -5,21 +5,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // Paso 2: Test notificación rechazo
 // Prompt de implementación rápida:
 // "Crear tests para notifyOperator con aprobación y rechazo"
-const chai_1 = require("chai");
-describe('notifyOperator', () => {
-    it('debe enviar notificación de aprobación', async () => {
+const globals_1 = require("@jest/globals");
+(0, globals_1.describe)('notifyOperator', () => {
+    (0, globals_1.it)('debe enviar notificación de aprobación', async () => {
         // TODO: Implementar test
         // 1. Crear evaluación OFICIAL
         // 2. Trigger notifyOperator
         // 3. Verificar FCM con title "Evaluación aprobada"
-        (0, chai_1.expect)(true).to.be.true; // Placeholder
+        (0, globals_1.expect)(true).toBe(true); // Placeholder
     });
-    it('debe enviar notificación de rechazo', async () => {
+    (0, globals_1.it)('debe enviar notificación de rechazo', async () => {
         // TODO: Implementar test
         // 1. Crear evaluación RECHAZADA
         // 2. Trigger notifyOperator
         // 3. Verificar FCM con title "Evaluación rechazada"
-        (0, chai_1.expect)(true).to.be.true; // Placeholder
+        (0, globals_1.expect)(true).toBe(true); // Placeholder
     });
 });
 //# sourceMappingURL=notifyOperator.test.js.map

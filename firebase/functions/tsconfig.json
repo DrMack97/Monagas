@@ -4,6 +4,7 @@
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "outDir": "./lib",
+    "rootDir": "./src",
     "sourceMap": true,
     "strict": true,
     "target": "ES2020",
@@ -15,8 +16,8 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@monagas/core/*": ["../../packages/core/src/*"],
-      "@monagas/core": ["../../packages/core/src/index.ts"]
+      "@monagas/core/*": ["../../packages/core/dist/*"],
+      "@monagas/core": ["../../packages/core/dist/index.d.ts"]
     }
   },
   "include": ["src"],

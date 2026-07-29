@@ -24,4 +24,4 @@ var notifyMgr_1 = require("./notifications/notifyMgr");
 Object.defineProperty(exports, "notifyMgr", { enumerable: true, get: function () { return notifyMgr_1.notifyMgr; } });
 var notifyOperator_1 = require("./notifications/notifyOperator");
 Object.defineProperty(exports, "notifyOperator", { enumerable: true, get: function () { return notifyOperator_1.notifyOperator; } });
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=functions_index.js.map

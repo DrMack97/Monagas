@@ -48,7 +48,7 @@ function validarEvaluacion(lecturas) {
     };
 }
 function validarRol(rol) {
-    const validRoles = ['OPERADOR', 'SUP_CAMPO', 'SUP_MAYOR', 'COORDINADOR', 'GERENTE'];
+    const validRoles = ['OPERADOR', 'SUP_CAMPO', 'SUP_AREA', 'GERENTE'];
     return validRoles.includes(rol);
 }
 function validarPozoId(pozoId) {
