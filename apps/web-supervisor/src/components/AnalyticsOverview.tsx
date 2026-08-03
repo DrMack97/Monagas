@@ -34,21 +34,21 @@ export default function AnalyticsOverview() {
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <KPICard
-          label="Total Evaluaciones"
+          title="Total Evaluaciones"
           value={metrics.totalEvaluaciones}
           trend="up"
           trendPercentage={12}
           color="blue"
         />
         <KPICard
-          label="Aprobaciones Hoy"
+          title="Aprobaciones Hoy"
           value={metrics.aprobacionesHoy}
           trend="up"
           trendPercentage={8}
           color="green"
         />
         <KPICard
-          label="Tiempo Prom."
+          title="Tiempo Prom."
           value={metrics.tiempoPromedio}
           unit="horas"
           trend="down"
@@ -56,14 +56,14 @@ export default function AnalyticsOverview() {
           color="purple"
         />
         <KPICard
-          label="Error Rate"
+          title="Error Rate"
           value={metrics.errorRate}
           unit="%"
           trend="down"
           color="red"
         />
         <KPICard
-          label="Offline Usage"
+          title="Offline Usage"
           value={metrics.offlineUsage}
           unit="%"
           color="yellow"

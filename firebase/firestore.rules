@@ -20,11 +20,23 @@ service cloud.firestore {
       return request.auth.token.pozoAsignado == pozoId;
     }
 
-    // Solo Supervisor de Área (SUP_AREA) y Gerente crean/editan pozos
-    // y pueden reasignar Operadores/Supervisores de Campo.
-    // SUP_CAMPO queda deliberadamente excluido — solo lee su único pozo.
+    // Solo Supervisor de Área (SUP_AREA) y Gerente crean pozos nuevos
+    // y editan cualquier campo (incluyendo nombre, zona, asignados[]).
     function canManagePozos() {
       return isSupArea() || isGerente();
+    }
+
+    // SUP_CAMPO puede editar SU propio pozo, pero únicamente los campos
+    // técnicos de operación diaria: tanques (mi/ft) y límites de alerta
+    // (limResorte/limGamma). No puede tocar nombre, zona, asignados[],
+    // ni crear pozos nuevos — eso sigue siendo exclusivo de canManagePozos().
+    // Tampoco tiene ninguna autoridad sobre creación o reasignación de
+    // personal — eso vive exclusivamente en las Cloud Functions
+    // crearPersonal.ts y reassignPozo.ts, restringidas a SUP_AREA/GERENTE.
+    function canEditOwnTanquesYLimites(pozoId) {
+      return isSupCampo() && isAssignedToPozo(pozoId) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['tanques', 'limResorte', 'limGamma']);
     }
 
     // SUP_AREA ve todos los pozos de SU zona; GERENTE ve todos sin restricción
@@ -33,10 +45,11 @@ service cloud.firestore {
     }
 
     // /usuarios/{uid} — perfil del usuario
-    // Escritura directa restringida a ROOT. La reasignación de pozo
-    // pasa por una Cloud Function dedicada (reassignPozo.ts) que usa
-    // Admin SDK y refresca el Custom Claim al mismo tiempo — nunca
-    // un write directo del cliente, ni siquiera de SUP_AREA/GERENTE.
+    // Escritura directa restringida a ROOT. Toda alta o reasignación de
+    // personal pasa por Cloud Functions dedicadas (crearPersonal.ts,
+    // reassignPozo.ts), exclusivas de SUP_AREA/GERENTE — usan Admin SDK
+    // y refrescan el Custom Claim al mismo tiempo. SUP_CAMPO no tiene
+    // autoridad sobre personal: no elige el equipo con el que trabaja.
     match /usuarios/{uid} {
       allow read: if request.auth != null;
       allow write: if isRoot();
@@ -47,7 +60,8 @@ service cloud.firestore {
       allow read: if isRoot()
         || canViewPozosEnZona(resource.data.zona)
         || isAssignedToPozo(pozoId);
-      allow create, update: if isRoot() || canManagePozos();
+      allow create: if isRoot() || canManagePozos();
+      allow update: if isRoot() || canManagePozos() || canEditOwnTanquesYLimites(pozoId);
       allow delete: if isRoot();
     }
 

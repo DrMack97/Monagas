@@ -9,66 +9,79 @@
 // - approve(id) → Promise
 // - reject(id, reason) → Promise
 // - loading: boolean durante approve/reject
-import { useState, useEffect } from 'react'
-import { db } from '../services/firebase'
-import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore'
+import { useState, useEffect } from 'react';
+import { db } from '../services/firebase';
+import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+
+// ✅ Definir el tipo de evaluación
+interface Evaluation {
+  id: string;
+  estado: string;
+  pozoId: string;
+  operadorId: string;
+  [key: string]: any;
+}
 
 export function useApprovals() {
-  const [pendingApprovals, setPendingApprovals] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [pendingApprovals, setPendingApprovals] = useState<Evaluation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchPending = async () => {
     try {
-      setLoading(true)
+      setLoading(true);
       const q = query(
         collection(db, 'evaluations'),
         where('estado', '==', 'PENDIENTE_SUPERVISOR')
-      )
-      const snapshot = await getDocs(q)
-      setPendingApprovals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
-      setError(null)
+      );
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      })) as Evaluation[];
+      setPendingApprovals(data);
+      setError(null);
     } catch (err) {
-      setError(err.message)
+      setError(err instanceof Error ? err.message : 'Error al cargar evaluaciones');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const approve = async (evaluationId: string) => {
     try {
-      const ref = doc(db, 'evaluations', evaluationId)
+      const ref = doc(db, 'evaluations', evaluationId);
       await updateDoc(ref, { 
         estado: 'APROBADA_SUPERVISOR',
         aprobadaPor: 'current-user-id', // TODO: obtener de auth
-        fechaAprobacion: new Date()
-      })
-      await fetchPending()
+        fechaAprobacion: new Date(),
+      });
+      await fetchPending();
     } catch (err) {
-      setError(err.message)
-      throw err
+      setError(err instanceof Error ? err.message : 'Error al aprobar');
+      throw err;
     }
-  }
+  };
 
   const reject = async (evaluationId: string, reason: string) => {
     try {
-      const ref = doc(db, 'evaluations', evaluationId)
+      const ref = doc(db, 'evaluations', evaluationId);
       await updateDoc(ref, { 
         estado: 'RECHAZADA',
         motivoRechazo: reason,
         rechazadaPor: 'current-user-id',
-        fechaRechazo: new Date()
-      })
-      await fetchPending()
+        fechaRechazo: new Date(),
+      });
+      await fetchPending();
     } catch (err) {
-      setError(err.message)
-      throw err
+      setError(err instanceof Error ? err.message : 'Error al rechazar');
+      throw err;
     }
-  }
+  };
 
   useEffect(() => {
-    fetchPending()
-  }, [])
+    fetchPending();
+  }, []);
 
   return {
     pendingApprovals,
@@ -76,6 +89,6 @@ export function useApprovals() {
     error,
     approve,
     reject,
-    refresh: fetchPending
-  }
+    refresh: fetchPending,
+  };
 }

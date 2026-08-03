@@ -9,40 +9,53 @@
 // - loading: boolean
 // - error: string | null
 // - refresh: function
-import { useState, useEffect } from 'react'
-import { useAuth } from './useAuth'
-import { getWellsForSupervisor } from '../services/firebase'
+import { useState, useEffect } from 'react';
+import { db } from '../services/firebase';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 
-export function useWells(options: { realtime?: boolean } = {}) {
-  const { user, loading: authLoading } = useAuth()
-  const [wells, setWells] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+interface Well {
+  id: string;
+  nombre: string;
+  campo: string;
+  estado: string;
+  netos: number;
+  [key: string]: any;
+}
 
-  const fetchWells = async () => {
-    if (!user) return
-    try {
-      setLoading(true)
-      const data = await getWellsForSupervisor(user.uid)
-      setWells(data)
-      setError(null)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+export function useWells(supervisorId?: string) {
+  const [wells, setWells] = useState<Well[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && user) {
-      fetchWells()
-    }
-  }, [user, authLoading])
+    const fetchWells = async () => {
+      try {
+        const wellsRef = collection(db, 'wells');
+        let snapshot;
+        
+        // ✅ Filtro opcional por supervisorId
+        if (supervisorId) {
+          const q = query(wellsRef, where('supervisorId', '==', supervisorId));
+          snapshot = await getDocs(q);
+        } else {
+          snapshot = await getDocs(wellsRef);
+        }
 
-  return {
-    wells,
-    loading: authLoading || loading,
-    error,
-    refresh: fetchWells
-  }
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Well[];
+        
+        setWells(data);
+        setLoading(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al cargar pozos');
+        setLoading(false);
+      }
+    };
+
+    fetchWells();
+  }, [supervisorId]);
+
+  return { wells, loading, error };
 }

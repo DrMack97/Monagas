@@ -1,13 +1,17 @@
 // firebase/functions/src/auth/reassignPozo.ts
 //
-// Reasigna a un OPERADOR o SUP_CAMPO a un nuevo pozo. Es la ÚNICA
-// vía autorizada para cambiar `pozoAsignado` — un write directo del
+// Reasigna (o libera) a un OPERADOR o SUP_CAMPO. Es la ÚNICA vía
+// autorizada para cambiar `pozoAsignado` — un write directo del
 // cliente a /usuarios está bloqueado por Firestore Rules a propósito.
 //
-// Solo SUP_AREA y GERENTE pueden invocar esta función (verificado
-// aquí explícitamente, porque el Admin SDK dentro de la función
-// ignora las Firestore Rules por completo — la validación de permiso
-// tiene que vivir en el código, no solo en las reglas).
+// Exclusiva de SUP_AREA y GERENTE (verificado aquí en código, no
+// solo en Firestore Rules, porque el Admin SDK las ignora por
+// completo). SUP_CAMPO NO tiene autoridad para reasignar — no elige
+// el equipo con el que trabaja, solo opera con el personal que se le
+// asigna.
+//
+// `nuevoPozoId` acepta `null` para liberar a alguien sin moverlo
+// de inmediato a otro pozo.
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { getAuth } from 'firebase-admin/auth'
@@ -19,22 +23,22 @@ const ROLES_AUTORIZADOS = ['SUP_AREA', 'GERENTE'] as const
 
 interface ReassignPozoRequest {
   targetUid: string
-  nuevoPozoId: string
+  nuevoPozoId: string | null
 }
 
 export const reassignPozo = onCall<ReassignPozoRequest>(async (request) => {
   const callerRol = request.auth?.token?.rol as string | undefined
 
-  if (!request.auth || !ROLES_AUTORIZADOS.includes(callerRol as any)) {
+  if (!request.auth || !(ROLES_AUTORIZADOS as readonly string[]).includes(callerRol ?? '')) {
     throw new HttpsError(
       'permission-denied',
-      'Solo Supervisor de Área o Gerente pueden reasignar personal a un pozo.'
+      'Solo Supervisor de Área o Gerente pueden reasignar personal.'
     )
   }
 
   const { targetUid, nuevoPozoId } = request.data
-  if (!targetUid || !nuevoPozoId) {
-    throw new HttpsError('invalid-argument', 'Falta targetUid o nuevoPozoId.')
+  if (!targetUid) {
+    throw new HttpsError('invalid-argument', 'Falta targetUid.')
   }
 
   const db = getFirestore()
@@ -46,20 +50,22 @@ export const reassignPozo = onCall<ReassignPozoRequest>(async (request) => {
   }
   const targetData = targetSnap.data()!
   const targetRol = targetData.rol as string
+  const pozoAnteriorId = (targetData.pozoAsignado as string | null) ?? null
 
-  if (!ROLES_REASIGNABLES.includes(targetRol as any)) {
+  if (!(ROLES_REASIGNABLES as readonly string[]).includes(targetRol)) {
     throw new HttpsError(
       'failed-precondition',
       `Solo se puede reasignar a OPERADOR o SUP_CAMPO. Este usuario tiene rol ${targetRol}.`
     )
   }
 
-  const nuevoPozoSnap = await db.collection('pozos').doc(nuevoPozoId).get()
-  if (!nuevoPozoSnap.exists) {
-    throw new HttpsError('not-found', 'El pozo destino no existe.')
+  let nuevoPozoSnap: FirebaseFirestore.DocumentSnapshot | null = null
+  if (nuevoPozoId !== null) {
+    nuevoPozoSnap = await db.collection('pozos').doc(nuevoPozoId).get()
+    if (!nuevoPozoSnap.exists) {
+      throw new HttpsError('not-found', 'El pozo destino no existe.')
+    }
   }
-
-  const pozoAnteriorId = targetData.pozoAsignado as string | null
 
   const batch = db.batch()
 
@@ -75,15 +81,16 @@ export const reassignPozo = onCall<ReassignPozoRequest>(async (request) => {
     }
   }
 
-  // Agregar al usuario al nuevo pozo
-  const asignadosNuevo = (nuevoPozoSnap.data()!.asignados ?? []) as string[]
-  if (!asignadosNuevo.includes(targetUid)) {
-    batch.update(nuevoPozoSnap.ref, {
-      asignados: [...asignadosNuevo, targetUid],
-    })
+  // Agregar al usuario al nuevo pozo (si hay uno — nuevoPozoId puede ser null)
+  if (nuevoPozoSnap) {
+    const asignadosNuevo = (nuevoPozoSnap.data()!.asignados ?? []) as string[]
+    if (!asignadosNuevo.includes(targetUid)) {
+      batch.update(nuevoPozoSnap.ref, {
+        asignados: [...asignadosNuevo, targetUid],
+      })
+    }
   }
 
-  // Actualizar el documento del usuario
   batch.update(targetSnap.ref, { pozoAsignado: nuevoPozoId })
 
   await batch.commit()
@@ -97,7 +104,7 @@ export const reassignPozo = onCall<ReassignPozoRequest>(async (request) => {
   })
 
   logger.info(
-    `reassignPozo: ${targetUid} (${targetRol}) reasignado de ${pozoAnteriorId ?? 'ninguno'} a ${nuevoPozoId} por ${request.auth.uid}`
+    `reassignPozo: ${targetUid} (${targetRol}) movido de ${pozoAnteriorId ?? 'ninguno'} a ${nuevoPozoId ?? 'ninguno (liberado)'} por ${request.auth.uid} (${callerRol})`
   )
 
   return { success: true, pozoAnterior: pozoAnteriorId, pozoNuevo: nuevoPozoId }

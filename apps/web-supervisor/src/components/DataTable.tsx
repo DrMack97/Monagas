@@ -8,61 +8,86 @@
 // - Tabla con header y body
 // - Click header para sort
 // - Paginación abajo
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react';
 
 interface Column<T> {
-  key: keyof T | string
-  label: string
-  sortable?: boolean
-  formater?: (value: any, row: T) =>React.ReactNode
+  key: keyof T | string;
+  label: string;
+  sortable?: boolean;
+  formater?: (value: any, row: T) => React.ReactNode;
 }
 
 interface DataTableProps<T> {
-  columns: Column<T>[]
-  data: T[]
-  pageSize?: number
-  onRowClick?: (row: T) => void
+  columns: Column<T>[];
+  data: T[];
+  pageSize?: number;
+  onRowClick?: (row: T) => void;
 }
 
 export default function DataTable<T extends { id: string }>({
   columns,
   data,
   pageSize = 50,
-  onRowClick
+  onRowClick,
 }: DataTableProps<T>) {
-  const [sortKey, setSortKey] = useState<string | null>(null)
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [currentPage, setCurrentPage] = useState(1)
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const sortedData = useMemo(() => {
-    if (!sortKey) return data
-    
+    if (!sortKey) return data;
+
     return [...data].sort((a, b) => {
-      const aValue = a[sortKey as keyof T]
-      const bValue = b[sortKey as keyof T]
-      
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
-      return 0
-    })
-  }, [data, sortKey, sortDirection])
+      const aValue = a[sortKey as keyof T];
+      const bValue = b[sortKey as keyof T];
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [data, sortKey, sortDirection]);
 
   const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    const end = start + pageSize
-    return sortedData.slice(start, end)
-  }, [sortedData, currentPage, pageSize])
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return sortedData.slice(start, end);
+  }, [sortedData, currentPage, pageSize]);
 
-  const totalPages = Math.ceil(data.length / pageSize)
+  const totalPages = Math.ceil(data.length / pageSize);
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortKey(key)
-      setSortDirection('asc')
+      setSortKey(key);
+      setSortDirection('asc');
     }
-  }
+  };
+
+  // ✅ Helper para renderizar el valor de la celda
+  const renderCell = (row: T, col: Column<T>) => {
+    const value = row[col.key as keyof T];
+    
+    if (col.formater) {
+      return col.formater(value, row);
+    }
+
+    // ✅ Convertir a string si es un valor primitivo
+    if (value === null || value === undefined) {
+      return '—';
+    }
+
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+
+    // ✅ Si es un objeto, mostrar JSON.stringify
+    if (typeof value === 'object') {
+      return JSON.stringify(value);
+    }
+
+    return String(value);
+  };
 
   return (
     <div className="bg-white rounded-lg shadow border overflow-hidden">
@@ -100,10 +125,7 @@ export default function DataTable<T extends { id: string }>({
               >
                 {columns.map(col => (
                   <td key={String(col.key)} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {col.formater 
-                      ? col.formater(row[col.key as keyof T], row)
-                      : row[col.key as keyof T]
-                    }
+                    {renderCell(row, col)}
                   </td>
                 ))}
               </tr>
@@ -139,5 +161,5 @@ export default function DataTable<T extends { id: string }>({
         </div>
       )}
     </div>
-  )
+  );
 }

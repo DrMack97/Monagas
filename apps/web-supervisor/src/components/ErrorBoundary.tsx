@@ -2,49 +2,48 @@
 // Paso 1: Igual que mobile pero adaptado a web
 // Prompt de implementación rápida:
 // "Adaptar ErrorBoundary para web"
-import React from 'react'
-//import * as Sentry from '../services/sentry'
+import React from 'react';
 
 interface Props {
-  children: React.ReactNode
-  fallback?: React.ReactNode
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
 interface State {
-  hasError: boolean
-  error: Error | null
+  hasError: boolean;
+  error: Error | null;
 }
 
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
-    super(props)
-    this.state = { hasError: false, error: null }
+    super(props);
+    this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error }
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    Sentry.captureException(error, {
-      extra: { errorInfo, componentStack: errorInfo.componentStack }
-    })
+    // ✅ Reportar error a consola (sin Sentry)
+    console.error('ErrorBoundary capturó un error:', error);
+    console.error('Información del componente:', errorInfo);
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null })
-  }
+    this.setState({ hasError: false, error: null });
+  };
 
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
-        return this.props.fallback
+        return this.props.fallback;
       }
 
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
           <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
-            <div className="text-6xl mb-4">😕</div>
+            <div className="text-6xl mb-4">⚠️</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">
               Algo salió mal
             </h2>
@@ -67,11 +66,11 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </div>
           </div>
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }
 
-export default ErrorBoundary
+export default ErrorBoundary;

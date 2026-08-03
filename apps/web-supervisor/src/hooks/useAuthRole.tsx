@@ -13,30 +13,32 @@ import { useAuth } from './useAuth'
 import { Navigate } from 'react-router-dom'
 
 export function useAuthRole() {
-  const { user, loading } = useAuth()
-  const [role, setRole] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { user, loading } = useAuth();
+  const [role, setRole] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRole = async () => {
-      if (!user) {
-        setRole(null)
-        setIsLoading(false)
-        return
-      }
-      try {
-        const token = await user.getIdTokenResult()
-        setRole(token.claims.role || 'OPERADOR')
-      } catch (err) {
-        console.error('Error fetching role:', err)
-        setRole(null)
-      } finally {
-        setIsLoading(false)
-      }
+  const fetchRole = async () => {
+    if (!user) {
+      setRole(null);
+      setIsLoading(false);
+      return;
     }
+    try {
+      const token = await user.getIdTokenResult();
+      // ✅ Asegura que role sea string o null
+      const userRole = token.claims?.role;
+      setRole(typeof userRole === 'string' ? userRole : 'OPERADOR');
+    } catch (err) {
+      console.error('Error fetching role:', err);
+      setRole(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    fetchRole()
-  }, [user])
+  fetchRole();
+}, [user]);
 
   return {
     role,

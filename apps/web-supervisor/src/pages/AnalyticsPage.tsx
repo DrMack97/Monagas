@@ -36,13 +36,13 @@ export default function AnalyticsPage() {
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <KPICard
-          label="Pozos Totales"
+          title="Pozos Totales"
           value={kpi.totalPozos}
           icon="🏭"
           color="blue"
         />
         <KPICard
-          label="Producción Total"
+          title="Producción Total"
           value={kpi.produccionTotal.toLocaleString()}
           unit="Bls"
           trend="up"
@@ -51,13 +51,13 @@ export default function AnalyticsPage() {
           color="green"
         />
         <KPICard
-          label="Aprobaciones Hoy"
+          title="Aprobaciones Hoy"
           value={kpi.aprobacionesHoy}
           icon="✅"
           color="purple"
         />
         <KPICard
-          label="Tiempo Prom. Aprobación"
+          title="Tiempo Prom. Aprobación"
           value={kpi.tiempoPromedioAprobacion}
           unit="horas"
           trend="down"

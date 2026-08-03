@@ -10,6 +10,7 @@ initializeApp()
 // Auth
 export { assignRole } from './auth/assignRole'
 export { reassignPozo } from './auth/reassignPozo'
+export { crearPersonal } from './auth/crearPersonal'
 
 // Approvals (Fase 2 — decoy, pendiente de implementación real)
 export { onEvalSubmit } from './approvals/onEvalSubmit'
