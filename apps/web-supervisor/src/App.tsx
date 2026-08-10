@@ -1,10 +1,13 @@
 // src/App.tsx
 //
-// Routing del panel de supervisión. Solo se registran rutas hacia
-// páginas que YA tienen contenido real — NewWellPage, WellDetailPage
-// y UsersPage siguen en 0 líneas (próximos pasos del checklist de
-// Fase 1) y se agregan aquí en cuanto existan, no antes: importar un
-// archivo vacío rompe la compilación.
+// Routing del panel de supervisión. NewWellPage, WellDetailPage y
+// UsersPage ya tienen contenido real (dejaron de estar en 0 líneas)
+// y DashboardPage ya navega a ellas — quedaban huérfanas sin ruta
+// registrada, lo que hacía que "Crear Pozo" y las tarjetas de pozo
+// cayeran en el catch-all y rebotaran a /dashboard.
+//
+// El path de detalle es "/pozo/:pozoId" (singular) porque así es como
+// DashboardPage arma el link: navigate(`/pozo/${pozo.id}`).
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
@@ -12,6 +15,9 @@ import { useAuth } from './hooks/useAuth'
 
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
+import NewWellPage from './pages/NewWellPage'
+import WellDetailPage from './pages/WellDetailPage'
+import UsersPage from './pages/UsersPage'
 
 function RutaProtegida({ children }: { children: ReactNode }) {
   const { user, rol, loading } = useAuth()
@@ -26,6 +32,26 @@ function RutaProtegida({ children }: { children: ReactNode }) {
 
   if (!user) return <Navigate to="/login" replace />
   if (rol === 'OPERADOR') return <Navigate to="/login" replace />
+
+  return <>{children}</>
+}
+
+// Igual que RutaProtegida, pero además bloquea a SUP_CAMPO — para
+// pantallas exclusivas de SUP_AREA/GERENTE (crear pozo, gestionar
+// personal), coincidiendo con canManagePozos() en firestore.rules.
+function RutaSoloGestion({ children }: { children: ReactNode }) {
+  const { user, rol, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400">
+        Cargando...
+      </div>
+    )
+  }
+
+  if (!user) return <Navigate to="/login" replace />
+  if (rol !== 'SUP_AREA' && rol !== 'GERENTE') return <Navigate to="/dashboard" replace />
 
   return <>{children}</>
 }
@@ -45,11 +71,32 @@ export default function App() {
           }
         />
 
-        {/* Próximas rutas — se activan cuando cada página exista:
-            <Route path="/pozos/nuevo" element={<RutaProtegida><NewWellPage /></RutaProtegida>} />
-            <Route path="/pozos/:pozoId" element={<RutaProtegida><WellDetailPage /></RutaProtegida>} />
-            <Route path="/usuarios" element={<RutaProtegida><UsersPage /></RutaProtegida>} />
-        */}
+        <Route
+          path="/pozos/nuevo"
+          element={
+            <RutaSoloGestion>
+              <NewWellPage />
+            </RutaSoloGestion>
+          }
+        />
+
+        <Route
+          path="/pozo/:pozoId"
+          element={
+            <RutaProtegida>
+              <WellDetailPage />
+            </RutaProtegida>
+          }
+        />
+
+        <Route
+          path="/usuarios"
+          element={
+            <RutaSoloGestion>
+              <UsersPage />
+            </RutaSoloGestion>
+          }
+        />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

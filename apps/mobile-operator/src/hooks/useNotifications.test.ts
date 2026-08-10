@@ -8,44 +8,54 @@
 // - requestPermission granted → fcmToken set
 // - requestPermission denied → permission false
 // - FCM token guardado en Firestore
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { useNotifications } from './useNotifications'
 
-// Mock Firebase Messaging
+// Mock Firebase Messaging — onMessage debe devolver una función de
+// unsubscribe real: el cleanup del useEffect de useNotifications la
+// invoca al desmontar, y un jest.fn() sin retorno explícito devuelve
+// undefined (rompe con "unsubscribeForeground is not a function").
 jest.mock('firebase/messaging', () => ({
   getToken: jest.fn().mockResolvedValue('test-fcm-token'),
-  onMessage: jest.fn(),
-  onBackgroundMessage: jest.fn()
+  onMessage: jest.fn(() => jest.fn()),
+  onBackgroundMessage: jest.fn(),
 }))
+
+// jsdom no implementa la Notification API — se stubea a nivel global
+// para todo el archivo en vez de mutar/restaurar por test.
+beforeAll(() => {
+  ;(globalThis as any).Notification = { requestPermission: jest.fn(), permission: 'default' }
+})
 
 describe('useNotifications', () => {
   it('debe solicitar permiso y obtener FCM token', async () => {
     const { result } = renderHook(() => useNotifications())
 
-    // Mock Notification.requestPermission
-    const originalRequestPermission = Notification.requestPermission
-    Notification.requestPermission = jest.fn().mockResolvedValue('granted')
+    ;(Notification.requestPermission as jest.Mock).mockResolvedValueOnce('granted')
 
-    const granted = await result.current.requestPermission()
+    let granted = false
+    // requestPermission dispara setState internamente — sin act(),
+    // result.current queda con el snapshot pre-update.
+    await act(async () => {
+      granted = await result.current.requestPermission()
+    })
 
     expect(granted).toBe(true)
     expect(result.current.permission).toBe(true)
     expect(result.current.fcmToken).toBe('test-fcm-token')
-
-    Notification.requestPermission = originalRequestPermission
   })
 
   it('debe negar permiso si usuario rechaza', async () => {
     const { result } = renderHook(() => useNotifications())
 
-    const originalRequestPermission = Notification.requestPermission
-    Notification.requestPermission = jest.fn().mockResolvedValue('denied')
+    ;(Notification.requestPermission as jest.Mock).mockResolvedValueOnce('denied')
 
-    const granted = await result.current.requestPermission()
+    let granted = true
+    await act(async () => {
+      granted = await result.current.requestPermission()
+    })
 
     expect(granted).toBe(false)
     expect(result.current.permission).toBe(false)
-
-    Notification.requestPermission = originalRequestPermission
   })
 })

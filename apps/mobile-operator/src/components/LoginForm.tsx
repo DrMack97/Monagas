@@ -1,47 +1,80 @@
-// TODO: Componente UI Login - Player 2 (Frontend)
-// Paso 1: Crear formulario con email, password, botón login
-// Paso 2: Validar email con regex, password mínimo 6 caracteres
-// Paso 3: Mostrar error de login con AlertBanner
-// Prompt de implementación rápida:
-// "Crear componente React LoginForm con email, password, validación y estado de error"
-// Entregable:
-// - Formulario con 2 inputs y 1 botón
-// - Validaciones frontend funcionando
-// - State: loading, error, handleSubmit
-import React, { useState } from 'react'
+// src/components/LoginForm.tsx
+//
+// Formulario de login real — llama a useAuth().login() con Firebase
+// Auth. El manejo de "no soy OPERADOR" queda en LoginPage, que es
+// quien conoce el rol resuelto después del login.
 
-export default function LoginForm() {
+import { useState, type FormEvent } from 'react'
+import { useAuth } from '../hooks/useAuth'
+import Input from './Input'
+import Button from './Button'
+
+interface LoginFormProps {
+  onSuccess?: () => void
+}
+
+export default function LoginForm({ onSuccess }: LoginFormProps) {
+  const { login, loading, error } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [localError, setLocalError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  function validar(): boolean {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setLocalError('Ingresa un correo válido.')
+      return false
+    }
+    if (password.length < 6) {
+      setLocalError('La contraseña debe tener al menos 6 caracteres.')
+      return false
+    }
+    setLocalError('')
+    return true
+  }
+
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    // TODO: Implementar login con Firebase Auth
-    setError('Login no implementado todavía')
+    if (!validar()) return
+    try {
+      await login(email, password)
+      onSuccess?.()
+    } catch {
+      // El error ya queda reflejado en el estado de useAuth
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input
+    // noValidate: sin esto, la validación nativa de type="email" +
+    // required bloquea el evento submit ANTES de que handleSubmit
+    // corra si el valor no matchea el patrón del navegador — nuestro
+    // mensaje de error estilizado nunca llegaría a mostrarse.
+    <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <Input
+        label="Correo electrónico"
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email"
         required
+        autoComplete="username"
       />
-      <input
+      <Input
+        label="Contraseña"
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        placeholder="Password"
         required
+        autoComplete="current-password"
       />
-      {error && <div>{error}</div>}
-      <button type="submit" disabled={loading}>
-        {loading ? 'Cargando...' : 'Login'}
-      </button>
+
+      {(localError || error) && (
+        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {localError || error}
+        </div>
+      )}
+
+      <Button type="submit" fullWidth loading={loading}>
+        Iniciar Sesión
+      </Button>
     </form>
   )
 }

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mobile-operator",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@monagas/mobile-operator", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "web-supervisor",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@monagas/web-supervisor", "dev"],
+      "port": 5174
+    }
+  ]
+}

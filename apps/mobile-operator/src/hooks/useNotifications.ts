@@ -14,7 +14,7 @@ import { useState, useEffect } from 'react';
 import { auth, db } from '../services/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { getToken, onMessage } from 'firebase/messaging';
-import { messaging } from '../services/firebase-messaging';
+import { messaging, VAPID_KEY } from '../services/firebase-messaging';
 
 export function useNotifications() {
   const [permission, setPermission] = useState<boolean | null>(null);
@@ -29,7 +29,7 @@ export function useNotifications() {
 
       if (granted) {
         const token = await getToken(messaging, {
-          vapidKey: import.meta.env.VITE_VAPID_KEY,
+          vapidKey: VAPID_KEY,
         });
         
         setFcmToken(token);

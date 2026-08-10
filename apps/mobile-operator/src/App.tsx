@@ -1,16 +1,88 @@
-// TODO: Punto de entrada principal de mobile-operator - Player 2 (Frontend)
-// Paso 1: Importar React, ReactDOM, componentes principales
-// Paso 2: Configurar router con rutas de LoginPage, DashboardPage, etc.
-// Paso 3: Renderizar App en root
-// Entregable: app móvil renderiza Login en pantalla
-import React from 'react';
-import { AuthProvider } from './context/AuthContext';
-import DashboardPage from './pages/DashboardPage';
+// src/App.tsx
+//
+// Routing de la app del Operador. Todo detrás de RequireOperador
+// excepto /login. El flujo real: Dashboard (pozo asignado) → Registro
+// (captura lecturas) → Reporte (promedio + cierre). TablaPage y
+// SettingsPage son accesorias, no bloquean el flujo principal.
+
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import { RequireOperador } from './hooks/useAuthRole'
+
+import LoginPage from './pages/LoginPage'
+import DashboardPage from './pages/DashboardPage'
+import RegistroPage from './pages/RegistroPage'
+import TablaPage from './pages/TablaPage'
+import ReportePage from './pages/ReportePage'
+import SettingsPage from './pages/SettingsPage'
+
+// ReportePage se diseñó recibiendo {pozoId, evalId} por props (no lee
+// la URL directamente) para quedar testeable de forma aislada — este
+// wrapper es el único punto que traduce params de ruta a esas props.
+function ReporteRoute() {
+  const { pozoId, evalId } = useParams<{ pozoId: string; evalId: string }>()
+  if (!pozoId || !evalId) return <Navigate to="/dashboard" replace />
+  return <ReportePage pozoId={pozoId} evalId={evalId} />
+}
 
 export default function App() {
   return (
+    // AuthProvider queda montado por compatibilidad con componentes que
+    // aún no migraron (PersonalizedGreeting) — las rutas protegidas usan
+    // useAuth/useAuthRole (Custom Claims), no este contexto.
     <AuthProvider>
-      <DashboardPage />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+
+          <Route
+            path="/dashboard"
+            element={
+              <RequireOperador>
+                <DashboardPage />
+              </RequireOperador>
+            }
+          />
+
+          <Route
+            path="/registro/:pozoId"
+            element={
+              <RequireOperador>
+                <RegistroPage />
+              </RequireOperador>
+            }
+          />
+
+          <Route
+            path="/tabla"
+            element={
+              <RequireOperador>
+                <TablaPage />
+              </RequireOperador>
+            }
+          />
+
+          <Route
+            path="/reporte/:pozoId/:evalId"
+            element={
+              <RequireOperador>
+                <ReporteRoute />
+              </RequireOperador>
+            }
+          />
+
+          <Route
+            path="/ajustes"
+            element={
+              <RequireOperador>
+                <SettingsPage />
+              </RequireOperador>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </BrowserRouter>
     </AuthProvider>
-  );
+  )
 }

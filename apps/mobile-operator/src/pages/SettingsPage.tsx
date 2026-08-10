@@ -1,71 +1,70 @@
-// TODO: Página de configuración - Player 2 (Frontend)
-// Paso 1: Mostrar usuario actual
-// Paso 2: Toggle notificaciones
-// Paso 3: Toggle offline mode
-// Prompt de implementación rápida:
-// "Crear SettingsPage con user info, notification toggle, offline toggle"
-// Entregable:
-// - Info usuario (nombre, email, rol)
-// - Toggle notificaciones push
-// - Toggle offline mode
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useNotifications } from '../hooks/useNotifications';
+// src/pages/SettingsPage.tsx
+//
+// Antes leía `user.nombre/rol` de AuthContext (un objeto Firebase User
+// no tiene esos campos — undefined siempre). Ahora usa useAuth real:
+// email y rol vienen del propio User/Custom Claims; logout es real.
+
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import { useNotifications } from '../hooks/useNotifications'
 
 export default function SettingsPage() {
-  const { user } = useAuth();
-  const { requestPermission } = useNotifications();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [offlineMode, setOfflineMode] = useState(false);
+  const navigate = useNavigate()
+  const { user, rol, logout } = useAuth()
+  const { requestPermission } = useNotifications()
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
+  const [offlineMode, setOfflineMode] = useState(false)
 
   const handleToggleNotifications = async () => {
     if (notificationsEnabled) {
-      setNotificationsEnabled(false);
+      setNotificationsEnabled(false)
     } else {
-      const granted = await requestPermission();
-      setNotificationsEnabled(granted);
+      const granted = await requestPermission()
+      setNotificationsEnabled(granted)
     }
-  };
+  }
 
-  if (!user) return <div>Cargando...</div>;
+  async function handleLogout() {
+    await logout()
+    navigate('/login')
+  }
 
-  const userData = user as any; // ← Temporal
+  if (!user) return <div className="p-4 text-slate-400">Cargando...</div>
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-6">Configuración</h1>
+    <div className="min-h-screen bg-slate-950 p-4 max-w-md mx-auto">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={() => navigate('/dashboard')} className="text-slate-400">←</button>
+        <h1 className="text-xl font-bold text-white">Configuración</h1>
+      </div>
 
       {/* Información de Usuario */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Información de Usuario</h2>
-        <div className="space-y-2">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
+        <h2 className="text-sm font-semibold text-slate-300 mb-3">Información de Usuario</h2>
+        <div className="space-y-2 text-sm">
           <div>
-            <p className="text-sm text-gray-600">Nombre</p>
-            <p className="font-medium">{userData.nombre}</p>
+            <p className="text-slate-500">Correo</p>
+            <p className="text-white">{user.email}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Email</p>
-            <p className="font-medium">{userData.email}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Rol</p>
-            <p className="font-medium">{userData.rol}</p>
+            <p className="text-slate-500">Rol</p>
+            <p className="text-white">{rol ?? '—'}</p>
           </div>
         </div>
       </div>
 
       {/* Notificaciones */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Notificaciones</h2>
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium">Notificaciones push</p>
-            <p className="text-sm text-gray-600">Recibir alertas de aprobaciones</p>
+            <p className="text-white font-medium">Notificaciones push</p>
+            <p className="text-sm text-slate-500">Recibir alertas de aprobaciones</p>
           </div>
           <button
             onClick={handleToggleNotifications}
             className={`w-12 h-6 rounded-full transition-colors ${
-              notificationsEnabled ? 'bg-blue-600' : 'bg-gray-300'
+              notificationsEnabled ? 'bg-amber-500' : 'bg-slate-700'
             }`}
           >
             <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
@@ -76,17 +75,16 @@ export default function SettingsPage() {
       </div>
 
       {/* Modo Offline */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Modo Offline</h2>
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium">Guardar offline</p>
-            <p className="text-sm text-gray-600">Guardar evaluaciones sin conexión</p>
+            <p className="text-white font-medium">Guardar offline</p>
+            <p className="text-sm text-slate-500">Guardar lecturas sin conexión</p>
           </div>
           <button
             onClick={() => setOfflineMode(!offlineMode)}
             className={`w-12 h-6 rounded-full transition-colors ${
-              offlineMode ? 'bg-blue-600' : 'bg-gray-300'
+              offlineMode ? 'bg-amber-500' : 'bg-slate-700'
             }`}
           >
             <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
@@ -96,15 +94,12 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Cerrar sesión */}
       <button
-        onClick={() => {
-          console.log('Logout');
-        }}
+        onClick={handleLogout}
         className="w-full py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
       >
         Cerrar sesión
       </button>
     </div>
-  );
+  )
 }

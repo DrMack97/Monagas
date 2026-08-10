@@ -4,7 +4,7 @@
 // Punto de entrada de Cloud Functions. Cada función exportada aquí
 // queda desplegada como un endpoint/trigger independiente.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.notifyOperator = exports.notifyMgr = exports.onReject = exports.onApprove = exports.onEvalSubmit = exports.reassignPozo = exports.assignRole = void 0;
+exports.notifyOperator = exports.notifyMgr = exports.onReject = exports.onApprove = exports.onEvalSubmit = exports.crearPersonal = exports.reassignPozo = exports.assignRole = void 0;
 const app_1 = require("firebase-admin/app");
 (0, app_1.initializeApp)();
 // Auth
@@ -12,6 +12,8 @@ var assignRole_1 = require("./auth/assignRole");
 Object.defineProperty(exports, "assignRole", { enumerable: true, get: function () { return assignRole_1.assignRole; } });
 var reassignPozo_1 = require("./auth/reassignPozo");
 Object.defineProperty(exports, "reassignPozo", { enumerable: true, get: function () { return reassignPozo_1.reassignPozo; } });
+var crearPersonal_1 = require("./auth/crearPersonal");
+Object.defineProperty(exports, "crearPersonal", { enumerable: true, get: function () { return crearPersonal_1.crearPersonal; } });
 // Approvals (Fase 2 — decoy, pendiente de implementación real)
 var onEvalSubmit_1 = require("./approvals/onEvalSubmit");
 Object.defineProperty(exports, "onEvalSubmit", { enumerable: true, get: function () { return onEvalSubmit_1.onEvalSubmit; } });

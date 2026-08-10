@@ -28,7 +28,19 @@ export function useLecturasEvaluacion(evalId: string | undefined) {
     const unsubscribe = onSnapshot(
       q,
       (snap) => {
-        setLecturas(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ILectura))
+        setLecturas(
+          snap.docs.map((d) => {
+            const data = d.data()
+            // Firestore devuelve Timestamp, no Date — convertir en el
+            // borde de lectura para que el resto de la app (fmt,
+            // dateFormat) pueda tratarlo como Date de forma segura.
+            const timestamp =
+              data.timestamp && typeof data.timestamp.toDate === 'function'
+                ? data.timestamp.toDate()
+                : data.timestamp
+            return { id: d.id, ...data, timestamp } as ILectura
+          })
+        )
         setLoading(false)
         setError(null)
       },

@@ -75,6 +75,15 @@ export interface IResultadosEval {
   aysBls: number
   horasTotales: number
   proyeccion24H: number
+  /**
+   * FINAL_24H — horasEvaluadas >= horasEval del pozo, cierra la
+   * evaluación (estado → CERRADA).
+   * PRELIMINAR_FORZADO — calculado bajo demanda antes de completar
+   * el ciclo (botón "Calcular Promedio" en ReportePage); no cierra
+   * la evaluación, solo guarda un snapshot de resultados.
+   */
+  tipoCalculo: 'FINAL_24H' | 'PRELIMINAR_FORZADO'
+  calculadoEn: Date
 }
 
 export interface IAprobacion {

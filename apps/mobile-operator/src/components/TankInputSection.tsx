@@ -9,13 +9,17 @@
 import type { TankInput } from '@monagas/core/calculos';
 interface TankInputSectionProps {
   tank: TankInput
+  nombre?: string
   readOnly?: boolean
 }
 
-export default function TankInputSection({ tank, readOnly = true }: TankInputSectionProps) {
+export default function TankInputSection({ tank, nombre = 'Tanque', readOnly = true }: TankInputSectionProps) {
   return (
     <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl">
-      <h4 className="font-medium text-white mb-3">{tank as any}</h4>
+      {/* TankInput (calculos) no trae nombre — antes intentaba
+          renderizar el objeto `tank` completo como hijo de React, lo
+          que crashea ("Objects are not valid as a React child"). */}
+      <h4 className="font-medium text-white mb-3">{nombre}</h4>
 
       <div className="grid grid-cols-2 gap-3">
         <div>

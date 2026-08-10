@@ -4,6 +4,7 @@
     "jsx": "react-jsx",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "outDir": "./dist",
+    "isolatedModules": true,
     "baseUrl": ".",  
     "paths": {
       "@core/*": ["../../packages/core/src/*"]

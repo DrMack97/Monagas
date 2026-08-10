@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { usePozosVisibles } from '../hooks/usePozosVisibles'
 import Header from '../components/common/Header'
+import Sidebar from '../components/common/Sidebar'
 import MetricCard from '../components/dashboard/MetricCard'
 import PozoSupervisorCard from '../components/dashboard/PozoSupervisorCard'
 import { LoadingState, ErrorState, EmptyState } from '../components/dashboard/DashboardStates'
@@ -54,57 +55,61 @@ export default function DashboardPage() {
   const puedeCrearPozo = rol ? PUEDE_CREAR_POZO[rol] ?? false : false
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      <Header nombre={user?.displayName ?? user?.email ?? null} rol={rol} onLogout={logout} />
+    <div className="min-h-screen bg-slate-950 flex">
+      <Sidebar rol={rol} />
 
-      {/* Sub-header con contexto de alcance */}
-      <div className="p-4 md:p-6 pb-0 flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white">Supervisión de Pozos</h1>
-          <p className="text-sm text-slate-400 mt-0.5">{contexto}</p>
-        </div>
-        {puedeCrearPozo && (
-          <button
-            onClick={() => navigate('/pozos/nuevo')}
-            className="text-sm font-medium bg-amber-500 text-slate-950 rounded-lg px-4 py-2 hover:bg-amber-400 transition-colors whitespace-nowrap"
-          >
-            + Crear Pozo
-          </button>
-        )}
-      </div>
+      <div className="flex-1 min-w-0">
+        <Header nombre={user?.displayName ?? user?.email ?? null} rol={rol} onLogout={logout} />
 
-      <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
-        {/* Métricas clave */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <MetricCard label="Pozos visibles" value={String(metricas.total)} icon="🛢️" accent="slate" />
-          <MetricCard label="En Curso" value={String(metricas.enCurso)} icon="🟢" accent="amber" />
-          <MetricCard label="Pendientes" value={String(metricas.pendientes)} icon="⏳" accent="blue" />
-          <MetricCard label="Personal asignado" value={String(metricas.totalPersonal)} icon="👷" accent="emerald" />
-        </div>
-
-        {/* Lista de pozos */}
-        <div>
-          <h2 className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wide">
-            Pozos
-          </h2>
-
-          {loading ? (
-            <LoadingState />
-          ) : error ? (
-            <ErrorState message={error} />
-          ) : pozos.length === 0 ? (
-            <EmptyState rol={rol} />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {pozos.map((pozo) => (
-                <PozoSupervisorCard
-                  key={pozo.id}
-                  pozo={pozo}
-                  onPress={() => navigate(`/pozo/${pozo.id}`)}
-                />
-              ))}
-            </div>
+        {/* Sub-header con contexto de alcance */}
+        <div className="p-4 md:p-6 pb-0 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-white">Supervisión de Pozos</h1>
+            <p className="text-sm text-slate-400 mt-0.5">{contexto}</p>
+          </div>
+          {puedeCrearPozo && (
+            <button
+              onClick={() => navigate('/pozos/nuevo')}
+              className="text-sm font-medium bg-amber-500 text-slate-950 rounded-lg px-4 py-2 hover:bg-amber-400 transition-colors whitespace-nowrap"
+            >
+              + Crear Pozo
+            </button>
           )}
+        </div>
+
+        <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
+          {/* Métricas clave */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <MetricCard label="Pozos visibles" value={String(metricas.total)} icon="🛢️" accent="slate" />
+            <MetricCard label="En Curso" value={String(metricas.enCurso)} icon="🟢" accent="amber" />
+            <MetricCard label="Pendientes" value={String(metricas.pendientes)} icon="⏳" accent="blue" />
+            <MetricCard label="Personal asignado" value={String(metricas.totalPersonal)} icon="👷" accent="emerald" />
+          </div>
+
+          {/* Lista de pozos */}
+          <div>
+            <h2 className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wide">
+              Pozos
+            </h2>
+
+            {loading ? (
+              <LoadingState />
+            ) : error ? (
+              <ErrorState message={error} />
+            ) : pozos.length === 0 ? (
+              <EmptyState rol={rol} />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {pozos.map((pozo) => (
+                  <PozoSupervisorCard
+                    key={pozo.id}
+                    pozo={pozo}
+                    onPress={() => navigate(`/pozo/${pozo.id}`)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

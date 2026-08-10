@@ -25,6 +25,11 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp()
 // Inicializar Messaging
 export const messaging = getMessaging(app)
 
+// Aislado aquí (no directo en useNotifications.ts) para que quede
+// cubierto por el mismo mock de tests que el resto de este archivo —
+// import.meta.env no es válido bajo el target CommonJS que usa Jest.
+export const VAPID_KEY = import.meta.env.VITE_VAPID_KEY
+
 // Configurar service worker para background messages
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('/firebase-messaging-sw.js')

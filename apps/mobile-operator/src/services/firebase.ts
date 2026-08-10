@@ -10,9 +10,9 @@
 // - Persistence enabled para offline
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import { getAuth } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -26,17 +26,30 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Firestore con persistencia offline
 const db = getFirestore(app);
-enableIndexedDbPersistence(db).catch((err) => {
-  if (err.code === 'failed-precondition') {
-    console.warn('⚠️ Múltiples pestañas abiertas, persistencia limitada');
-  } else if (err.code === 'unimplemented') {
-    console.warn('⚠️ Navegador no soporta persistencia offline');
-  }
-});
-
 const storage = getStorage(app);
 const auth = getAuth(app);
+
+// Emuladores locales en dev — nunca en build de producción. Debe
+// correr ANTES de cualquier otra operación sobre db/auth/storage
+// (persistencia incluida), o Firestore tira "already started".
+if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR !== 'false') {
+  connectFirestoreEmulator(db, 'localhost', 8080);
+  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+  connectStorageEmulator(storage, 'localhost', 9199);
+}
+
+// Persistencia offline — no en el emulador de Firestore (rompe con
+// invalid access en algunas versiones) y solo tiene sentido contra
+// el backend real.
+if (!import.meta.env.DEV) {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn('⚠️ Múltiples pestañas abiertas, persistencia limitada');
+    } else if (err.code === 'unimplemented') {
+      console.warn('⚠️ Navegador no soporta persistencia offline');
+    }
+  });
+}
 
 export { db, storage, auth, app };
