@@ -20,6 +20,26 @@ export interface ITank {
   ft: number   // Factor Tanque — kk individual por tanque (BBL/pulg)
 }
 
+/**
+ * Información legal/regulatoria del pozo — deliberadamente separada
+ * de las características técnicas (ITank, límites, meterRun, etc.).
+ * No se mezclan porque tienen ciclos de vida y dueños distintos:
+ * lo técnico lo edita SUP_CAMPO/SUP_AREA en operación diaria; lo
+ * legal normalmente lo captura una sola vez el SUP_AREA/GERENTE al
+ * dar de alta el pozo, y cambia con mucha menor frecuencia.
+ */
+export interface IPozoLegal {
+  concesionario: string        // Titular legal de los derechos de explotación (puede diferir de la empresa contratista que ejecuta el servicio)
+  numeroConcesion?: string
+  fechaOtorgamiento?: Date
+  fechaVencimiento?: Date
+  rifOperador?: string         // RIF de la empresa operadora/concesionaria
+  coordenadas?: {
+    lat: number
+    lng: number
+  }
+}
+
 export interface IPozo {
   id: string
   nombre: string
@@ -30,6 +50,8 @@ export interface IPozo {
   limGamma: number    // inH₂O
   meterRun?: number   // pulg — Meter Run D
   diamOrif?: number   // pulg — Diámetro Placa d
+  empresa?: string    // Empresa contratista que ejecuta el servicio (encabezado de reporte)
+  legal?: IPozoLegal  // Información legal — ver IPozoLegal. Opcional: pozos existentes no lo tienen todavía.
   horasEval: number
   estado: EstadoEvaluacion
   asignados: string[] // UIDs de operadores
