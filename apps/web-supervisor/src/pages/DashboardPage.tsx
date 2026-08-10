@@ -1,60 +1,112 @@
-import React, { useState } from 'react';
+// src/pages/DashboardPage.tsx
+//
+// Vista principal del Supervisor. La visibilidad de pozos está
+// completamente delegada a usePozosVisibles, que aplica la lógica
+// de rol (SUP_CAMPO: 1 pozo · SUP_AREA: su zona · GERENTE: todos) —
+// esta página no filtra nada por su cuenta, solo consume lo que el
+// hook ya devolvió correctamente autorizado.
+//
+// Nota de diseño: las métricas mostradas (pozos en curso, pendientes,
+// personal asignado) se calculan a partir de IPozo directamente, sin
+// queries adicionales a /evaluaciones. Un "Total Netos Fiscalizado"
+// agregado requeriría denormalizar ese dato en el pozo (actualizado
+// por Cloud Function al cerrar cada evaluación) — no está en el
+// alcance de esta entrega, se deja como nota para no inventar cifras.
 
-// Datos de ejemplo
-const POZOS = [
-  { id: 'p1', nombre: 'MFB-950', campo: 'Bare', estado: 'EN_CURSO', netos: 133.10 },
-  { id: 'p2', nombre: 'MFB-919', campo: 'Bare', estado: 'PENDIENTE', netos: 57.05 },
-  { id: 'p3', nombre: 'MFB-882', campo: 'Norte', estado: 'OFICIAL', netos: 89.40 },
-];
+import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import { usePozosVisibles } from '../hooks/usePozosVisibles'
+import Header from '../components/common/Header'
+import MetricCard from '../components/dashboard/MetricCard'
+import PozoSupervisorCard from '../components/dashboard/PozoSupervisorCard'
+import { LoadingState, ErrorState, EmptyState } from '../components/dashboard/DashboardStates'
+
+const CONTEXTO_POR_ROL: Record<string, (zona: string | null) => string> = {
+  SUP_CAMPO: () => 'Tu pozo asignado',
+  SUP_AREA: (zona) => `Zona ${zona ?? '—'}`,
+  GERENTE: () => 'Todos los pozos del sistema',
+}
+
+// Coincide exactamente con canManagePozos() en firestore.rules —
+// SUP_CAMPO queda fuera a propósito, no crea ni gestiona pozos.
+const PUEDE_CREAR_POZO: Record<string, boolean> = {
+  SUP_AREA: true,
+  GERENTE: true,
+}
 
 export default function DashboardPage() {
-  const [pozoSeleccionado, setPozoSeleccionado] = useState(POZOS[0]);
+  const navigate = useNavigate()
+  const { user, rol, zona, pozoAsignado, loading: loadingAuth, logout } = useAuth()
+  const { pozos, loading: loadingPozos, error } = usePozosVisibles(rol, zona, pozoAsignado)
+
+  const metricas = useMemo(() => {
+    const enCurso = pozos.filter((p) => p.estado === 'EN_CURSO').length
+    const pendientes = pozos.filter(
+      (p) => p.estado === 'PENDIENTE_SUPERVISOR' || p.estado === 'CERRADA'
+    ).length
+    const totalPersonal = pozos.reduce((acc, p) => acc + (p.asignados?.length ?? 0), 0)
+    return { total: pozos.length, enCurso, pendientes, totalPersonal }
+  }, [pozos])
+
+  const loading = loadingAuth || loadingPozos
+  const contexto = rol ? CONTEXTO_POR_ROL[rol]?.(zona) ?? '' : ''
+  const puedeCrearPozo = rol ? PUEDE_CREAR_POZO[rol] ?? false : false
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold text-white">Well Testing App - Supervisor</h1>
-      <p className="text-gray-400">Distrito Monagas</p>
+    <div className="min-h-screen bg-slate-950">
+      <Header nombre={user?.displayName ?? user?.email ?? null} rol={rol} onLogout={logout} />
 
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        <div className="bg-gray-800 p-4 rounded-lg">
-          <p className="text-sm text-gray-400">Total Fiscalizado</p>
-          <p className="text-2xl font-bold text-yellow-500">279.55 Bpd</p>
+      {/* Sub-header con contexto de alcance */}
+      <div className="p-4 md:p-6 pb-0 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-white">Supervisión de Pozos</h1>
+          <p className="text-sm text-slate-400 mt-0.5">{contexto}</p>
         </div>
-        <div className="bg-gray-800 p-4 rounded-lg">
-          <p className="text-sm text-gray-400">Pozos en prueba</p>
-          <p className="text-2xl font-bold text-white">{POZOS.length}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 space-y-2">
-        {POZOS.map((p) => (
+        {puedeCrearPozo && (
           <button
-            key={p.id}
-            className="w-full bg-gray-800 p-4 rounded-lg text-left hover:bg-gray-700"
-            onClick={() => setPozoSeleccionado(p)}
+            onClick={() => navigate('/pozos/nuevo')}
+            className="text-sm font-medium bg-amber-500 text-slate-950 rounded-lg px-4 py-2 hover:bg-amber-400 transition-colors whitespace-nowrap"
           >
-            <div className="flex justify-between">
-              <span className="font-bold text-white">{p.nombre}</span>
-              <span className={`px-2 py-1 text-xs rounded ${
-                p.estado === 'EN_CURSO' ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300'
-              }`}>
-                {p.estado}
-              </span>
-            </div>
-            <div className="text-sm text-gray-400">
-              Campo: {p.campo} · Neto: <span className="text-green-400">{p.netos} bpd</span>
-            </div>
+            + Crear Pozo
           </button>
-        ))}
+        )}
       </div>
 
-      {pozoSeleccionado && (
-        <div className="mt-4 bg-gray-800 p-4 rounded-lg">
-          <h2 className="text-lg font-bold text-white">Detalle: {pozoSeleccionado.nombre}</h2>
-          <p className="text-gray-400">Neto: {pozoSeleccionado.netos} bpd</p>
-          <p className="text-gray-400">Estado: {pozoSeleccionado.estado}</p>
+      <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
+        {/* Métricas clave */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <MetricCard label="Pozos visibles" value={String(metricas.total)} icon="🛢️" accent="slate" />
+          <MetricCard label="En Curso" value={String(metricas.enCurso)} icon="🟢" accent="amber" />
+          <MetricCard label="Pendientes" value={String(metricas.pendientes)} icon="⏳" accent="blue" />
+          <MetricCard label="Personal asignado" value={String(metricas.totalPersonal)} icon="👷" accent="emerald" />
         </div>
-      )}
+
+        {/* Lista de pozos */}
+        <div>
+          <h2 className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wide">
+            Pozos
+          </h2>
+
+          {loading ? (
+            <LoadingState />
+          ) : error ? (
+            <ErrorState message={error} />
+          ) : pozos.length === 0 ? (
+            <EmptyState rol={rol} />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {pozos.map((pozo) => (
+                <PozoSupervisorCard
+                  key={pozo.id}
+                  pozo={pozo}
+                  onPress={() => navigate(`/pozo/${pozo.id}`)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
-  );
+  )
 }

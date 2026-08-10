@@ -28,6 +28,7 @@ interface ReassignPozoRequest {
 
 export const reassignPozo = onCall<ReassignPozoRequest>(async (request) => {
   const callerRol = request.auth?.token?.rol as string | undefined
+  const callerZona = request.auth?.token?.zona as string | null | undefined
 
   if (!request.auth || !(ROLES_AUTORIZADOS as readonly string[]).includes(callerRol ?? '')) {
     throw new HttpsError(
@@ -59,11 +60,27 @@ export const reassignPozo = onCall<ReassignPozoRequest>(async (request) => {
     )
   }
 
+  // SUP_AREA solo gestiona personal dentro de SU zona — ni el origen
+  // ni el destino pueden salirse de ahí. GERENTE no tiene esta
+  // restricción.
+  if (callerRol === 'SUP_AREA') {
+    const targetZona = targetData.zona as string | null
+    if (targetZona !== callerZona) {
+      throw new HttpsError(
+        'permission-denied',
+        'Ese usuario no pertenece a tu zona.'
+      )
+    }
+  }
+
   let nuevoPozoSnap: FirebaseFirestore.DocumentSnapshot | null = null
   if (nuevoPozoId !== null) {
     nuevoPozoSnap = await db.collection('pozos').doc(nuevoPozoId).get()
     if (!nuevoPozoSnap.exists) {
       throw new HttpsError('not-found', 'El pozo destino no existe.')
+    }
+    if (callerRol === 'SUP_AREA' && nuevoPozoSnap.data()!.zona !== callerZona) {
+      throw new HttpsError('permission-denied', 'Ese pozo no pertenece a tu zona.')
     }
   }
 

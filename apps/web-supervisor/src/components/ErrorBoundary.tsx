@@ -2,7 +2,7 @@
 // Paso 1: Igual que mobile pero adaptado a web
 // Prompt de implementación rápida:
 // "Adaptar ErrorBoundary para web"
-import React from 'react';
+import React, { Component, ReactNode } from 'react';
 
 interface Props {
   children: React.ReactNode;

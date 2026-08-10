@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@core/*": ["packages/core/src/*"]
+    },
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+  },
+  "include": ["apps/web-supervisor/src/**/*", "packages/core/src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
