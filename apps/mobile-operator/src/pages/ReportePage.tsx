@@ -9,13 +9,22 @@
 //   FINAL_24H          — si horasEvaluadas >= horasEval del pozo
 //   PRELIMINAR_FORZADO — si se calculó antes de completar el ciclo
 //
-// Solo el cálculo FINAL_24H cierra la evaluación (estado → CERRADA).
+// El cálculo FINAL_24H envía la evaluación a revisión de supervisor
+// (estado → PENDIENTE_SUPERVISOR) — ya NO cierra directo a CERRADA.
+// Ese estado queda sin uso en este flujo; ver checklist Fase 2.
 // El preliminar forzado guarda un snapshot de resultados pero deja
 // la evaluación EN_CURSO — el operador puede seguir registrando
 // lecturas después de generar un reporte preliminar.
+//
+// Lo que pasa después de PENDIENTE_SUPERVISOR (aprobar/rechazar) lo
+// resuelve useApprovals.ts en web-supervisor. La sincronización de
+// pozo.estado y el ascenso automático a OFICIAL al aprobar quedan a
+// cargo de Cloud Functions (Admin SDK) — el Operador no tiene permiso
+// de escritura sobre /pozos/{pozoId} en firestore.rules, así que esa
+// sincronización no puede hacerse desde este cliente.
 
 import { useState } from 'react'
-import { FiCheckCircle, FiAlertTriangle } from 'react-icons/fi'
+import { FiSend, FiAlertTriangle } from 'react-icons/fi'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
@@ -60,7 +69,7 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
       await updateDoc(doc(db, 'evaluaciones', evalId), {
         resultados: nuevosResultados,
         ...(tipoCalculo === 'FINAL_24H' && {
-          estado: 'CERRADA',
+          estado: 'PENDIENTE_SUPERVISOR',
           fechaCierre: serverTimestamp(),
         }),
       })
@@ -96,7 +105,7 @@ Netos: ${fmt(resultados.netosPromedio)} Bls
 Q.G: ${fmt(resultados.qgPromedio, 2)} MMSCFD
 AyS/BSW: ${fmt((resultados.aysBls / (resultados.bpdPromedio || 1)) * 100, 1)}%
 
-${esPreliminar ? '⚠️ *CÁLCULO PRELIMINAR — no representa el cierre oficial de 24H*' : '✅ *Promedio Final — 24 Horas Completas*'}`
+${esPreliminar ? '⚠️ *CÁLCULO PRELIMINAR — no representa el cierre oficial de 24H*' : '📤 *Enviado a Supervisión — pendiente de aprobación*'}`
   }
 
   if (loading) return <div className="p-6 text-slate-400">Cargando...</div>
@@ -149,11 +158,11 @@ ${esPreliminar ? '⚠️ *CÁLCULO PRELIMINAR — no representa el cierre oficia
         <>
           <div className={`flex items-center justify-center gap-1.5 text-center text-sm font-medium rounded-lg py-2 ${
             resultados.tipoCalculo === 'FINAL_24H'
-              ? 'bg-emerald-950/40 border border-emerald-900 text-emerald-400'
+              ? 'bg-orange-950/40 border border-orange-900 text-orange-400'
               : 'bg-amber-950/40 border border-amber-900 text-amber-400'
           }`}>
             {resultados.tipoCalculo === 'FINAL_24H' ? (
-              <><FiCheckCircle aria-hidden="true" /> Promedio Final — 24 Horas Completas</>
+              <><FiSend aria-hidden="true" /> Enviado a Supervisión — 24 Horas Completas</>
             ) : (
               <><FiAlertTriangle aria-hidden="true" /> Cálculo Preliminar Forzado — {resultados.horasTotales}H de {pozo?.horasEval ?? '?'}H</>
             )}
