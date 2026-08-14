@@ -5,6 +5,7 @@
 // Prompt de implementación rápida:
 // "Crear PhotoCapture con takePhoto, preview, upload"
 import React, { useState } from 'react';
+import { FiClock, FiCamera, FiX } from 'react-icons/fi';
 import { camera } from '../services/camera';
 
 interface PhotoCaptureProps {
@@ -78,7 +79,7 @@ export default function PhotoCapture({
           disabled={uploading || photos.length >= maxPhotos}
           className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          <span>{uploading ? '⏳' : '📷'}</span>
+          <span aria-hidden="true">{uploading ? <FiClock /> : <FiCamera />}</span>
           <span>{uploading ? 'Subiendo...' : 'Tomar foto'}</span>
         </button>
       </div>
@@ -99,8 +100,9 @@ export default function PhotoCapture({
               <button
                 onClick={() => handleRemovePhoto(index)}
                 className="absolute top-1 right-1 w-6 h-6 bg-red-600 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-700"
+                aria-label="Quitar foto"
               >
-                ✕
+                <FiX aria-hidden="true" />
               </button>
             </div>
           ))}

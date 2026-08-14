@@ -6,6 +6,7 @@
 // vía usePozoInfo. Sin pozo asignado no hay nada que registrar.
 
 import { useNavigate } from 'react-router-dom'
+import { FiSettings, FiDroplet } from 'react-icons/fi'
 import { useAuth } from '../hooks/useAuth'
 import { usePozoInfo } from '../hooks/usePozoInfo'
 import EmptyState from '../components/EmptyState'
@@ -25,7 +26,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/ajustes')} className="text-slate-400 text-sm">
-            ⚙️
+            <FiSettings aria-label="Ajustes" />
           </button>
           <button onClick={() => logout()} className="text-slate-400 text-sm">
             Salir
@@ -38,7 +39,7 @@ export default function DashboardPage() {
           <LoadingSpinner message="Cargando pozo asignado..." />
         ) : !pozoAsignado || !pozo ? (
           <EmptyState
-            icon="🛢️"
+            icon={<FiDroplet />}
             title="Sin pozo asignado"
             message="Todavía no tienes un pozo asignado. Contacta a tu Supervisor de Área."
           />

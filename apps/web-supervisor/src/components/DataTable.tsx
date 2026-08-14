@@ -9,6 +9,7 @@
 // - Click header para sort
 // - Paginación abajo
 import React, { useState, useMemo } from 'react';
+import { FiArrowUp, FiArrowDown, FiChevronUp, FiChevronDown } from 'react-icons/fi';
 
 interface Column<T> {
   key: keyof T | string;
@@ -107,8 +108,15 @@ export default function DataTable<T extends { id: string }>({
                   <div className="flex items-center gap-1">
                     {col.label}
                     {col.sortable && (
-                      <span className="text-gray-400">
-                        {sortKey === col.key ? (sortDirection === 'asc' ? '↑' : '↓') : '⇅'}
+                      <span className="text-gray-400" aria-hidden="true">
+                        {sortKey === col.key ? (
+                          sortDirection === 'asc' ? <FiArrowUp /> : <FiArrowDown />
+                        ) : (
+                          <span className="inline-flex flex-col leading-none -space-y-1">
+                            <FiChevronUp size={10} />
+                            <FiChevronDown size={10} />
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>

@@ -7,6 +7,8 @@
 // que las rutas en App.tsx (RutaSoloGestion).
 
 import { NavLink } from 'react-router-dom'
+import type { IconType } from 'react-icons'
+import { FiDroplet, FiUsers } from 'react-icons/fi'
 import type { Rol } from '@core/types'
 
 interface SidebarProps {
@@ -16,13 +18,13 @@ interface SidebarProps {
 interface NavItem {
   to: string
   label: string
-  icon: string
+  icon: IconType
   roles?: Rol[]
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/dashboard', label: 'Pozos', icon: '🛢️' },
-  { to: '/usuarios', label: 'Usuarios', icon: '👷', roles: ['SUP_AREA', 'GERENTE'] },
+  { to: '/dashboard', label: 'Pozos', icon: FiDroplet },
+  { to: '/usuarios', label: 'Usuarios', icon: FiUsers, roles: ['SUP_AREA', 'GERENTE'] },
 ]
 
 const linkClasses = ({ isActive }: { isActive: boolean }) =>
@@ -42,7 +44,7 @@ export default function Sidebar({ rol }: SidebarProps) {
     >
       {items.map((item) => (
         <NavLink key={item.to} to={item.to} className={linkClasses}>
-          <span aria-hidden="true">{item.icon}</span>
+          <item.icon aria-hidden="true" size={16} />
           {item.label}
         </NavLink>
       ))}

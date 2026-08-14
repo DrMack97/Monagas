@@ -6,6 +6,7 @@
 
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { FiDroplet } from 'react-icons/fi'
 import { useAuth } from '../hooks/useAuth'
 import Input from '../components/common/Input'
 import Button from '../components/common/Button'
@@ -30,7 +31,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col justify-center items-center bg-slate-950 px-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <span className="text-3xl">🛢️</span>
+          <FiDroplet className="text-3xl mx-auto" aria-hidden="true" />
           <h1 className="text-xl font-bold text-white mt-2">Well Testing</h1>
           <p className="text-sm text-slate-400">Panel de Supervisión</p>
         </div>

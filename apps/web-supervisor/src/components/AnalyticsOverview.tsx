@@ -5,6 +5,7 @@
 // Prompt de implementación rápida:
 // "Crear AnalyticsOverview con KPIs, chart, top users"
 import React, { useState, useEffect } from 'react'
+import { FiBarChart2, FiStar } from 'react-icons/fi'
 import KPICard from '../components/KPICard'
 
 export default function AnalyticsOverview() {
@@ -74,15 +75,15 @@ export default function AnalyticsOverview() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-4">Evaluaciones por Día</h2>
-          <div className="h-64 flex items-center justify-center text-gray-500">
-            📊 Gráfico de línea
+          <div className="h-64 flex items-center justify-center gap-2 text-gray-500">
+            <FiBarChart2 aria-hidden="true" /> Gráfico de línea
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-4">Aprobaciones por Supervisor</h2>
-          <div className="h-64 flex items-center justify-center text-gray-500">
-            📊 Gráfico de barras
+          <div className="h-64 flex items-center justify-center gap-2 text-gray-500">
+            <FiBarChart2 aria-hidden="true" /> Gráfico de barras
           </div>
         </div>
       </div>
@@ -107,7 +108,7 @@ export default function AnalyticsOverview() {
               </div>
               <div className="text-right">
                 <p className="font-medium">{user.approvals} aprobaciones</p>
-                <p className="text-sm text-yellow-600">⭐ {user.rating}</p>
+                <p className="text-sm text-yellow-600 flex items-center gap-1 justify-end"><FiStar aria-hidden="true" /> {user.rating}</p>
               </div>
             </div>
           ))}

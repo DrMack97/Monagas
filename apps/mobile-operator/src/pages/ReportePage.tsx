@@ -15,6 +15,7 @@
 // lecturas después de generar un reporte preliminar.
 
 import { useState } from 'react'
+import { FiCheckCircle, FiAlertTriangle } from 'react-icons/fi'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
@@ -146,14 +147,16 @@ ${esPreliminar ? '⚠️ *CÁLCULO PRELIMINAR — no representa el cierre oficia
       {/* Resultado — con badge claro del tipo de cálculo */}
       {resultados && (
         <>
-          <div className={`text-center text-sm font-medium rounded-lg py-2 ${
+          <div className={`flex items-center justify-center gap-1.5 text-center text-sm font-medium rounded-lg py-2 ${
             resultados.tipoCalculo === 'FINAL_24H'
               ? 'bg-emerald-950/40 border border-emerald-900 text-emerald-400'
               : 'bg-amber-950/40 border border-amber-900 text-amber-400'
           }`}>
-            {resultados.tipoCalculo === 'FINAL_24H'
-              ? '✅ Promedio Final — 24 Horas Completas'
-              : `⚠️ Cálculo Preliminar Forzado — ${resultados.horasTotales}H de ${pozo?.horasEval ?? '?'}H`}
+            {resultados.tipoCalculo === 'FINAL_24H' ? (
+              <><FiCheckCircle aria-hidden="true" /> Promedio Final — 24 Horas Completas</>
+            ) : (
+              <><FiAlertTriangle aria-hidden="true" /> Cálculo Preliminar Forzado — {resultados.horasTotales}H de {pozo?.horasEval ?? '?'}H</>
+            )}
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">

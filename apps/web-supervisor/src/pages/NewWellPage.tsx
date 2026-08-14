@@ -7,6 +7,7 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { FiArrowLeft, FiX } from 'react-icons/fi'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
@@ -99,7 +100,7 @@ export default function NewWellPage() {
   return (
     <div className="min-h-screen bg-slate-950">
       <div className="p-4 border-b border-slate-800 flex items-center gap-3 max-w-2xl mx-auto">
-        <button onClick={() => navigate('/dashboard')} className="text-slate-400">←</button>
+        <button onClick={() => navigate('/dashboard')} className="text-slate-400"><FiArrowLeft aria-label="Volver" /></button>
         <h1 className="text-lg font-bold text-white">Nuevo Pozo</h1>
       </div>
 
@@ -145,7 +146,7 @@ export default function NewWellPage() {
               <div className="flex items-center justify-between">
                 <Input label="Nombre" value={tank.nombre} onChange={(e) => actualizarTank(idx, 'nombre', e.target.value)} className="flex-1" />
                 {tanques.length > 1 && (
-                  <button type="button" onClick={() => quitarTank(idx)} className="text-red-400 text-xs ml-2 mt-6">✕</button>
+                  <button type="button" onClick={() => quitarTank(idx)} className="text-red-400 text-xs ml-2 mt-6"><FiX aria-label="Quitar tanque" /></button>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-3">

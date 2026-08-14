@@ -15,6 +15,7 @@
 
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { FiDroplet, FiCheckCircle, FiClock, FiUsers } from 'react-icons/fi'
 import { useAuth } from '../hooks/useAuth'
 import { usePozosVisibles } from '../hooks/usePozosVisibles'
 import Header from '../components/common/Header'
@@ -80,10 +81,10 @@ export default function DashboardPage() {
         <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
           {/* Métricas clave */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <MetricCard label="Pozos visibles" value={String(metricas.total)} icon="🛢️" accent="slate" />
-            <MetricCard label="En Curso" value={String(metricas.enCurso)} icon="🟢" accent="amber" />
-            <MetricCard label="Pendientes" value={String(metricas.pendientes)} icon="⏳" accent="blue" />
-            <MetricCard label="Personal asignado" value={String(metricas.totalPersonal)} icon="👷" accent="emerald" />
+            <MetricCard label="Pozos visibles" value={String(metricas.total)} icon={<FiDroplet />} accent="slate" />
+            <MetricCard label="En Curso" value={String(metricas.enCurso)} icon={<FiCheckCircle />} accent="amber" />
+            <MetricCard label="Pendientes" value={String(metricas.pendientes)} icon={<FiClock />} accent="blue" />
+            <MetricCard label="Personal asignado" value={String(metricas.totalPersonal)} icon={<FiUsers />} accent="emerald" />
           </div>
 
           {/* Lista de pozos */}

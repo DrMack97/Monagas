@@ -14,6 +14,7 @@
 
 import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { FiArrowLeft, FiLock, FiAlertTriangle } from 'react-icons/fi'
 import { doc, updateDoc, increment, collection, addDoc } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
@@ -213,7 +214,7 @@ export default function RegistroPage() {
     <div className="min-h-screen bg-slate-950">
       <div className="p-4 border-b border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard')} className="text-slate-400">←</button>
+          <button onClick={() => navigate('/dashboard')} className="text-slate-400"><FiArrowLeft aria-label="Volver" /></button>
           <div>
             <h1 className="text-lg font-bold text-white">Registro de Evaluación</h1>
             <p className="text-xs text-slate-500">{pozo.nombre} · {pozo.campo}</p>
@@ -242,8 +243,8 @@ export default function RegistroPage() {
             <section key={tank.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-white">{tank.nombre}</h3>
-                <span className="text-xs text-slate-500">
-                  mi: {miPorTanque[tank.id] ?? tank.mi} · kk: {tank.ft} 🔒
+                <span className="text-xs text-slate-500 flex items-center gap-1">
+                  mi: {miPorTanque[tank.id] ?? tank.mi} · kk: {tank.ft} <FiLock aria-hidden="true" />
                 </span>
               </div>
 
@@ -346,7 +347,7 @@ export default function RegistroPage() {
         {guardadoOk && ultimasAlertas.length > 0 && (
           <div className="text-sm text-amber-400 bg-amber-950/40 border border-amber-900 rounded-lg px-3 py-2 space-y-1">
             {ultimasAlertas.map((a) => (
-              <p key={a}>⚠️ {a}</p>
+              <p key={a} className="flex items-center gap-1"><FiAlertTriangle aria-hidden="true" /> {a}</p>
             ))}
           </div>
         )}

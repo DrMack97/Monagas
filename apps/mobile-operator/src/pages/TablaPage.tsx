@@ -6,6 +6,7 @@
 // evaluaciones/{evalId}/lecturas vía useLecturasEvaluacion.
 
 import { useNavigate } from 'react-router-dom'
+import { FiArrowLeft, FiClipboard, FiAlertTriangle } from 'react-icons/fi'
 import { useAuth } from '../hooks/useAuth'
 import { usePozoInfo } from '../hooks/usePozoInfo'
 import { useEvaluacionActual } from '../hooks/useEvaluacionActual'
@@ -26,7 +27,7 @@ export default function TablaPage() {
   return (
     <div className="min-h-screen bg-slate-950">
       <div className="p-4 border-b border-slate-800 flex items-center gap-3">
-        <button onClick={() => navigate('/dashboard')} className="text-slate-400">←</button>
+        <button onClick={() => navigate('/dashboard')} className="text-slate-400"><FiArrowLeft aria-label="Volver" /></button>
         <h1 className="text-lg font-bold text-white">Tabla de Lecturas</h1>
       </div>
 
@@ -35,7 +36,7 @@ export default function TablaPage() {
           <LoadingSpinner message="Cargando lecturas..." />
         ) : lecturas.length === 0 ? (
           <EmptyState
-            icon="📋"
+            icon={<FiClipboard />}
             title="Sin lecturas todavía"
             message="Registra la primera lectura desde la pantalla de Registro."
             actionLabel={pozo ? 'Ir a Registro' : undefined}
@@ -63,7 +64,7 @@ export default function TablaPage() {
                         <td className="py-2 pr-3">{l.gas ? fmt(l.gas.qg, 2) : '—'}</td>
                         <td className="py-2">
                           {l.alertas && l.alertas.length > 0 ? (
-                            <span className="text-amber-400">⚠️ {l.alertas.join(', ')}</span>
+                            <span className="text-amber-400 flex items-center gap-1"><FiAlertTriangle aria-hidden="true" /> {l.alertas.join(', ')}</span>
                           ) : (
                             '—'
                           )}

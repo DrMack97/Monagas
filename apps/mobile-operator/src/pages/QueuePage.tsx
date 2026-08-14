@@ -6,6 +6,7 @@
 // "Crear QueuePage con operaciones, status, retry/discard"
 
 import React, { useState, useEffect } from 'react';
+import { FiCheckCircle } from 'react-icons/fi';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 
 interface OfflineOperation {
@@ -74,8 +75,9 @@ export default function QueuePage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Cola Offline</h1>
         <div className="flex gap-2">
-          <span className={`px-2 py-1 text-sm rounded ${isOnline ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-            {isOnline ? '🟢 Online' : '🔴 Offline'}
+          <span className={`px-2 py-1 text-sm rounded flex items-center gap-1.5 ${isOnline ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+            <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} aria-hidden="true" />
+            {isOnline ? 'Online' : 'Offline'}
           </span>
           <button
             onClick={handleSync}
@@ -106,7 +108,7 @@ export default function QueuePage() {
 
       {operations.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
-          <p className="text-4xl mb-4">✅</p>
+          <p className="text-4xl mb-4 flex justify-center text-green-500"><FiCheckCircle aria-hidden="true" /></p>
           <p>No hay operaciones en cola</p>
         </div>
       ) : (

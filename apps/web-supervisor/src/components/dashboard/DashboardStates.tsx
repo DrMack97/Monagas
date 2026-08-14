@@ -1,5 +1,7 @@
 // src/components/dashboard/DashboardStates.tsx
 
+import { FiAlertTriangle, FiDroplet } from 'react-icons/fi'
+
 export function LoadingState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -12,7 +14,7 @@ export function LoadingState() {
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-6">
-      <span className="text-3xl">⚠️</span>
+      <FiAlertTriangle className="text-3xl" aria-hidden="true" />
       <p className="text-sm text-red-400">{message}</p>
       {onRetry && (
         <button
@@ -36,7 +38,7 @@ export function EmptyState({ rol }: { rol: string | null }) {
 
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-6">
-      <span className="text-3xl">🛢️</span>
+      <FiDroplet className="text-3xl" aria-hidden="true" />
       <p className="text-sm text-slate-500">{mensaje}</p>
     </div>
   )

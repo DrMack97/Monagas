@@ -9,6 +9,7 @@
 // - Gráfico línea producción
 // - Gráfico barras aprobaciones
 import React, { useState, useEffect } from 'react'
+import { FiHome, FiTrendingUp, FiCheckCircle, FiClock, FiBarChart2 } from 'react-icons/fi'
 import KPICard from '../components/KPICard'
 
 export default function AnalyticsPage() {
@@ -38,7 +39,7 @@ export default function AnalyticsPage() {
         <KPICard
           title="Pozos Totales"
           value={kpi.totalPozos}
-          icon="🏭"
+          icon={<FiHome />}
           color="blue"
         />
         <KPICard
@@ -47,13 +48,13 @@ export default function AnalyticsPage() {
           unit="Bls"
           trend="up"
           trendPercentage={12.5}
-          icon="📈"
+          icon={<FiTrendingUp />}
           color="green"
         />
         <KPICard
           title="Aprobaciones Hoy"
           value={kpi.aprobacionesHoy}
-          icon="✅"
+          icon={<FiCheckCircle />}
           color="purple"
         />
         <KPICard
@@ -62,7 +63,7 @@ export default function AnalyticsPage() {
           unit="horas"
           trend="down"
           trendPercentage={15}
-          icon="⏱️"
+          icon={<FiClock />}
           color="yellow"
         />
       </div>
@@ -72,18 +73,18 @@ export default function AnalyticsPage() {
         {/* Producción por Día */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-4">Producción por Día</h2>
-          <div className="h-64 flex items-center justify-center text-gray-500">
+          <div className="h-64 flex items-center justify-center gap-2 text-gray-500">
             {/* TODO: Implementar con Recharts */}
-            📊 Gráfico de línea de producción
+            <FiBarChart2 aria-hidden="true" /> Gráfico de línea de producción
           </div>
         </div>
 
         {/* Aprobaciones por Supervisor */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-4">Aprobaciones por Supervisor</h2>
-          <div className="h-64 flex items-center justify-center text-gray-500">
+          <div className="h-64 flex items-center justify-center gap-2 text-gray-500">
             {/* TODO: Implementar con Recharts */}
-            📊 Gráfico de barras por supervisor
+            <FiBarChart2 aria-hidden="true" /> Gráfico de barras por supervisor
           </div>
         </div>
       </div>
@@ -94,8 +95,8 @@ export default function AnalyticsPage() {
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map(i => (
             <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                ✅
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                <FiCheckCircle aria-hidden="true" />
               </div>
               <div className="flex-1">
                 <p className="font-medium">Evaluación aprobada</p>

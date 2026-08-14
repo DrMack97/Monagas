@@ -12,6 +12,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { FiArrowLeft } from 'react-icons/fi'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
@@ -83,7 +84,7 @@ export default function WellDetailPage() {
   return (
     <div className="min-h-screen bg-slate-950">
       <div className="p-4 border-b border-slate-800 flex items-center gap-3 max-w-2xl mx-auto">
-        <button onClick={() => navigate('/dashboard')} className="text-slate-400">←</button>
+        <button onClick={() => navigate('/dashboard')} className="text-slate-400"><FiArrowLeft aria-label="Volver" /></button>
         <div>
           <h1 className="text-lg font-bold text-white">{pozo.nombre}</h1>
           <p className="text-xs text-slate-500">{pozo.campo} · {pozo.zona}</p>

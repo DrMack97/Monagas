@@ -5,12 +5,14 @@
 // Prompt de implementación rápida:
 // "Crear WelcomeScreen con onboarding, A/B test"
 import React, { useEffect, useState } from 'react';
+import type { IconType } from 'react-icons'
+import { FiSmartphone, FiMapPin, FiCloud, FiCheckCircle, FiZap, FiHome, FiEdit, FiMap, FiRefreshCw, FiBell } from 'react-icons/fi'
 import { useABTesting } from '../hooks/useABTesting'
 
 interface Slide {
   title: string
   description: string
-  icon: string
+  icon: IconType
 }
 
 export default function WelcomeScreen({ onComplete }: { onComplete: () => void }) {
@@ -23,18 +25,18 @@ export default function WelcomeScreen({ onComplete }: { onComplete: () => void }
 
   const slides: Slide[] = variant === 'variant_a'
     ? [
-        { title: '👋 ¡Bienvenido!', description: 'Registra evaluaciones fácilmente', icon: '📱' },
-        { title: '📍 GPS Automático', description: 'Ubicación automática', icon: '📍' },
-        { title: '☁️ Offline First', description: 'Funciona sin internet', icon: '☁️' },
-        { title: '✅ Listo', description: 'Comienza a evaluar pozos', icon: '🚀' }
+        { title: '¡Bienvenido!', description: 'Registra evaluaciones fácilmente', icon: FiSmartphone },
+        { title: 'GPS Automático', description: 'Ubicación automática', icon: FiMapPin },
+        { title: 'Offline First', description: 'Funciona sin internet', icon: FiCloud },
+        { title: 'Listo', description: 'Comienza a evaluar pozos', icon: FiZap }
       ]
     : [
-        { title: '👋 Bienvenido a Monagas', description: 'El sistema de evaluación de pozos', icon: '🏭' },
-        { title: '📱 Registro Fácil', description: 'Registra BPH, BPD, Netos, Qg', icon: '📝' },
-        { title: '📍 GPS Automático', description: 'Obtenemos tu ubicación automáticamente', icon: '🗺️' },
-        { title: '☁️ Offline First', description: 'Funciona sin conexión, sincroniza después', icon: '🔄' },
-        { title: '🔔 Notificaciones', description: 'Recibe alertas de aprobaciones', icon: '🔔' },
-        { title: '✅ ¡Listo!', description: 'Comienza a evaluar pozos ahora', icon: '🚀' }
+        { title: 'Bienvenido a Monagas', description: 'El sistema de evaluación de pozos', icon: FiHome },
+        { title: 'Registro Fácil', description: 'Registra BPH, BPD, Netos, Qg', icon: FiEdit },
+        { title: 'GPS Automático', description: 'Obtenemos tu ubicación automáticamente', icon: FiMap },
+        { title: 'Offline First', description: 'Funciona sin conexión, sincroniza después', icon: FiRefreshCw },
+        { title: 'Notificaciones', description: 'Recibe alertas de aprobaciones', icon: FiBell },
+        { title: '¡Listo!', description: 'Comienza a evaluar pozos ahora', icon: FiZap }
       ]
 
   const handleNext = () => {
@@ -58,8 +60,8 @@ export default function WelcomeScreen({ onComplete }: { onComplete: () => void }
         Saltar
       </button>
 
-      <div className="text-7xl mb-8">
-        {slides[currentSlide].icon}
+      <div className="text-7xl mb-8 text-white" aria-hidden="true">
+        {React.createElement(slides[currentSlide].icon)}
       </div>
 
       <h1 className="text-3xl font-bold text-white mb-4 text-center">

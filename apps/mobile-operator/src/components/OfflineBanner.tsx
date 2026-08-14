@@ -5,6 +5,7 @@
 // Prompt de implementación rápida:
 // "Crear OfflineBanner con isOnline, queueLength, sync"
 import React from 'react';
+import { FiCloud, FiCloudOff } from 'react-icons/fi';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 
 export default function OfflineBanner() {
@@ -22,8 +23,8 @@ export default function OfflineBanner() {
     }`}>
       <div className="max-w-md mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xl">
-            {isOnline ? '☁️' : '📴'}
+          <span className="text-xl" aria-hidden="true">
+            {isOnline ? <FiCloud /> : <FiCloudOff />}
           </span>
           <div>
             <p className={`font-medium ${isOnline ? 'text-yellow-800' : 'text-red-800'}`}>

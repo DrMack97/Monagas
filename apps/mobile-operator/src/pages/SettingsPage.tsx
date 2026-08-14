@@ -6,6 +6,7 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { FiArrowLeft } from 'react-icons/fi'
 import { useAuth } from '../hooks/useAuth'
 import { useNotifications } from '../hooks/useNotifications'
 
@@ -35,7 +36,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-slate-950 p-4 max-w-md mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate('/dashboard')} className="text-slate-400">←</button>
+        <button onClick={() => navigate('/dashboard')} className="text-slate-400"><FiArrowLeft aria-label="Volver" /></button>
         <h1 className="text-xl font-bold text-white">Configuración</h1>
       </div>
 

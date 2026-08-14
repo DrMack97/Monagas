@@ -6,6 +6,7 @@
 // "Crear PersonalizedGreeting con horario, nombre, stats"
 
 import React from 'react';
+import { FiSmile } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 
 export default function PersonalizedGreeting() {
@@ -28,8 +29,8 @@ export default function PersonalizedGreeting() {
 
   return (
     <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
-      <h1 className="text-2xl font-bold mb-1">
-        {greeting}, {userData.nombre}! 👋
+      <h1 className="text-2xl font-bold mb-1 flex items-center gap-2">
+        {greeting}, {userData.nombre}! <FiSmile aria-hidden="true" />
       </h1>
       <p className="text-blue-100 text-sm mb-4">
         ¿Listo para registrar evaluaciones hoy?

@@ -6,6 +6,7 @@
 // el supervisor (ver Firestore Rules: /pozos solo escribible por
 // SUP_CAMPO/SUP_AREA/GERENTE/ROOT).
 
+import { FiLock } from 'react-icons/fi';
 import type { TankInput } from '@monagas/core/calculos';
 interface TankInputSectionProps {
   tank: TankInput
@@ -27,7 +28,7 @@ export default function TankInputSection({ tank, nombre = 'Tanque', readOnly = t
           <div className="flex items-center gap-1">
             <span className="text-white font-mono">{tank.mi}</span>
             <span className="text-xs text-slate-500">pulg</span>
-            {readOnly && <span className="text-xs">🔒</span>}
+            {readOnly && <FiLock className="text-xs" aria-hidden="true" />}
           </div>
         </div>
         <div>
@@ -35,7 +36,7 @@ export default function TankInputSection({ tank, nombre = 'Tanque', readOnly = t
           <div className="flex items-center gap-1">
             <span className="text-white font-mono">{tank.ft}</span>
             <span className="text-xs text-slate-500">BBL/pulg</span>
-            {readOnly && <span className="text-xs">🔒</span>}
+            {readOnly && <FiLock className="text-xs" aria-hidden="true" />}
           </div>
         </div>
       </div>
