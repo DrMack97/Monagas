@@ -34,43 +34,61 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onReject = void 0;
-// TODO: Trigger cuando supervisor rechaza - Player 1 (Backend)
-// Paso 1: firestore.onUpdate cuando evaluation.estado cambia a 'RECHAZADA'
-// Paso 2: Set motivoRechazo, rejectedBy, fechaRechazo
-// Paso 3: Notificar operador para corregir
-// Prompt de implementación rápida:
-// "Crear onReject onUpdate trigger, RECHAZADA con motivo, notify operador"
-// Entregable:
-// - Detectar cambio a RECHAZADA
-// - Set motivoRechazo, rejectedBy, fechaRechazo
-// - Notify operador para corregir
+// Sincroniza pozo.estado cuando un supervisor rechaza una evaluación
+// — mismo razonamiento de permisos que onEvalSubmit.ts/onApprove.ts:
+// centralizar el sync de pozo.estado en Cloud Functions (Admin SDK)
+// en vez de repartirlo entre cliente y servidor, aunque en este caso
+// puntual SUP_AREA/GERENTE sí tienen permiso de escritura directa
+// sobre /pozos (canManagePozos() en firestore.rules) — se mantiene
+// aquí de todas formas por consistencia con las otras dos transiciones.
+//
+// IEvaluacion no tiene un estado 'RECHAZADA' (ver EstadoEvaluacion en
+// @monagas/core) — useApprovals.ts en web-supervisor ya lo resolvió
+// devolviendo la evaluación a EN_CURSO con el motivo guardado en
+// `aprobaciones` (accion: 'RECHAZAR'), en vez de inventar un estado
+// que no existe. La única transición existente PENDIENTE_SUPERVISOR
+// → EN_CURSO de una evaluación ya creada es, precisamente, un
+// rechazo — no hay otro camino que aterrice ahí, así que detectar esa
+// transición es una señal inequívoca sin necesitar el estado falso.
+//
+// Reescrito contra el esquema real — el original apuntaba a la
+// colección inexistente 'evaluations' (inglés) y nunca pudo haber
+// disparado contra la app real.
 const functions = __importStar(require("firebase-functions"));
+const admin = __importStar(require("firebase-admin"));
 exports.onReject = functions.firestore
-    .document('evaluations/{evaluationId}')
+    .document('evaluaciones/{evalId}')
     .onUpdate(async (change, context) => {
     const before = change.before.data();
     const after = change.after.data();
-    // Detectar cambio a RECHAZADA
-    if (before?.estado !== 'RECHAZADA' && after?.estado === 'RECHAZADA') {
-        try {
-            const evaluationId = context.params.evaluationId;
-            // Validar que hay motivo
-            if (!after.motivoRechazo) {
-                throw new functions.https.HttpsError('invalid-argument', 'Motivo de rechazo es requerido');
-            }
-            console.log(`Evaluation ${evaluationId} rejected by ${after.rejectedBy}`);
-            console.log(`Motivo: ${after.motivoRechazo}`);
-            // TODO: Trigger notifyOperator para notificar operador
-            // notifyOperator.trigger({ 
-            //   evaluationId, 
-            //   operadorId: after.operadorId,
-            //   motivoRechazo: after.motivoRechazo 
-            // })
+    if (before?.estado !== 'PENDIENTE_SUPERVISOR' || after?.estado !== 'EN_CURSO') {
+        return;
+    }
+    const evalId = context.params.evalId;
+    const pozoId = after?.pozoId;
+    if (!pozoId) {
+        console.error(`Evaluación ${evalId} no tiene pozoId — no se puede sincronizar el pozo.`);
+        return;
+    }
+    try {
+        const pozoRef = admin.firestore().collection('pozos').doc(pozoId);
+        const pozoDoc = await pozoRef.get();
+        if (!pozoDoc.exists) {
+            console.error(`Pozo ${pozoId} no encontrado (evaluación ${evalId}).`);
+            return;
         }
-        catch (error) {
-            console.error('Error in onReject:', error);
-            throw error;
-        }
+        await pozoRef.update({ estado: 'EN_CURSO' });
+        const ultimaAprobacion = after?.aprobaciones?.[after.aprobaciones.length - 1];
+        console.log(`Evaluación ${evalId} rechazada. Pozo ${pozoId} sincronizado a EN_CURSO.` +
+            (ultimaAprobacion?.comentario ? ` Motivo: ${ultimaAprobacion.comentario}` : ''));
+        // notifyOperator.ts (firebase/functions/src/notifications/) ya
+        // escucha este mismo cambio de forma independiente — no se
+        // invoca desde aquí. Tiene el mismo problema de esquema falso y
+        // necesita su propia reescritura para disparar de verdad.
+    }
+    catch (error) {
+        console.error(`Error sincronizando pozo ${pozoId} tras rechazo de ${evalId}:`, error);
+        throw error;
     }
 });
 //# sourceMappingURL=onReject.js.map
