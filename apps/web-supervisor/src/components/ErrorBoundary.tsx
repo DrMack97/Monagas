@@ -1,8 +1,8 @@
-// TODO: React Error Boundary para web - Player 2 (Frontend)
-// Paso 1: Igual que mobile pero adaptado a web
-// Prompt de implementación rápida:
-// "Adaptar ErrorBoundary para web"
-import React, { Component, ReactNode } from 'react';
+// src/components/ErrorBoundary.tsx
+//
+// Envuelve <App/> en main.tsx — un error de render en cualquier parte
+// del árbol muestra este fallback en vez de una pantalla en blanco.
+import React from 'react';
 import { FiAlertTriangle } from 'react-icons/fi';
 
 interface Props {
@@ -42,25 +42,25 @@ export class ErrorBoundary extends React.Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
+        <div className="min-h-screen flex items-center justify-center bg-slate-950">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 max-w-md w-full text-center">
             <div className="text-6xl mb-4 flex justify-center text-amber-500"><FiAlertTriangle aria-hidden="true" /></div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            <h2 className="text-2xl font-bold text-white mb-3">
               Algo salió mal
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-slate-400 mb-6">
               {this.state.error?.message || 'Ocurrió un error inesperado'}
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={this.handleRetry}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-6 py-2 bg-amber-500 text-slate-950 font-medium rounded-lg hover:bg-amber-400 transition-colors"
               >
                 Reintentar
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-6 py-2 bg-slate-800 text-white rounded-lg border border-slate-700 hover:bg-slate-700 transition-colors"
               >
                 Recargar
               </button>
