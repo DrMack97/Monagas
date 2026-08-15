@@ -1,54 +1,60 @@
-// TODO: Trigger cuando operador cierra evaluación - Player 1 (Backend)
-// Paso 1: firestore.onWrite cuando evaluation.estado cambia a 'CERRADA'
-// Paso 2: Update estado a 'PENDIENTE_SUPERVISOR'
-// Paso 3: Set supervisorId desde pozo
-// Prompt de implementación rápida:
-// "Crear onEvalSubmit onWrite trigger, cambiar CERRADA → PENDIENTE_SUPERVISOR"
-// Entregable:
-// - Detectar cambio a CERRADA
-// - Update estado = PENDIENTE_SUPERVISOR
-// - Set supervisorId, fechaPendiente
+// Sincroniza pozo.estado cuando una evaluación entra a
+// PENDIENTE_SUPERVISOR — el Operador no tiene permiso de escritura
+// sobre /pozos/{pozoId} en firestore.rules (ver canEditOwnTanquesYLimites
+// y canManagePozos()), así que esta sincronización solo puede hacerse
+// aquí, con Admin SDK.
+//
+// El propósito original de este trigger (CERRADA → PENDIENTE_SUPERVISOR)
+// quedó obsoleto: ReportePage.tsx en mobile-operator ya escribe
+// PENDIENTE_SUPERVISOR directamente al cerrar el ciclo FINAL_24H (ver
+// checklist Fase 2, item "máquina de estados"). Repropuesto para la
+// sincronización de pozo.estado, que es lo único que realmente falta
+// del lado del servidor en esta transición.
+//
+// Reescrito contra el esquema real — el original apuntaba a las
+// colecciones inexistentes 'evaluations'/'wells' (inglés) y nunca
+// pudo haber disparado en la app real.
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 
 export const onEvalSubmit = functions.firestore
-  .document('evaluations/{evaluationId}')
+  .document('evaluaciones/{evalId}')
   .onWrite(async (change, context) => {
     const before = change.before.data()
     const after = change.after.data()
 
-    // Detectar cambio a CERRADA
-    if (before?.estado !== 'CERRADA' && after?.estado === 'CERRADA') {
-      try {
-        const evaluationId = context.params.evaluationId
+    if (before?.estado === 'PENDIENTE_SUPERVISOR' || after?.estado !== 'PENDIENTE_SUPERVISOR') {
+      return
+    }
 
-        // Obtener pozo para obtener supervisorId
-        const pozoRef = admin.firestore().collection('wells').doc(after.pozoId)
-        const pozoDoc = await pozoRef.get()
+    const evalId = context.params.evalId
+    const pozoId = after?.pozoId
 
-        if (!pozoDoc.exists) {
-          console.error(`Pozo ${after.pozoId} not found`)
-          return
-        }
+    if (!pozoId) {
+      console.error(`Evaluación ${evalId} no tiene pozoId — no se puede sincronizar el pozo.`)
+      return
+    }
 
-        const pozo = pozoDoc.data()
+    try {
+      const pozoRef = admin.firestore().collection('pozos').doc(pozoId)
+      const pozoDoc = await pozoRef.get()
 
-        // Update evaluación
-        await admin.firestore().collection('evaluations').doc(evaluationId).update({
-          estado: 'PENDIENTE_SUPERVISOR',
-          supervisorId: pozo?.supervisorId,
-          fechaPendiente: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        })
-
-        console.log(`Evaluation ${evaluationId} moved to PENDIENTE_SUPERVISOR`)
-
-        // TODO: Trigger notifyMgr para notificar gerente
-        // notifyMgr.trigger({ evaluationId, supervisorId })
-
-      } catch (error) {
-        console.error('Error in onEvalSubmit:', error)
-        throw error
+      if (!pozoDoc.exists) {
+        console.error(`Pozo ${pozoId} no encontrado (evaluación ${evalId}).`)
+        return
       }
+
+      await pozoRef.update({ estado: 'PENDIENTE_SUPERVISOR' })
+      console.log(`Pozo ${pozoId} sincronizado a PENDIENTE_SUPERVISOR (evaluación ${evalId}).`)
+
+      // notifyMgr.ts (firebase/functions/src/notifications/) ya escucha
+      // este mismo cambio de estado de forma independiente — no se
+      // invoca desde aquí (los triggers de Firestore no se "llaman"
+      // entre sí). Pero notifyMgr.ts tiene el mismo problema de
+      // esquema falso ('evaluations'/'wells'/'users' en inglés) y
+      // necesita su propia reescritura para disparar de verdad.
+    } catch (error) {
+      console.error(`Error sincronizando pozo ${pozoId} para evaluación ${evalId}:`, error)
+      throw error
     }
   })
