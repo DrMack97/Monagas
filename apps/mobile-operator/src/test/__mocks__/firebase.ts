@@ -11,5 +11,5 @@ export const app = {}
 export const auth = {}
 export const db = {}
 export const storage = {}
-export const messaging = {}
+export const getMessagingInstance = () => Promise.resolve({})
 export const VAPID_KEY = 'test-vapid-key'

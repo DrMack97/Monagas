@@ -83,7 +83,13 @@ service cloud.firestore {
     // autoridad sobre personal: no elige el equipo con el que trabaja.
     match /usuarios/{uid} {
       allow read: if request.auth != null;
-      allow write: if isRoot();
+      // Excepción puntual: cualquier usuario autenticado puede guardar
+      // SU PROPIO token de FCM (útil para notificaciones push, ver
+      // useNotifications.ts) — nada más. Todo lo demás (rol, zona,
+      // pozoAsignado, activo) sigue exclusivo de ROOT / Cloud Functions.
+      allow write: if isRoot() ||
+        (request.auth.uid == uid &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmToken']));
     }
 
     // /pozos/{pozoId} — configuración de pozos

@@ -170,6 +170,14 @@ export interface IUsuario {
   activo: boolean
   creadoEn: Date
   ultimoAcceso?: Date
+  /**
+   * Token de FCM para notificaciones push — lo escribe el propio
+   * usuario desde su dispositivo (ver firestore.rules: excepción
+   * puntual a la escritura restringida a ROOT en /usuarios, solo
+   * para este campo). notifyOperator.ts lo lee para notificar
+   * aprobación/rechazo de evaluaciones.
+   */
+  fcmToken?: string
 }
 
 export interface ILog {

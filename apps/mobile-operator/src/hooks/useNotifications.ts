@@ -1,20 +1,17 @@
-// TODO: Hook notificaciones push Firebase Cloud Messaging - Player 3 (Fullstack)
-// Paso 1: Importar Firebase Messaging SDK
-// Paso 2: Solicitar permiso al usuario
-// Paso 3: Obtener FCM token y guardarlo en Firestore
-// Paso 4: Listeners para mensajes en foreground/background
-// Prompt de implementación rápida:
-// "Crear useNotifications con requestPermission, getToken, onMessage, onBackgroundMessage"
-// Entregable:
-// - requestPermission() → Promise<boolean>
-// - getFCMToken() → string (guardado en Firestore users/{uid})
-// - onMessage(callback) → listener foreground
-// - onBackgroundMessage(callback) → listener background
+// src/hooks/useNotifications.ts
+//
+// Solicita permiso de notificaciones push, obtiene el token de FCM y
+// lo guarda en usuarios/{uid} — notifyOperator.ts (Cloud Function) lo
+// usa para avisar cuando un supervisor aprueba/rechaza una evaluación.
+//
+// getMessagingInstance() es async y puede devolver null (navegador
+// sin soporte) — getMessaging() sin guardia revienta el módulo entero
+// en esos casos, ver services/firebase-messaging.ts.
 import { useState, useEffect } from 'react';
 import { auth, db } from '../services/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { getToken, onMessage } from 'firebase/messaging';
-import { messaging, VAPID_KEY } from '../services/firebase-messaging';
+import { getMessagingInstance, VAPID_KEY } from '../services/firebase-messaging';
 
 export function useNotifications() {
   const [permission, setPermission] = useState<boolean | null>(null);
@@ -27,49 +24,50 @@ export function useNotifications() {
       const granted = permissionResult === 'granted';
       setPermission(granted);
 
-      if (granted) {
-        const token = await getToken(messaging, {
-          vapidKey: VAPID_KEY,
-        });
-        
-        setFcmToken(token);
+      if (!granted) return false;
 
-        // Guardar token en Firestore
-        const user = auth.currentUser;
-        if (user) {
-          await updateDoc(doc(db, 'users', user.uid), {
-            fcmToken: token,
-            lastNotificationUpdate: new Date(),
-          });
-        }
-
-        return true;
+      const messaging = await getMessagingInstance();
+      if (!messaging) {
+        console.warn('FCM no soportado en este navegador — permiso otorgado pero sin token.');
+        return false;
       }
 
-      return false;
+      const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+      setFcmToken(token);
+
+      const user = auth.currentUser;
+      if (user) {
+        // Payload EXACTO — firestore.rules solo permite a un usuario
+        // tocar su propio campo fcmToken, nada más (ver /usuarios/{uid}).
+        await updateDoc(doc(db, 'usuarios', user.uid), { fcmToken: token });
+      }
+
+      return true;
     } catch (error) {
-      console.error('Error requesting notification permission:', error);
+      console.error('Error solicitando permiso de notificaciones:', error);
       return false;
     }
   };
 
   useEffect(() => {
-    // Listener para mensajes en foreground
-    const unsubscribeForeground = onMessage(messaging, (payload) => {
-      setNotification(payload);
-      console.log('Mensaje en foreground:', payload);
-      
-      // Mostrar notificación local
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(payload.notification?.title || 'Notificación', {
-          body: payload.notification?.body || '',
-          icon: '/logo.png',
-        });
-      }
+    let unsubscribeForeground: (() => void) | undefined;
+
+    getMessagingInstance().then((messaging) => {
+      if (!messaging) return;
+      unsubscribeForeground = onMessage(messaging, (payload) => {
+        setNotification(payload);
+
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification(payload.notification?.title || 'Notificación', {
+            body: payload.notification?.body || '',
+            icon: '/logo.png',
+          });
+        }
+      });
     });
 
     return () => {
-      unsubscribeForeground();
+      unsubscribeForeground?.();
     };
   }, []);
 

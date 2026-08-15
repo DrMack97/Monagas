@@ -16,6 +16,8 @@ import { useNotifications } from './useNotifications'
 // invoca al desmontar, y un jest.fn() sin retorno explícito devuelve
 // undefined (rompe con "unsubscribeForeground is not a function").
 jest.mock('firebase/messaging', () => ({
+  getMessaging: jest.fn(() => ({})),
+  isSupported: jest.fn().mockResolvedValue(true),
   getToken: jest.fn().mockResolvedValue('test-fcm-token'),
   onMessage: jest.fn(() => jest.fn()),
   onBackgroundMessage: jest.fn(),

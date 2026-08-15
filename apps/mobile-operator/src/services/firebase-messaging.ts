@@ -8,7 +8,7 @@
 // - messaging instance inicializada
 // - Listenable para background messages
 import { initializeApp, getApp, getApps } from 'firebase/app'
-import { getMessaging } from 'firebase/messaging'
+import { getMessaging, isSupported, type Messaging } from 'firebase/messaging'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -22,8 +22,20 @@ const firebaseConfig = {
 // Inicializar Firebase si no está inicializado
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp()
 
-// Inicializar Messaging
-export const messaging = getMessaging(app)
+// getMessaging() revienta de inmediato en navegadores/contextos sin
+// soporte (Safari sin config previa, tests, iframes sin service
+// worker, etc.) — antes se llamaba sin guardia al cargar el módulo,
+// lo que tumbaba toda la app (este archivo se importa desde
+// useNotifications.ts → SettingsPage.tsx). isSupported() lo evita.
+let messagingPromise: Promise<Messaging | null> | null = null
+export function getMessagingInstance(): Promise<Messaging | null> {
+  if (!messagingPromise) {
+    messagingPromise = isSupported()
+      .then((soportado) => (soportado ? getMessaging(app) : null))
+      .catch(() => null)
+  }
+  return messagingPromise
+}
 
 // Aislado aquí (no directo en useNotifications.ts) para que quede
 // cubierto por el mismo mock de tests que el resto de este archivo —

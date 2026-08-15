@@ -34,88 +34,77 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.notifyOperator = void 0;
-// TODO: Trigger notificar operador cuando evaluación es aprobada/rechazada - Player 1 (Backend)
-// Paso 1: firestore.onUpdate cuando evaluación cambia a OFICIAL o RECHAZADA
-// Paso 2: Obtener FCM token del operador
-// Paso 3: Enviar notificación push con resultado
-// Prompt de implementación rápida:
-// "Crear notifyOperator con FCM, notificar aprobación o rechazo"
-// Entregable:
-// - OFICIAL → "Tu evaluación de MFB-950 fue aprobada ✅"
-// - RECHAZADA → "Tu evaluación de MFB-950 fue rechazada ❌"
+// Notifica al Operador cuando su evaluación es aprobada (→ OFICIAL,
+// disparado por onApprove.ts) o rechazada (PENDIENTE_SUPERVISOR →
+// EN_CURSO, disparado por onReject.ts — mismo criterio de detección
+// que ese archivo, ver su comentario para el porqué). Trigger
+// independiente sobre el mismo documento — no se invoca desde
+// onApprove/onReject, dispara solo al detectar el cambio de estado.
+//
+// Reescrito contra el esquema real — el original apuntaba a
+// 'evaluations'/'users'/'wells' (inglés) y a un estado 'RECHAZADA'
+// que nunca existió en EstadoEvaluacion, así que nunca pudo haber
+// disparado contra la app real. También usaba evaluation.lecturas.netos
+// y evaluation.motivoRechazo, ninguno de los cuales existe — el dato
+// real vive en resultados.netosPromedio y en el último elemento de
+// aprobaciones[].comentario respectivamente.
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 exports.notifyOperator = functions.firestore
-    .document('evaluations/{evaluationId}')
+    .document('evaluaciones/{evalId}')
     .onUpdate(async (change, context) => {
     const before = change.before.data();
     const after = change.after.data();
-    const evaluationId = context.params.evaluationId;
-    // Detectar cambio a OFICIAL (aprobada)
-    if (before?.estado !== 'OFICIAL' && after?.estado === 'OFICIAL') {
-        await sendNotificationToOperator(after, 'APPROVED', evaluationId);
-    }
-    // Detectar cambio a RECHAZADA
-    if (before?.estado !== 'RECHAZADA' && after?.estado === 'RECHAZADA') {
-        await sendNotificationToOperator(after, 'REJECTED', evaluationId);
-    }
+    const evalId = context.params.evalId;
+    const aprobada = before?.estado !== 'OFICIAL' && after?.estado === 'OFICIAL';
+    const rechazada = before?.estado === 'PENDIENTE_SUPERVISOR' && after?.estado === 'EN_CURSO';
+    if (!aprobada && !rechazada)
+        return;
+    await enviarNotificacionAOperador(after, aprobada ? 'APROBADA' : 'RECHAZADA', evalId);
 });
-async function sendNotificationToOperator(evaluation, type, evaluationId) {
+async function enviarNotificacionAOperador(evaluacion, tipo, evalId) {
+    if (!evaluacion?.operadorId) {
+        console.error(`Evaluación ${evalId} no tiene operadorId — no se puede notificar.`);
+        return;
+    }
     try {
-        // Obtener operador
-        const operadorDoc = await admin.firestore()
-            .collection('users')
-            .doc(evaluation.operadorId)
-            .get();
+        const operadorDoc = await admin.firestore().collection('usuarios').doc(evaluacion.operadorId).get();
         if (!operadorDoc.exists) {
-            console.log('Operador no encontrado');
+            console.log(`Operador ${evaluacion.operadorId} no encontrado.`);
             return;
         }
-        const operador = operadorDoc.data();
-        const fcmToken = operador.fcmToken;
+        const fcmToken = operadorDoc.data()?.fcmToken;
         if (!fcmToken) {
-            console.log(`Operador ${evaluation.operadorId} no tiene FCM token`);
+            console.log(`[${tipo}] Operador ${evaluacion.operadorId} no tiene fcmToken guardado — no se envía notificación.`);
             return;
         }
-        // Obtener pozo nombre
-        const pozoDoc = await admin.firestore()
-            .collection('wells')
-            .doc(evaluation.pozoId)
-            .get();
-        const pozoNombre = pozoDoc.data()?.nombre || 'Pozo desconocido';
-        const title = type === 'APPROVED'
-            ? '✅ Evaluación aprobada'
-            : '❌ Evaluación rechazada';
-        const body = type === 'APPROVED'
-            ? `Tu evaluación de ${pozoNombre} fue aprobada. Producción: ${evaluation.lecturas.netos} Bls/día`
-            : `Tu evaluación de ${pozoNombre} fue rechazada. Motivo: ${evaluation.motivoRechazo}`;
+        const pozoDoc = await admin.firestore().collection('pozos').doc(evaluacion.pozoId).get();
+        const pozoNombre = pozoDoc.data()?.nombre ?? 'tu pozo';
+        const title = tipo === 'APROBADA' ? 'Evaluación aprobada' : 'Evaluación rechazada';
+        const body = tipo === 'APROBADA'
+            ? `Tu evaluación de ${pozoNombre} fue aprobada. Netos: ${evaluacion.resultados?.netosPromedio ?? '—'} Bls/día`
+            : `Tu evaluación de ${pozoNombre} fue rechazada.${evaluacion.aprobaciones?.[evaluacion.aprobaciones.length - 1]?.comentario
+                ? ` Motivo: ${evaluacion.aprobaciones[evaluacion.aprobaciones.length - 1].comentario}`
+                : ''}`;
         const message = {
             token: fcmToken,
-            notification: {
-                title,
-                body,
-                imageUrl: '/logo.png'
-            },
+            notification: { title, body },
             data: {
-                evaluationId,
-                pozoId: evaluation.pozoId,
+                evalId,
+                pozoId: evaluacion.pozoId,
                 pozoNombre,
-                type: type === 'APPROVED' ? 'EVALUATION_APPROVED' : 'EVALUATION_REJECTED',
-                clickAction: 'OPEN_EVALUATION'
+                tipo: tipo === 'APROBADA' ? 'EVALUACION_APROBADA' : 'EVALUACION_RECHAZADA',
             },
             android: {
                 priority: 'high',
-                notification: {
-                    channelId: 'evaluations',
-                    sound: type === 'APPROVED' ? 'approved.wav' : 'rejected.wav'
-                }
-            }
+                notification: { channelId: 'evaluaciones' },
+            },
         };
         await admin.messaging().send(message);
-        console.log(`Notificación ${type} enviada a operador ${evaluation.operadorId}`);
+        console.log(`Notificación ${tipo} enviada a operador ${evaluacion.operadorId} (evaluación ${evalId}).`);
     }
     catch (error) {
-        console.error('Error sending notification to operator:', error);
+        console.error(`Error notificando al operador de la evaluación ${evalId}:`, error);
         throw error;
     }
 }
