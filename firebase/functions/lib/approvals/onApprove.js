@@ -34,48 +34,64 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onApprove = void 0;
-// TODO: Trigger cuando supervisor aprueba - Player 1 (Backend)
-// Paso 1: firestore.onUpdate cuando evaluation.estado cambia a 'APROBADA_SUPERVISOR'
-// Paso 2: Update estado a 'OFICIAL' si es nivel final
-// Paso 3: Update pozo.produccion con nueva evaluación
-// Prompt de implementación rápida:
-// "Crear onApprove onUpdate trigger, APROBADA_SUPERVISOR → OFICIAL, update pozo.produccion"
-// Entregable:
-// - Detectar cambio a APROBADA_SUPERVISOR
-// - Update pozo.produccion = evaluation.netos
-// - Update pozo.ultimaLectura = now
+// Ascenso automático APROBADA_SUPERVISOR → OFICIAL (flujo de un solo
+// nivel de aprobación, decidido explícitamente en el checklist Fase
+// 2 — no hay un segundo paso manual de GERENTE). Sincroniza
+// pozo.estado en la misma transacción — el Operador no tiene permiso
+// de escritura sobre /pozos/{pozoId} en firestore.rules, así que esto
+// solo puede hacerse aquí, con Admin SDK (mismo razonamiento que
+// onEvalSubmit.ts para la transición anterior).
+//
+// Deliberadamente NO se denormaliza producción en el pozo
+// (pozo.produccion/ultimaLectura, como hacía el stub original) — IPozo
+// no modela esos campos, y DashboardPage.tsx ya deja anotado que un
+// "Total Netos Fiscalizado" agregado queda fuera de alcance hasta
+// diseñarlo a propósito, para no inventar cifras.
+//
+// Reescrito contra el esquema real — el original apuntaba a las
+// colecciones inexistentes 'evaluations'/'wells' (inglés) y al campo
+// mal escrito 'fechaOfficial', ninguno de los cuales existe en la app
+// real.
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 exports.onApprove = functions.firestore
-    .document('evaluations/{evaluationId}')
+    .document('evaluaciones/{evalId}')
     .onUpdate(async (change, context) => {
     const before = change.before.data();
     const after = change.after.data();
-    // Detectar cambio a APROBADA_SUPERVISOR
-    if (before?.estado !== 'APROBADA_SUPERVISOR' && after?.estado === 'APROBADA_SUPERVISOR') {
-        try {
-            const evaluationId = context.params.evaluationId;
-            // Update a OFICIAL (flujo simple MVP)
-            await admin.firestore().collection('evaluations').doc(evaluationId).update({
-                estado: 'OFICIAL',
-                fechaOfficial: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            // Update pozo con nueva producción
-            await admin.firestore().collection('wells').doc(after.pozoId).update({
-                produccion: after.lecturas.netos,
-                ultimaLectura: admin.firestore.FieldValue.serverTimestamp(),
-                estado: 'OFICIAL',
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-            console.log(`Evaluation ${evaluationId} approved and set to OFICIAL`);
-            // TODO: Trigger notifyOperator para notificar operador
-            // notifyOperator.trigger({ evaluationId, operadorId: after.operadorId })
+    if (before?.estado === 'APROBADA_SUPERVISOR' || after?.estado !== 'APROBADA_SUPERVISOR') {
+        return;
+    }
+    const evalId = context.params.evalId;
+    const pozoId = after?.pozoId;
+    if (!pozoId) {
+        console.error(`Evaluación ${evalId} no tiene pozoId — no se puede sincronizar el pozo.`);
+        return;
+    }
+    try {
+        const db = admin.firestore();
+        const pozoRef = db.collection('pozos').doc(pozoId);
+        const pozoDoc = await pozoRef.get();
+        if (!pozoDoc.exists) {
+            console.error(`Pozo ${pozoId} no encontrado (evaluación ${evalId}).`);
+            return;
         }
-        catch (error) {
-            console.error('Error in onApprove:', error);
-            throw error;
-        }
+        // Batch: la evaluación pasa a OFICIAL y el pozo se sincroniza en
+        // la misma escritura atómica — evita que uno se actualice y el
+        // otro falle, dejándolos inconsistentes.
+        const batch = db.batch();
+        batch.update(change.after.ref, { estado: 'OFICIAL' });
+        batch.update(pozoRef, { estado: 'OFICIAL' });
+        await batch.commit();
+        console.log(`Evaluación ${evalId} aprobada → OFICIAL. Pozo ${pozoId} sincronizado.`);
+        // notifyOperator.ts (firebase/functions/src/notifications/) ya
+        // escucha este mismo cambio de forma independiente — no se
+        // invoca desde aquí. Tiene el mismo problema de esquema falso y
+        // necesita su propia reescritura para disparar de verdad.
+    }
+    catch (error) {
+        console.error(`Error aprobando evaluación ${evalId} (pozo ${pozoId}):`, error);
+        throw error;
     }
 });
 //# sourceMappingURL=onApprove.js.map
