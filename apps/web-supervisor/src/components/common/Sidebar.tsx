@@ -8,7 +8,7 @@
 
 import { NavLink } from 'react-router-dom'
 import type { IconType } from 'react-icons'
-import { FiDroplet, FiUsers, FiCheckSquare } from 'react-icons/fi'
+import { FiDroplet, FiUsers, FiCheckSquare, FiBarChart2 } from 'react-icons/fi'
 import type { Rol } from '@core/types'
 
 interface SidebarProps {
@@ -25,6 +25,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Pozos', icon: FiDroplet },
   { to: '/aprobaciones', label: 'Aprobaciones', icon: FiCheckSquare, roles: ['SUP_AREA', 'GERENTE'] },
+  { to: '/analytics', label: 'Analytics', icon: FiBarChart2, roles: ['SUP_AREA', 'GERENTE'] },
   { to: '/usuarios', label: 'Usuarios', icon: FiUsers, roles: ['SUP_AREA', 'GERENTE'] },
 ]
 

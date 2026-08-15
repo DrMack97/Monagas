@@ -1,110 +1,139 @@
-// TODO: Página de analytics y métricas - Player 2 (Frontend)
-// Paso 1: Mostrar KPIs generales
-// Paso 2: Gráfico de producción por día
-// Paso 3: Gráfico de aprobaciones por supervisor
-// Prompt de implementación rápida:
-// "Crear AnalyticsPage con KPIs, production chart, approvals chart"
-// Entregable:
-// - 4 KPIs en header
-// - Gráfico línea producción
-// - Gráfico barras aprobaciones
-import React, { useState, useEffect } from 'react'
-import { FiHome, FiTrendingUp, FiCheckCircle, FiClock, FiBarChart2 } from 'react-icons/fi'
-import KPICard from '../components/KPICard'
+// src/pages/AnalyticsPage.tsx
+//
+// Exclusiva SUP_AREA/GERENTE (App.tsx la protege con RutaSoloGestion,
+// igual que Aprobaciones y Usuarios). KPIs reales vía useAnalyticsData
+// — nada de cifras inventadas. Los gráficos de línea/barras quedan
+// como placeholder honesto (sin librería de gráficos en el proyecto
+// todavía) en vez de fabricar un gráfico con datos falsos.
+
+import { useMemo } from 'react'
+import { FiDroplet, FiTrendingUp, FiCheckCircle, FiClock, FiBarChart2 } from 'react-icons/fi'
+import { useAuth } from '../hooks/useAuth'
+import { useAnalyticsData } from '../hooks/useAnalyticsData'
+import { usePozosVisibles } from '../hooks/usePozosVisibles'
+import Header from '../components/common/Header'
+import Sidebar from '../components/common/Sidebar'
+import MetricCard from '../components/dashboard/MetricCard'
+
+const ESTADO_LABEL: Record<string, string> = {
+  EN_CURSO: 'En Curso',
+  PENDIENTE_SUPERVISOR: 'Pendiente Supervisor',
+  APROBADA_SUPERVISOR: 'Aprobada',
+  OFICIAL: 'Oficial',
+  CERRADA: 'Cerrada',
+}
+
+function fecha(valor: any): string {
+  if (!valor) return '—'
+  const d = typeof valor.toDate === 'function' ? valor.toDate() : new Date(valor)
+  return new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
 
 export default function AnalyticsPage() {
-  const [kpi, setKpi] = useState({
-    totalPozos: 0,
-    produccionTotal: 0,
-    aprobacionesHoy: 0,
-    tiempoPromedioAprobacion: 0
-  })
+  const { user, rol, zona, pozoAsignado, logout } = useAuth()
+  const { evaluaciones, kpis, loading, error } = useAnalyticsData(rol, zona)
+  const { pozos } = usePozosVisibles(rol, zona, pozoAsignado)
 
-  useEffect(() => {
-    // TODO: Fetch KPIs desde Firestore
-    setKpi({
-      totalPozos: 25,
-      produccionTotal: 12345,
-      aprobacionesHoy: 15,
-      tiempoPromedioAprobacion: 2.5
-    })
-  }, [])
+  const pozoPorId = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const p of pozos) map[p.id] = p.nombre
+    return map
+  }, [pozos])
+
+  const recientes = useMemo(
+    () =>
+      [...evaluaciones]
+        .sort((a, b) => {
+          const fa = (a.fechaCierre as any)?.toDate?.() ?? a.fechaCierre ?? a.creadoEn
+          const fb = (b.fechaCierre as any)?.toDate?.() ?? b.fechaCierre ?? b.creadoEn
+          return new Date(fb as any).getTime() - new Date(fa as any).getTime()
+        })
+        .slice(0, 5),
+    [evaluaciones]
+  )
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Analytics</h1>
+    <div className="min-h-screen bg-slate-950 flex">
+      <Sidebar rol={rol} />
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <KPICard
-          title="Pozos Totales"
-          value={kpi.totalPozos}
-          icon={<FiHome />}
-          color="blue"
-        />
-        <KPICard
-          title="Producción Total"
-          value={kpi.produccionTotal.toLocaleString()}
-          unit="Bls"
-          trend="up"
-          trendPercentage={12.5}
-          icon={<FiTrendingUp />}
-          color="green"
-        />
-        <KPICard
-          title="Aprobaciones Hoy"
-          value={kpi.aprobacionesHoy}
-          icon={<FiCheckCircle />}
-          color="purple"
-        />
-        <KPICard
-          title="Tiempo Prom. Aprobación"
-          value={kpi.tiempoPromedioAprobacion}
-          unit="horas"
-          trend="down"
-          trendPercentage={15}
-          icon={<FiClock />}
-          color="yellow"
-        />
-      </div>
+      <div className="flex-1 min-w-0">
+        <Header nombre={user?.displayName ?? user?.email ?? null} rol={rol} onLogout={logout} />
 
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Producción por Día */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Producción por Día</h2>
-          <div className="h-64 flex items-center justify-center gap-2 text-gray-500">
-            {/* TODO: Implementar con Recharts */}
-            <FiBarChart2 aria-hidden="true" /> Gráfico de línea de producción
+        <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-white">Analytics</h1>
+            <p className="text-sm text-slate-400 mt-0.5">
+              {rol === 'GERENTE' ? 'Todos los pozos del sistema' : `Zona ${zona ?? '—'}`}
+            </p>
           </div>
-        </div>
 
-        {/* Aprobaciones por Supervisor */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Aprobaciones por Supervisor</h2>
-          <div className="h-64 flex items-center justify-center gap-2 text-gray-500">
-            {/* TODO: Implementar con Recharts */}
-            <FiBarChart2 aria-hidden="true" /> Gráfico de barras por supervisor
-          </div>
-        </div>
-      </div>
-
-      {/* Tabla de actividad reciente */}
-      <div className="bg-white rounded-lg shadow p-6 mt-6">
-        <h2 className="text-lg font-semibold mb-4">Actividad Reciente</h2>
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                <FiCheckCircle aria-hidden="true" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">Evaluación aprobada</p>
-                <p className="text-sm text-gray-600">Pozo MFB-{950 + i} - 1,234 Bls/día</p>
-              </div>
-              <p className="text-sm text-gray-500">{i}h hace</p>
+          {error && (
+            <div className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-lg px-3 py-2">
+              {error}
             </div>
-          ))}
+          )}
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <MetricCard label="Pozos visibles" value={String(pozos.length)} icon={<FiDroplet />} accent="slate" />
+            <MetricCard
+              label="Producción Oficial"
+              value={loading ? '—' : kpis.produccionTotal.toFixed(1)}
+              unit="Bls"
+              icon={<FiTrendingUp />}
+              accent="emerald"
+            />
+            <MetricCard
+              label="Aprobaciones Hoy"
+              value={loading ? '—' : String(kpis.aprobacionesHoy)}
+              icon={<FiCheckCircle />}
+              accent="amber"
+            />
+            <MetricCard
+              label="Tiempo Prom. Aprobación"
+              value={loading || kpis.tiempoPromedioAprobacionHoras === null ? '—' : kpis.tiempoPromedioAprobacionHoras.toFixed(1)}
+              unit={kpis.tiempoPromedioAprobacionHoras === null ? undefined : 'horas'}
+              icon={<FiClock />}
+              accent="blue"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <h2 className="text-sm font-semibold text-slate-300 mb-3">Producción por Día</h2>
+              <div className="h-48 flex items-center justify-center gap-2 text-slate-500 text-sm">
+                <FiBarChart2 aria-hidden="true" /> Gráfico pendiente — sin librería de gráficos en el proyecto todavía
+              </div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <h2 className="text-sm font-semibold text-slate-300 mb-3">Aprobaciones por Supervisor</h2>
+              <div className="h-48 flex items-center justify-center gap-2 text-slate-500 text-sm">
+                <FiBarChart2 aria-hidden="true" /> Gráfico pendiente — sin librería de gráficos en el proyecto todavía
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <h2 className="text-sm font-semibold text-slate-300 mb-3">Actividad Reciente</h2>
+            {loading ? (
+              <p className="text-sm text-slate-500">Cargando...</p>
+            ) : recientes.length === 0 ? (
+              <p className="text-sm text-slate-500">Sin evaluaciones todavía.</p>
+            ) : (
+              <div className="space-y-2">
+                {recientes.map((e) => (
+                  <div key={e.id} className="flex items-center justify-between gap-3 p-3 bg-slate-950/60 rounded-lg text-sm">
+                    <div>
+                      <p className="text-white font-medium">{pozoPorId[e.pozoId] ?? e.pozoId}</p>
+                      <p className="text-slate-500 text-xs">{fecha(e.fechaCierre ?? e.creadoEn)}</p>
+                    </div>
+                    <span className="text-xs px-2 py-0.5 rounded-full border border-slate-700 text-slate-300 whitespace-nowrap">
+                      {ESTADO_LABEL[e.estado] ?? e.estado}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
