@@ -18,6 +18,7 @@ import DashboardPage from './pages/DashboardPage'
 import NewWellPage from './pages/NewWellPage'
 import WellDetailPage from './pages/WellDetailPage'
 import UsersPage from './pages/UsersPage'
+import ApprovalQueuePage from './pages/ApprovalQueuePage'
 
 function RutaProtegida({ children }: { children: ReactNode }) {
   const { user, rol, loading } = useAuth()
@@ -94,6 +95,15 @@ export default function App() {
           element={
             <RutaSoloGestion>
               <UsersPage />
+            </RutaSoloGestion>
+          }
+        />
+
+        <Route
+          path="/aprobaciones"
+          element={
+            <RutaSoloGestion>
+              <ApprovalQueuePage />
             </RutaSoloGestion>
           }
         />
