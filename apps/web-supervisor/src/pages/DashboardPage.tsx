@@ -30,7 +30,7 @@ const CONTEXTO_POR_ROL: Record<string, (zona: string | null) => string> = {
   GERENTE: () => 'Todos los pozos del sistema',
 }
 
-// Coincide exactamente con canManagePozos() en firestore.rules —
+// Coincide exactamente con canManagePozoEnZona() en firestore.rules —
 // SUP_CAMPO queda fuera a propósito, no crea ni gestiona pozos.
 const PUEDE_CREAR_POZO: Record<string, boolean> = {
   SUP_AREA: true,

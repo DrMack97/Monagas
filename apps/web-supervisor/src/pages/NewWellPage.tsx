@@ -1,7 +1,7 @@
 // src/pages/NewWellPage.tsx
 //
 // Creación de pozos — exclusiva de SUP_AREA/GERENTE (coincide con
-// canManagePozos() en firestore.rules). SUP_AREA queda restringido a
+// canManagePozoEnZona() en firestore.rules). SUP_AREA queda restringido a
 // crear pozos en SU propia zona: el campo Zona se bloquea en modo
 // solo-lectura mostrando la suya, en vez de dejarlo elegir.
 

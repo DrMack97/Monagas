@@ -20,16 +20,22 @@ service cloud.firestore {
       return request.auth.token.pozoAsignado == pozoId;
     }
 
-    // Solo Supervisor de Área (SUP_AREA) y Gerente crean pozos nuevos
-    // y editan cualquier campo (incluyendo nombre, zona, asignados[]).
-    function canManagePozos() {
-      return isSupArea() || isGerente();
+    // Solo Supervisor de Área (SUP_AREA, en SU zona) y Gerente (sin
+    // restricción) crean pozos nuevos y editan cualquier campo
+    // (incluyendo nombre, zona, asignados[]) de un pozo o evaluación
+    // ya existente. Antes existía una canManagePozos() sin chequeo de
+    // zona en escritura — un SUP_AREA de FAJA podía escribir sobre un
+    // pozo/evaluación de MONAGAS, algo que la regla de LECTURA
+    // (canViewPozosEnZona) sí prohibía. Se unificó en esta única
+    // función para que lectura y escritura respeten la misma zona.
+    function canManagePozoEnZona(zona) {
+      return isGerente() || (isSupArea() && request.auth.token.zona == zona);
     }
 
     // SUP_CAMPO puede editar SU propio pozo, pero únicamente los campos
     // técnicos de operación diaria: tanques (mi/ft) y límites de alerta
     // (limResorte/limGamma). No puede tocar nombre, zona, asignados[],
-    // ni crear pozos nuevos — eso sigue siendo exclusivo de canManagePozos().
+    // ni crear pozos nuevos — eso sigue siendo exclusivo de canManagePozoEnZona().
     // Tampoco tiene ninguna autoridad sobre creación o reasignación de
     // personal — eso vive exclusivamente en las Cloud Functions
     // crearPersonal.ts y reassignPozo.ts, restringidas a SUP_AREA/GERENTE.
@@ -42,6 +48,31 @@ service cloud.firestore {
     // SUP_AREA ve todos los pozos de SU zona; GERENTE ve todos sin restricción
     function canViewPozosEnZona(pozoZona) {
       return isGerente() || (isSupArea() && request.auth.token.zona == pozoZona);
+    }
+
+    // Aprobar/rechazar una evaluación (useApprovals.ts en web-supervisor).
+    // Exige las tres cosas a la vez:
+    //  - Rol correcto y en SU zona (canManagePozoEnZona)
+    //  - Solo puede tocar estado + aprobaciones — nada de reescribir
+    //    resultados, pozoId, horasEvaluadas, etc. de paso
+    //  - Solo desde PENDIENTE_SUPERVISOR hacia APROBADA_SUPERVISOR
+    //    (aprobar) o EN_CURSO (rechazar) — ningún otro salto de estado
+    function canApproveEvaluacion(evalZona) {
+      return canManagePozoEnZona(evalZona) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'aprobaciones']) &&
+        resource.data.estado == 'PENDIENTE_SUPERVISOR' &&
+        request.resource.data.estado in ['APROBADA_SUPERVISOR', 'EN_CURSO'];
+    }
+
+    // El Operador solo puede tocar estos campos de SU PROPIA evaluación
+    // EN_CURSO — registrar horas (RegistroPage.tsx) o cerrar el ciclo
+    // hacia PENDIENTE_SUPERVISOR con sus resultados (ReportePage.tsx).
+    function canUpdateOwnEvaluacion() {
+      return isOperador() &&
+        resource.data.operadorId == request.auth.uid &&
+        resource.data.estado == 'EN_CURSO' &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['horasEvaluadas', 'resultados', 'estado', 'fechaCierre']);
     }
 
     // /usuarios/{uid} — perfil del usuario
@@ -60,8 +91,10 @@ service cloud.firestore {
       allow read: if isRoot()
         || canViewPozosEnZona(resource.data.zona)
         || isAssignedToPozo(pozoId);
-      allow create: if isRoot() || canManagePozos();
-      allow update: if isRoot() || canManagePozos() || canEditOwnTanquesYLimites(pozoId);
+      // create: no hay resource.data (el pozo no existe todavía) — se
+      // valida contra la zona que trae el propio documento nuevo.
+      allow create: if isRoot() || canManagePozoEnZona(request.resource.data.zona);
+      allow update: if isRoot() || canManagePozoEnZona(resource.data.zona) || canEditOwnTanquesYLimites(pozoId);
       allow delete: if isRoot();
     }
 
@@ -72,9 +105,12 @@ service cloud.firestore {
         || isAssignedToPozo(resource.data.pozoId);
       allow create: if isRoot() ||
         (isOperador() && isAssignedToPozo(request.resource.data.pozoId));
-      allow update: if isRoot() || canManagePozos() || isSupCampo() ||
-        (isOperador() && resource.data.operadorId == request.auth.uid
-                       && resource.data.estado == 'EN_CURSO');
+      // SUP_CAMPO quitado — no tiene ningún flujo real que escriba
+      // evaluaciones (ver WellDetailPage.tsx: solo toca /pozos). Antes
+      // podía editar cualquier evaluación sin restricción alguna.
+      allow update: if isRoot()
+        || canApproveEvaluacion(resource.data.zona)
+        || canUpdateOwnEvaluacion();
       allow delete: if isRoot();
 
       // /evaluaciones/{evalId}/lecturas/{lecturaId}

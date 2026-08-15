@@ -37,7 +37,7 @@ exports.onEvalSubmit = void 0;
 // Sincroniza pozo.estado cuando una evaluación entra a
 // PENDIENTE_SUPERVISOR — el Operador no tiene permiso de escritura
 // sobre /pozos/{pozoId} en firestore.rules (ver canEditOwnTanquesYLimites
-// y canManagePozos()), así que esta sincronización solo puede hacerse
+// y canManagePozoEnZona()), así que esta sincronización solo puede hacerse
 // aquí, con Admin SDK.
 //
 // El propósito original de este trigger (CERRADA → PENDIENTE_SUPERVISOR)

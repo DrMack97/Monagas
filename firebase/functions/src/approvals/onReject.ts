@@ -3,7 +3,7 @@
 // centralizar el sync de pozo.estado en Cloud Functions (Admin SDK)
 // en vez de repartirlo entre cliente y servidor, aunque en este caso
 // puntual SUP_AREA/GERENTE sí tienen permiso de escritura directa
-// sobre /pozos (canManagePozos() en firestore.rules) — se mantiene
+// sobre /pozos (canManagePozoEnZona() en firestore.rules) — se mantiene
 // aquí de todas formas por consistencia con las otras dos transiciones.
 //
 // IEvaluacion no tiene un estado 'RECHAZADA' (ver EstadoEvaluacion en

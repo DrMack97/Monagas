@@ -39,7 +39,7 @@ function RutaProtegida({ children }: { children: ReactNode }) {
 
 // Igual que RutaProtegida, pero además bloquea a SUP_CAMPO — para
 // pantallas exclusivas de SUP_AREA/GERENTE (crear pozo, gestionar
-// personal), coincidiendo con canManagePozos() en firestore.rules.
+// personal), coincidiendo con canManagePozoEnZona() en firestore.rules.
 function RutaSoloGestion({ children }: { children: ReactNode }) {
   const { user, rol, loading } = useAuth()
 
