@@ -6,7 +6,6 @@
 // SettingsPage son accesorias, no bloquean el flujo principal.
 
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
-import { AuthProvider } from './context/AuthContext'
 import { RequireOperador } from './hooks/useAuthRole'
 
 import LoginPage from './pages/LoginPage'
@@ -27,62 +26,57 @@ function ReporteRoute() {
 
 export default function App() {
   return (
-    // AuthProvider queda montado por compatibilidad con componentes que
-    // aún no migraron (PersonalizedGreeting) — las rutas protegidas usan
-    // useAuth/useAuthRole (Custom Claims), no este contexto.
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
 
-          <Route
-            path="/dashboard"
-            element={
-              <RequireOperador>
-                <DashboardPage />
-              </RequireOperador>
-            }
-          />
+        <Route
+          path="/dashboard"
+          element={
+            <RequireOperador>
+              <DashboardPage />
+            </RequireOperador>
+          }
+        />
 
-          <Route
-            path="/registro/:pozoId"
-            element={
-              <RequireOperador>
-                <RegistroPage />
-              </RequireOperador>
-            }
-          />
+        <Route
+          path="/registro/:pozoId"
+          element={
+            <RequireOperador>
+              <RegistroPage />
+            </RequireOperador>
+          }
+        />
 
-          <Route
-            path="/tabla"
-            element={
-              <RequireOperador>
-                <TablaPage />
-              </RequireOperador>
-            }
-          />
+        <Route
+          path="/tabla"
+          element={
+            <RequireOperador>
+              <TablaPage />
+            </RequireOperador>
+          }
+        />
 
-          <Route
-            path="/reporte/:pozoId/:evalId"
-            element={
-              <RequireOperador>
-                <ReporteRoute />
-              </RequireOperador>
-            }
-          />
+        <Route
+          path="/reporte/:pozoId/:evalId"
+          element={
+            <RequireOperador>
+              <ReporteRoute />
+            </RequireOperador>
+          }
+        />
 
-          <Route
-            path="/ajustes"
-            element={
-              <RequireOperador>
-                <SettingsPage />
-              </RequireOperador>
-            }
-          />
+        <Route
+          path="/ajustes"
+          element={
+            <RequireOperador>
+              <SettingsPage />
+            </RequireOperador>
+          }
+        />
 
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
