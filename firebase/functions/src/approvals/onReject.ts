@@ -48,7 +48,12 @@ export const onReject = functions.firestore
         return
       }
 
-      await pozoRef.update({ estado: 'EN_CURSO' })
+      // onEvalSubmit.ts ya había puesto evalEnCursoId en null cuando
+      // esta evaluación entró a PENDIENTE_SUPERVISOR. Al rechazarla hay
+      // que devolver el candado a ESTE MISMO evalId (no a null) para
+      // que useEvaluacionActual.ts la reabra en vez de crear una
+      // evaluación nueva al lado de la rechazada.
+      await pozoRef.update({ estado: 'EN_CURSO', evalEnCursoId: evalId })
 
       const ultimaAprobacion = after?.aprobaciones?.[after.aprobaciones.length - 1]
       console.log(

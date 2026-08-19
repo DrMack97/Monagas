@@ -80,6 +80,7 @@ export default function NewWellPage() {
         limGamma: parseFloat(limGamma) || 0,
         horasEval: parseFloat(horasEval) || 5,
         estado: 'EN_CURSO',
+        evalEnCursoId: null,
         asignados: [],
         creadoPor: user.uid,
         tanques: tanquesFinales,

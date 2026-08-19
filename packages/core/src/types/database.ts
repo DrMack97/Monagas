@@ -54,6 +54,25 @@ export interface IPozo {
   legal?: IPozoLegal  // Información legal — ver IPozoLegal. Opcional: pozos existentes no lo tienen todavía.
   horasEval: number
   estado: EstadoEvaluacion
+  /**
+   * Puntero a la evaluación EN_CURSO activa de este pozo, o null si
+   * ninguna está abierta ahora mismo (recién creado, o justo después
+   * de un cierre FINAL_24H). Es el candado que usa useEvaluacionActual.ts
+   * (mobile-operator) para resolver el evalId de forma atómica vía
+   * runTransaction — sin esto, dos pestañas/dispositivos del mismo
+   * Operador viendo el pozo vacío a la vez podían crear dos
+   * evaluaciones EN_CURSO duplicadas para el mismo pozo.
+   * Ciclo de vida (mantenido por Cloud Functions con Admin SDK,
+   * salvo la creación inicial que hace el propio Operador):
+   *   - null → id: cuando el Operador abre el pozo sin ciclo activo
+   *     (useEvaluacionActual.ts, transacción cliente).
+   *   - id → null: cuando esa evaluación pasa a PENDIENTE_SUPERVISOR
+   *     (onEvalSubmit.ts) — libera el candado para el próximo ciclo.
+   *   - null → id (mismo id de antes): cuando el Supervisor rechaza y
+   *     la evaluación vuelve a EN_CURSO (onReject.ts) — reabre el
+   *     mismo documento en vez de dejar que se cree uno nuevo.
+   */
+  evalEnCursoId?: string | null
   asignados: string[] // UIDs de operadores
   creadoPor: string
   tanques: ITank[]

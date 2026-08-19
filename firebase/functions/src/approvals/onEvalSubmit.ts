@@ -44,7 +44,10 @@ export const onEvalSubmit = functions.firestore
         return
       }
 
-      await pozoRef.update({ estado: 'PENDIENTE_SUPERVISOR' })
+      // evalEnCursoId -> null libera el candado de useEvaluacionActual.ts
+      // (mobile-operator) para que el próximo ciclo cree una evaluación
+      // nueva en vez de seguir apuntando a esta, ya cerrada.
+      await pozoRef.update({ estado: 'PENDIENTE_SUPERVISOR', evalEnCursoId: null })
       console.log(`Pozo ${pozoId} sincronizado a PENDIENTE_SUPERVISOR (evaluación ${evalId}).`)
 
       // notifyMgr.ts (firebase/functions/src/notifications/) ya escucha

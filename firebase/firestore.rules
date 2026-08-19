@@ -45,6 +45,21 @@ service cloud.firestore {
           .hasOnly(['tanques', 'limResorte', 'limGamma']);
     }
 
+    // Candado de ciclo EN_CURSO (useEvaluacionActual.ts, mobile-operator).
+    // El Operador resuelve su evalId con una runTransaction que lee y
+    // escribe pozo.evalEnCursoId — es la única forma de que dos
+    // pestañas/dispositivos compitiendo por el mismo pozo no terminen
+    // creando dos evaluaciones EN_CURSO duplicadas. Solo ese campo,
+    // nunca junto con otros: si alguien cuela más claves en la misma
+    // escritura no es este candado, es otra cosa y no debe colar por
+    // aquí. La liberación (id -> null) y la reapertura tras un rechazo
+    // (null -> mismo id) las hacen las Cloud Functions con Admin SDK
+    // (onEvalSubmit.ts / onReject.ts), no pasan por esta regla.
+    function canManageOwnCicloEnCurso(pozoId) {
+      return isOperador() && isAssignedToPozo(pozoId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['evalEnCursoId']);
+    }
+
     // SUP_AREA ve todos los pozos de SU zona; GERENTE ve todos sin restricción
     function canViewPozosEnZona(pozoZona) {
       return isGerente() || (isSupArea() && request.auth.token.zona == pozoZona);
@@ -114,7 +129,7 @@ service cloud.firestore {
       // create: no hay resource.data (el pozo no existe todavía) — se
       // valida contra la zona que trae el propio documento nuevo.
       allow create: if isRoot() || canManagePozoEnZona(request.resource.data.zona);
-      allow update: if isRoot() || canManagePozoEnZona(resource.data.zona) || canEditOwnTanquesYLimites(pozoId);
+      allow update: if isRoot() || canManagePozoEnZona(resource.data.zona) || canEditOwnTanquesYLimites(pozoId) || canManageOwnCicloEnCurso(pozoId);
       allow delete: if isRoot();
     }
 
