@@ -24,13 +24,14 @@
 // sincronización no puede hacerse desde este cliente.
 
 import { useState } from 'react'
-import { FiSend, FiAlertTriangle, FiCheckCircle, FiSave } from 'react-icons/fi'
+import { FiSend, FiAlertTriangle, FiCheckCircle, FiSave, FiFileText } from 'react-icons/fi'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
 import { usePozoInfo } from '../hooks/usePozoInfo'
 import { calcularPromedioEvaluacion } from '@core/calculos'
 import { fmt, dateFormat } from '../utils/formatters'
+import { exportarInformeExcel } from '../utils/exportExcel'
 import type { IResultadosEval } from '@core/types'
 
 interface ReportePageProps {
@@ -102,6 +103,11 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
     } finally {
       setEnviando(false)
     }
+  }
+
+  function handleExportarExcel() {
+    if (!resultados || !pozo) return
+    exportarInformeExcel({ pozo, resultados, lecturas, supervisorArea })
   }
 
   function generarTextoWhatsApp(): string {
@@ -233,14 +239,22 @@ ${esPreliminar
             </button>
           )}
 
-          <a
-            href={`https://wa.me/?text=${encodeURIComponent(generarTextoWhatsApp())}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full text-center bg-slate-800 border border-slate-700 text-white font-medium rounded-lg py-3"
-          >
-            Compartir por WhatsApp
-          </a>
+          <div className="grid grid-cols-2 gap-3">
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(generarTextoWhatsApp())}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-center bg-slate-800 border border-slate-700 text-white font-medium rounded-lg py-3"
+            >
+              Compartir por WhatsApp
+            </a>
+            <button
+              onClick={handleExportarExcel}
+              className="flex items-center justify-center gap-1.5 bg-slate-800 border border-slate-700 text-white font-medium rounded-lg py-3"
+            >
+              <FiFileText aria-hidden="true" /> Excel
+            </button>
+          </div>
         </>
       )}
     </div>
