@@ -17,10 +17,11 @@
 // página más allá de que la evaluación desaparece de la cola.
 
 import { useMemo, useState } from 'react'
-import { FiCheck, FiX, FiAlertTriangle, FiInbox } from 'react-icons/fi'
+import { FiCheck, FiX, FiAlertTriangle, FiInbox, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import { useAuth } from '../hooks/useAuth'
 import { useApprovals } from '../hooks/useApprovals'
 import { usePozosVisibles } from '../hooks/usePozosVisibles'
+import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
 import Header from '../components/common/Header'
 import Sidebar from '../components/common/Sidebar'
 import Button from '../components/common/Button'
@@ -34,6 +35,57 @@ function fecha(d: Date | undefined): string {
   if (!d) return '—'
   const date = (d as any)?.toDate ? (d as any).toDate() : d
   return new Date(date).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+function LecturasDrilldown({ evalId }: { evalId: string }) {
+  const { lecturas, loading, error } = useLecturasEvaluacion(evalId)
+
+  if (loading) {
+    return <p className="text-xs text-slate-500 py-3">Cargando lecturas...</p>
+  }
+  if (error) {
+    return <p className="text-xs text-red-400 py-3">{error}</p>
+  }
+  if (lecturas.length === 0) {
+    return <p className="text-xs text-slate-500 py-3">Esta evaluación no tiene lecturas registradas.</p>
+  }
+
+  return (
+    <div className="overflow-x-auto -mx-1">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-left text-slate-500 border-b border-slate-800">
+            <th className="py-2 px-1">Hora</th>
+            <th className="py-2 px-1">Fecha/Hora</th>
+            <th className="py-2 px-1">Netos (Bls)</th>
+            <th className="py-2 px-1">Qg (MMSCFD)</th>
+            <th className="py-2 px-1">Alertas</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lecturas.map((l) => {
+            const netos = l.tanques.reduce((acc, t) => acc + t.netos, 0)
+            const ts = (l.timestamp as any)?.toDate ? (l.timestamp as any).toDate() : l.timestamp
+            return (
+              <tr key={l.id} className="border-b border-slate-900 text-slate-300">
+                <td className="py-2 px-1">{l.hora}</td>
+                <td className="py-2 px-1">{new Date(ts).toLocaleString('es-VE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                <td className="py-2 px-1 font-mono">{netos.toFixed(1)}</td>
+                <td className="py-2 px-1 font-mono">{l.gas ? l.gas.qg.toFixed(2) : '—'}</td>
+                <td className="py-2 px-1">
+                  {l.alertas && l.alertas.length > 0 ? (
+                    <span className="text-amber-400">{l.alertas.join(', ')}</span>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 function TarjetaEvaluacion({
@@ -51,6 +103,7 @@ function TarjetaEvaluacion({
 }) {
   const [mostrarRechazo, setMostrarRechazo] = useState(false)
   const [motivo, setMotivo] = useState('')
+  const [mostrarDetalle, setMostrarDetalle] = useState(false)
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
@@ -80,6 +133,16 @@ function TarjetaEvaluacion({
           </div>
         </div>
       )}
+
+      <button
+        onClick={() => setMostrarDetalle((v) => !v)}
+        className="flex items-center gap-1.5 text-xs text-amber-400 border-t border-slate-800 pt-3 w-full"
+      >
+        {mostrarDetalle ? <FiChevronUp aria-hidden="true" /> : <FiChevronDown aria-hidden="true" />}
+        {mostrarDetalle ? 'Ocultar lecturas individuales' : 'Ver lecturas individuales'}
+      </button>
+
+      {mostrarDetalle && <LecturasDrilldown evalId={evaluacion.id} />}
 
       {mostrarRechazo ? (
         <div className="space-y-2 border-t border-slate-800 pt-3">
