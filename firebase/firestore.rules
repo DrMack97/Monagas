@@ -75,6 +75,20 @@ service cloud.firestore {
           .hasOnly(['horasEvaluadas', 'resultados', 'estado', 'fechaCierre']);
     }
 
+    // Corrección de una lectura individual por el Supervisor (drill-down
+    // de ApprovalQueuePage.tsx). Requiere un get() a la evaluación padre
+    // porque la lectura en sí no trae zona/estado. Solo mientras la
+    // evaluación esté PENDIENTE_SUPERVISOR — una vez aprobada/rechazada,
+    // las lecturas quedan congeladas. hora/timestamp/alertas quedan
+    // fuera de hasOnly() a propósito: son metadata de cuándo se tomó la
+    // lectura, no valores medidos — no se "corrigen", son un hecho.
+    function canEditLectura(evalId) {
+      let evaluacion = get(/databases/$(database)/documents/evaluaciones/$(evalId)).data;
+      return canManagePozoEnZona(evaluacion.zona) &&
+        evaluacion.estado == 'PENDIENTE_SUPERVISOR' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tanques', 'operativos', 'gas']);
+    }
+
     // /usuarios/{uid} — perfil del usuario
     // Escritura directa restringida a ROOT. Toda alta o reasignación de
     // personal pasa por Cloud Functions dedicadas (crearPersonal.ts,
@@ -125,7 +139,8 @@ service cloud.firestore {
         allow create: if isRoot() ||
           (isOperador() &&
            get(/databases/$(database)/documents/evaluaciones/$(evalId)).data.operadorId == request.auth.uid);
-        allow update, delete: if isRoot();
+        allow update: if isRoot() || canEditLectura(evalId);
+        allow delete: if isRoot();
       }
     }
 

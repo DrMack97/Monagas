@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./calculos": "./src/calculos/index.ts",
-    "./types": "./src/types/index.ts",
-    "./constants": "./src/constants/index.ts",
-    "./utils": "./src/utils/index.ts"
+    ".": { "types": "./dist/index.d.ts", "node": "./dist/index.js", "default": "./src/index.ts" },
+    "./calculos": { "types": "./dist/calculos/index.d.ts", "node": "./dist/calculos/index.js", "default": "./src/calculos/index.ts" },
+    "./types": { "types": "./dist/types/index.d.ts", "node": "./dist/types/index.js", "default": "./src/types/index.ts" },
+    "./constants": { "types": "./dist/constants/index.d.ts", "node": "./dist/constants/index.js", "default": "./src/constants/index.ts" },
+    "./utils": { "types": "./dist/utils/index.d.ts", "node": "./dist/utils/index.js", "default": "./src/utils/index.ts" }
   },
   "scripts": {
     "test": "vitest run",

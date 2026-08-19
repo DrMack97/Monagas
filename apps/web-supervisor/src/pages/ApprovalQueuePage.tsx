@@ -17,7 +17,9 @@
 // página más allá de que la evaluación desaparece de la cola.
 
 import { useMemo, useState } from 'react'
-import { FiCheck, FiX, FiAlertTriangle, FiInbox, FiChevronDown, FiChevronUp } from 'react-icons/fi'
+import { FiCheck, FiX, FiAlertTriangle, FiInbox, FiChevronDown, FiChevronUp, FiEdit2 } from 'react-icons/fi'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { useApprovals } from '../hooks/useApprovals'
 import { usePozosVisibles } from '../hooks/usePozosVisibles'
@@ -25,7 +27,7 @@ import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
 import Header from '../components/common/Header'
 import Sidebar from '../components/common/Sidebar'
 import Button from '../components/common/Button'
-import type { IEvaluacion } from '@core/types'
+import type { IEvaluacion, ILectura, ILecturaTanque } from '@core/types'
 
 function fmt(n: number | undefined, decimales = 1): string {
   return typeof n === 'number' ? n.toFixed(decimales) : '—'
@@ -35,6 +37,137 @@ function fecha(d: Date | undefined): string {
   if (!d) return '—'
   const date = (d as any)?.toDate ? (d as any).toDate() : d
   return new Date(date).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+// Corrección directa de valores finales (bph/bpd/netos por tanque +
+// presiones operativas) — NO una re-derivación desde mi/mf. Firestore
+// no guarda el aysPct% original usado en el cálculo de campo (solo el
+// aysBls resultante), así que no hay forma de reconstruir la fórmula
+// completa (calcTanque) fielmente desde aquí. Esto es una corrección
+// administrativa de "este número está mal, el correcto es este otro",
+// no un recálculo científico.
+function FilaLecturaEditable({
+  evalId,
+  lectura,
+}: {
+  evalId: string
+  lectura: ILectura
+}) {
+  const [editando, setEditando] = useState(false)
+  const [tanques, setTanques] = useState<ILecturaTanque[]>(lectura.tanques)
+  const [pCab, setPCab] = useState(String(lectura.operativos.pCab))
+  const [pSep, setPSep] = useState(String(lectura.operativos.pSep))
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const netos = lectura.tanques.reduce((acc, t) => acc + t.netos, 0)
+  const ts = (lectura.timestamp as any)?.toDate ? (lectura.timestamp as any).toDate() : lectura.timestamp
+
+  function actualizarTanque(idx: number, campo: 'bph' | 'bpd' | 'netos', valor: string) {
+    setTanques((prev) => prev.map((t, i) => (i === idx ? { ...t, [campo]: parseFloat(valor) || 0 } : t)))
+  }
+
+  async function guardar() {
+    setGuardando(true)
+    setError(null)
+    try {
+      await updateDoc(doc(db, 'evaluaciones', evalId, 'lecturas', lectura.id), {
+        tanques,
+        operativos: { pCab: parseFloat(pCab) || 0, pSep: parseFloat(pSep) || 0 },
+      })
+      setEditando(false)
+    } catch (err: any) {
+      setError(
+        err.code === 'permission-denied'
+          ? 'No tienes permiso para editar esta lectura.'
+          : 'No se pudo guardar la corrección. Intenta de nuevo.'
+      )
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  if (!editando) {
+    return (
+      <tr className="border-b border-slate-900 text-slate-300">
+        <td className="py-2 px-1">{lectura.hora}</td>
+        <td className="py-2 px-1">{new Date(ts).toLocaleString('es-VE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+        <td className="py-2 px-1 font-mono">{netos.toFixed(1)}</td>
+        <td className="py-2 px-1 font-mono">{lectura.gas ? lectura.gas.qg.toFixed(2) : '—'}</td>
+        <td className="py-2 px-1">
+          {lectura.alertas && lectura.alertas.length > 0 ? (
+            <span className="text-amber-400">{lectura.alertas.join(', ')}</span>
+          ) : (
+            '—'
+          )}
+        </td>
+        <td className="py-2 px-1">
+          <button onClick={() => setEditando(true)} className="text-amber-400" aria-label="Corregir lectura">
+            <FiEdit2 aria-hidden="true" />
+          </button>
+        </td>
+      </tr>
+    )
+  }
+
+  return (
+    <tr className="border-b border-slate-900">
+      <td colSpan={6} className="py-3 px-1">
+        <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-3">
+          <p className="text-xs text-slate-500">Corrigiendo lectura #{lectura.hora}</p>
+          {tanques.map((t, idx) => (
+            <div key={t.tanqueId} className="grid grid-cols-3 gap-2">
+              <label className="text-xs text-slate-400">
+                Bph
+                <input
+                  type="number" step="0.01" value={t.bph}
+                  onChange={(e) => actualizarTanque(idx, 'bph', e.target.value)}
+                  className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                />
+              </label>
+              <label className="text-xs text-slate-400">
+                Bpd
+                <input
+                  type="number" step="0.01" value={t.bpd}
+                  onChange={(e) => actualizarTanque(idx, 'bpd', e.target.value)}
+                  className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                />
+              </label>
+              <label className="text-xs text-slate-400">
+                Netos
+                <input
+                  type="number" step="0.01" value={t.netos}
+                  onChange={(e) => actualizarTanque(idx, 'netos', e.target.value)}
+                  className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                />
+              </label>
+            </div>
+          ))}
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-slate-400">
+              P. Cabezal
+              <input
+                type="number" step="0.01" value={pCab} onChange={(e) => setPCab(e.target.value)}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+              />
+            </label>
+            <label className="text-xs text-slate-400">
+              P. Separador
+              <input
+                type="number" step="0.01" value={pSep} onChange={(e) => setPSep(e.target.value)}
+                className="w-full mt-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+              />
+            </label>
+          </div>
+          {error && <p className="text-xs text-red-400">{error}</p>}
+          <div className="flex gap-2">
+            <Button variant="primary" loading={guardando} onClick={guardar}>Guardar corrección</Button>
+            <Button variant="secondary" disabled={guardando} onClick={() => setEditando(false)}>Cancelar</Button>
+          </div>
+        </div>
+      </td>
+    </tr>
+  )
 }
 
 function LecturasDrilldown({ evalId }: { evalId: string }) {
@@ -60,28 +193,13 @@ function LecturasDrilldown({ evalId }: { evalId: string }) {
             <th className="py-2 px-1">Netos (Bls)</th>
             <th className="py-2 px-1">Qg (MMSCFD)</th>
             <th className="py-2 px-1">Alertas</th>
+            <th className="py-2 px-1"></th>
           </tr>
         </thead>
         <tbody>
-          {lecturas.map((l) => {
-            const netos = l.tanques.reduce((acc, t) => acc + t.netos, 0)
-            const ts = (l.timestamp as any)?.toDate ? (l.timestamp as any).toDate() : l.timestamp
-            return (
-              <tr key={l.id} className="border-b border-slate-900 text-slate-300">
-                <td className="py-2 px-1">{l.hora}</td>
-                <td className="py-2 px-1">{new Date(ts).toLocaleString('es-VE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-                <td className="py-2 px-1 font-mono">{netos.toFixed(1)}</td>
-                <td className="py-2 px-1 font-mono">{l.gas ? l.gas.qg.toFixed(2) : '—'}</td>
-                <td className="py-2 px-1">
-                  {l.alertas && l.alertas.length > 0 ? (
-                    <span className="text-amber-400">{l.alertas.join(', ')}</span>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-              </tr>
-            )
-          })}
+          {lecturas.map((l) => (
+            <FilaLecturaEditable key={l.id} evalId={evalId} lectura={l} />
+          ))}
         </tbody>
       </table>
     </div>
