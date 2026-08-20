@@ -24,13 +24,10 @@ var onReject_1 = require("./approvals/onReject");
 Object.defineProperty(exports, "onReject", { enumerable: true, get: function () { return onReject_1.onReject; } });
 var onLecturaEdit_1 = require("./approvals/onLecturaEdit");
 Object.defineProperty(exports, "onLecturaEdit", { enumerable: true, get: function () { return onLecturaEdit_1.onLecturaEdit; } });
-// Notifications
+// Notifications — ambas reescritas contra el esquema real
+// (evaluaciones/pozos/usuarios), ver checklist Fase 2/3.
 var notifyOperator_1 = require("./notifications/notifyOperator");
 Object.defineProperty(exports, "notifyOperator", { enumerable: true, get: function () { return notifyOperator_1.notifyOperator; } });
-// notifyMgr.ts sigue siendo el decoy original — apunta a las
-// colecciones falsas 'evaluations'/'wells'/'users' (inglés) y nunca
-// pudo haber disparado contra la app real. Pendiente de reescribir
-// igual que notifyOperator.ts (ver checklist).
 var notifyMgr_1 = require("./notifications/notifyMgr");
 Object.defineProperty(exports, "notifyMgr", { enumerable: true, get: function () { return notifyMgr_1.notifyMgr; } });
 //# sourceMappingURL=index.js.map
