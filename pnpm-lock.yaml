@@ -56,9 +56,6 @@ importers:
       firebase:
         specifier: ^10.8.0
         version: 10.14.1
-      idb:
-        specifier: ^8.0.3
-        version: 8.0.3
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -8576,10 +8573,6 @@ packages:
 
   /idb@7.1.1:
     resolution: {integrity: sha512-gchesWBzyvGHRO9W8tzUWFDycow5gwjvFKfyV9FF32Y7F50yZMp7mP+T2mJIWFx49zicqyC4uefHM17o6xKIVQ==}
-    dev: false
-
-  /idb@8.0.3:
-    resolution: {integrity: sha512-LtwtVyVYO5BqRvcsKuB2iUMnHwPVByPCXFXOpuU96IZPPoPN6xjOGxZQ74pgSVVLQWtUOYgyeL4GE98BY5D3wg==}
     dev: false
 
   /identity-obj-proxy@3.0.0:

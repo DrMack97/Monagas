@@ -27,7 +27,6 @@
     "expo-clipboard": "~6.0.0",
     "expo-notifications": "~0.27.0",
     "firebase": "^10.8.0",
-    "idb": "^8.0.3",
     "react": "18.2.0",
     "react-dom": "^18.2.0",
     "react-icons": "^5.7.0",

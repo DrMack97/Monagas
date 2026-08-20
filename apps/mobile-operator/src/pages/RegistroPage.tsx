@@ -21,6 +21,7 @@ import { useAuth } from '../hooks/useAuth'
 import { usePozoInfo } from '../hooks/usePozoInfo'
 import { useEvaluacionActual } from '../hooks/useEvaluacionActual'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
+import { useConnectivity } from '../hooks/useConnectivity'
 import { calcTanque, calcAGA3 } from '@monagas/core/calculos'
 import LoadingSpinner from '../components/LoadingSpinner'
 import type { ILecturaTanque, ILecturaGas } from '@core/types'
@@ -40,13 +41,14 @@ export default function RegistroPage() {
   const { pozoId } = useParams<{ pozoId: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { pozo, loading: loadingPozo } = usePozoInfo(pozoId)
+  const { pozo, loading: loadingPozo, error: errorPozo } = usePozoInfo(pozoId)
   const { evalId, loading: loadingEval, error: errorEval } = useEvaluacionActual(
     pozoId,
     user?.uid,
     pozo?.zona
   )
   const { lecturas } = useLecturasEvaluacion(evalId ?? undefined)
+  const { isOnline } = useConnectivity()
 
   const [th, setTh] = useState('1')
   const [tankForms, setTankForms] = useState<Record<string, TankFormState>>({})
@@ -59,6 +61,7 @@ export default function RegistroPage() {
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [guardadoOk, setGuardadoOk] = useState(false)
+  const [guardadoOffline, setGuardadoOffline] = useState(false)
   const [ultimasAlertas, setUltimasAlertas] = useState<string[]>([])
 
   // mi de cada tanque = mf de la última lectura guardada, o el mi de
@@ -178,22 +181,41 @@ export default function RegistroPage() {
         )
       }
 
-      await addDoc(collection(db, 'evaluaciones', evalId, 'lecturas'), {
-        hora: lecturas.length + 1,
-        timestamp: new Date(),
-        tanques,
-        ...(gas && { gas }),
-        operativos: { pCab: parseFloat(pCab) || 0, pSep: parseFloat(pSep) || 0 },
-        alertas,
-      })
+      const escrituras = Promise.all([
+        addDoc(collection(db, 'evaluaciones', evalId, 'lecturas'), {
+          hora: lecturas.length + 1,
+          timestamp: new Date(),
+          tanques,
+          ...(gas && { gas }),
+          operativos: { pCab: parseFloat(pCab) || 0, pSep: parseFloat(pSep) || 0 },
+          alertas,
+        }),
+        updateDoc(doc(db, 'evaluaciones', evalId), {
+          horasEvaluadas: increment(parseFloat(th) || 1),
+        }),
+      ])
 
-      await updateDoc(doc(db, 'evaluaciones', evalId), {
-        horasEvaluadas: increment(parseFloat(th) || 1),
-      })
+      if (isOnline) {
+        await escrituras
+      } else {
+        // Sin conexión: Firestore ya guardó ambas escrituras en su
+        // caché local persistente (enableIndexedDbPersistence, ver
+        // services/firebase.ts) y las reenviará solo cuando vuelva la
+        // señal — el Promise de arriba no rechaza si esto pasa, se
+        // queda pendiente hasta el reintento exitoso. Esperarlo aquí
+        // dejaría al Operador con el botón trabado indefinidamente, así
+        // que seguimos de una vez y solo dejamos un log si algo falla
+        // de verdad al reconectar (permission-denied, etc. — un error
+        // que offline no se puede saber todavía).
+        escrituras.catch((err) => {
+          console.error('Error sincronizando lectura pendiente:', err)
+        })
+      }
 
       setTankForms({})
       setUltimasAlertas(alertas)
       setGuardadoOk(true)
+      setGuardadoOffline(!isOnline)
     } catch (err: any) {
       setError(
         err.code === 'permission-denied'
@@ -208,6 +230,7 @@ export default function RegistroPage() {
   if (loadingPozo || loadingEval) {
     return <div className="min-h-screen bg-slate-950"><LoadingSpinner message="Cargando pozo..." fullScreen /></div>
   }
+  if (errorPozo) return <div className="p-6 text-red-400">{errorPozo}</div>
   if (!pozo) return <div className="p-6 text-slate-400">Pozo no encontrado.</div>
 
   return (
@@ -339,7 +362,12 @@ export default function RegistroPage() {
             {error || errorEval}
           </div>
         )}
-        {guardadoOk && (
+        {guardadoOk && guardadoOffline && (
+          <div className="text-sm text-amber-400 bg-amber-950/40 border border-amber-900 rounded-lg px-3 py-2">
+            Lectura #{lecturas.length} guardada localmente — se enviará cuando vuelva la conexión.
+          </div>
+        )}
+        {guardadoOk && !guardadoOffline && (
           <div className="text-sm text-emerald-400 bg-emerald-950/40 border border-emerald-900 rounded-lg px-3 py-2">
             Lectura #{lecturas.length} guardada.
           </div>

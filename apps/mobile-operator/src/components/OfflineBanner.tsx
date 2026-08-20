@@ -1,53 +1,25 @@
-// TODO: Banner de estado offline - Player 2 (Frontend)
-// Paso 1: Mostrar banner cuando offline
-// Paso 2: Mostrar queue length
-// Paso 3: Sync button
-// Prompt de implementación rápida:
-// "Crear OfflineBanner con isOnline, queueLength, sync"
-import React from 'react';
-import { FiCloud, FiCloudOff } from 'react-icons/fi';
-import { useOfflineSync } from '../hooks/useOfflineSync';
+// src/components/OfflineBanner.tsx
+//
+// Reescrito de cero — la versión anterior estaba en tema claro
+// (bg-yellow-100/text-gray-900), nunca pasó por el tema oscuro del
+// resto de la app, y dependía de useOfflineSync.ts (cola falsa, ver
+// docs/technical/offline-strategy.md). Montado globalmente en
+// main.tsx para que se vea en cualquier pantalla, no solo en
+// RegistroPage — el Operador puede perder señal en cualquier momento.
+import { FiCloudOff } from 'react-icons/fi'
+import { useConnectivity } from '../hooks/useConnectivity'
 
 export default function OfflineBanner() {
-  const { isOnline, queue } = useOfflineSync();
-  const queueLength = queue.length;
+  const { isOnline } = useConnectivity()
 
-  // Si está online y no hay operaciones pendientes, no mostrar nada
-  if (isOnline && queueLength === 0) return null;
+  if (isOnline) return null
 
   return (
-    <div className={`fixed top-0 left-0 right-0 z-50 p-3 ${
-      isOnline 
-        ? 'bg-yellow-100 border-b border-yellow-300'
-        : 'bg-red-100 border-b border-red-300'
-    }`}>
-      <div className="max-w-md mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl" aria-hidden="true">
-            {isOnline ? <FiCloud /> : <FiCloudOff />}
-          </span>
-          <div>
-            <p className={`font-medium ${isOnline ? 'text-yellow-800' : 'text-red-800'}`}>
-              {isOnline ? 'Sincronizando...' : 'Modo Offline'}
-            </p>
-            {queueLength > 0 && (
-              <p className={`text-sm ${isOnline ? 'text-yellow-700' : 'text-red-700'}`}>
-                {queueLength} operación(ones) pendiente(s)
-              </p>
-            )}
-          </div>
-        </div>
-        
-        {!isOnline && (
-          <button
-            onClick={() => {/* Función de sincronización */}}
-            className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
-          >
-            Sincronizar
-          </button>
-        )}
+    <div className="fixed top-0 left-0 right-0 z-50 bg-red-950/90 border-b border-red-800 px-4 py-2">
+      <div className="max-w-md mx-auto flex items-center gap-2 text-sm text-red-300">
+        <FiCloudOff aria-hidden="true" />
+        <span>Sin conexión — tus lecturas se guardan y se envían solas al reconectar.</span>
       </div>
     </div>
-  );
+  )
 }
-

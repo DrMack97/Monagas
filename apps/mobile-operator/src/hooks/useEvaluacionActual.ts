@@ -25,10 +25,33 @@
 // Si dos transacciones compiten, Firestore reintenta automáticamente
 // la que pierde — al releer, ya ve el candado puesto por la ganadora
 // y simplemente lo reutiliza en vez de crear un duplicado.
+//
+// OFFLINE: el onSnapshot de arriba resuelve al instante desde caché
+// (enableIndexedDbPersistence, ver services/firebase.ts) si el pozo ya
+// se cargó alguna vez con conexión — por eso seguir registrando
+// lecturas de un ciclo YA iniciado funciona sin señal. Lo que NO
+// funciona offline es runTransaction: a diferencia de un write normal,
+// una transacción necesita ida y vuelta real al servidor (tiene que
+// leer el estado más reciente para no pisar a otro cliente), así que
+// Firestore la deja pendiente indefinidamente sin red. TRANSACTION_TIMEOUT_MS
+// evita que esto trabe la pantalla para siempre cuando el Operador
+// abre un pozo SIN ciclo iniciado todavía y sin conexión — ahí sí hace
+// falta estar en línea al menos una vez para arrancar el ciclo.
 import { useEffect, useRef, useState } from 'react'
 import { collection, doc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import type { Zona } from '@core/types'
+
+const TRANSACTION_TIMEOUT_MS = 8000
+
+function conTimeout<T>(promesa: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promesa,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject({ code: 'sin-conexion-timeout' }), ms)
+    ),
+  ])
+}
 
 export function useEvaluacionActual(
   pozoId: string | undefined,
@@ -70,7 +93,7 @@ export function useEvaluacionActual(
         if (resolviendoRef.current) return
         resolviendoRef.current = true
         try {
-          const nuevoEvalId = await runTransaction(db, async (tx) => {
+          const nuevoEvalId = await conTimeout(runTransaction(db, async (tx) => {
             const pozoSnap = await tx.get(pozoRef)
             const pozoActual = pozoSnap.data()
 
@@ -92,12 +115,14 @@ export function useEvaluacionActual(
             })
             tx.update(pozoRef, { evalEnCursoId: nuevaEvalRef.id })
             return nuevaEvalRef.id
-          })
+          }), TRANSACTION_TIMEOUT_MS)
           setEvalId(nuevoEvalId)
         } catch (err: any) {
           setError(
             err.code === 'permission-denied'
               ? 'No tienes permiso para iniciar una evaluación en este pozo.'
+              : err.code === 'sin-conexion-timeout'
+              ? 'Sin conexión — necesitas señal al menos una vez para iniciar un ciclo nuevo en este pozo.'
               : 'No se pudo iniciar la evaluación. Intenta de nuevo.'
           )
         } finally {
