@@ -16,6 +16,48 @@ import Button from '../components/common/Button'
 import { LoadingState, ErrorState, EmptyState } from '../components/dashboard/DashboardStates'
 import type { IUsuario } from '@core/types'
 
+// Desactivar no es lo mismo que reasignar/liberar (eso ya lo resuelve
+// ModalReasignar) — no toca pozoAsignado, solo revoca el acceso.
+// Ver setPersonalActivo.ts: además de usuarios/{uid}.activo, bloquea
+// el login real (Firebase Auth `disabled`), no solo el dato en
+// Firestore. Sin confirmación de por medio (a diferencia de un delete
+// destructivo, es 100% reversible con el mismo botón).
+function BotonActivo({ usuario, onCambiado }: { usuario: IUsuario; onCambiado: () => void }) {
+  const [procesando, setProcesando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function toggle() {
+    setProcesando(true)
+    setError(null)
+    try {
+      const setPersonalActivo = httpsCallable(functions, 'setPersonalActivo')
+      await setPersonalActivo({ targetUid: usuario.uid, activo: !usuario.activo })
+      onCambiado()
+    } catch (err: any) {
+      setError(err.message ?? 'No se pudo actualizar.')
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        onClick={toggle}
+        disabled={procesando}
+        className={`text-xs border rounded-lg px-3 py-1.5 disabled:opacity-50 ${
+          usuario.activo
+            ? 'text-red-400 border-red-900'
+            : 'text-emerald-400 border-emerald-900'
+        }`}
+      >
+        {procesando ? 'Procesando...' : usuario.activo ? 'Desactivar' : 'Reactivar'}
+      </button>
+      {error && <p className="text-xs text-red-400">{error}</p>}
+    </div>
+  )
+}
+
 const ROL_LABEL: Record<string, string> = {
   OPERADOR: 'Operador',
   SUP_CAMPO: 'Supervisor de Campo',
@@ -154,19 +196,27 @@ export default function UsersPage() {
       ) : (
         <div className="space-y-2">
           {personal.map((u) => (
-            <div key={u.uid} className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl p-4">
+            <div key={u.uid} className={`flex items-center justify-between bg-slate-900 border rounded-xl p-4 ${u.activo ? 'border-slate-800' : 'border-slate-800 opacity-60'}`}>
               <div>
-                <p className="text-white font-medium">{u.nombre}</p>
+                <p className="text-white font-medium flex items-center gap-2">
+                  {u.nombre}
+                  {!u.activo && (
+                    <span className="text-[10px] uppercase tracking-wide text-red-400 border border-red-900 rounded px-1.5 py-0.5">Inactivo</span>
+                  )}
+                </p>
                 <p className="text-xs text-slate-500">
                   {ROL_LABEL[u.rol] ?? u.rol} · Pozo: {u.pozoAsignado ?? 'Sin asignar'}
                 </p>
               </div>
-              <button
-                onClick={() => setUsuarioReasignar(u)}
-                className="text-xs text-amber-400 border border-amber-900 rounded-lg px-3 py-1.5"
-              >
-                Reasignar
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setUsuarioReasignar(u)}
+                  className="text-xs text-amber-400 border border-amber-900 rounded-lg px-3 py-1.5"
+                >
+                  Reasignar
+                </button>
+                <BotonActivo usuario={u} onCambiado={() => setRefreshKey((k) => k + 1)} />
+              </div>
             </div>
           ))}
         </div>

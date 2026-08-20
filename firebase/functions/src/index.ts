@@ -11,6 +11,7 @@ initializeApp()
 export { assignRole } from './auth/assignRole'
 export { reassignPozo } from './auth/reassignPozo'
 export { crearPersonal } from './auth/crearPersonal'
+export { setPersonalActivo } from './auth/setPersonalActivo'
 
 // Approvals — reescritas contra el esquema real (evaluaciones/pozos),
 // ver checklist Fase 2.
