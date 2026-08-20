@@ -30,7 +30,7 @@ import { db } from '../services/firebase'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
 import { usePozoInfo } from '../hooks/usePozoInfo'
 import { calcularPromedioEvaluacion } from '@core/calculos'
-import { fmt, dateFormat } from '../utils/formatters'
+import { fmt, dateFormat, dateTimeFormat } from '../utils/formatters'
 import { exportarInformeExcel } from '../utils/exportExcel'
 import type { IResultadosEval, IReporteOperativo } from '@core/types'
 
@@ -154,33 +154,85 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
 
   function handleExportarExcel() {
     if (!resultados || !pozo) return
-    exportarInformeExcel({ pozo, resultados, lecturas, supervisorArea })
+    exportarInformeExcel({ pozo, resultados, lecturas, supervisorArea, reporteOperativo: construirReporteOperativo() })
   }
 
+  // Calca el formato real "REPORTE DE OPERACIONES DE WELL TESTING"
+  // (Gerencia de Producción, División Punta de Mata) provisto por el
+  // usuario — ver checklist Fase 4 #38. Los valores puntuales
+  // (presiones, gas, reductor) se toman de la ÚLTIMA lectura, igual
+  // que en el papel: el reporte refleja el estado en el momento del
+  // cierre, no un promedio de esos campos — a diferencia de Bpd/
+  // Netos/Qg, que sí son promedios (ver IResultadosEval).
   function generarTextoWhatsApp(): string {
     if (!resultados || !pozo) return ''
-    const primera = lecturas[0]
     const ultima = lecturas[lecturas.length - 1]
-    const esPreliminar = resultados.tipoCalculo === 'PRELIMINAR_FORZADO'
+    const reporte = construirReporteOperativo()
+    const bphPromedio = resultados.proyeccion24H / 24
+    const aysBswPct = fmt((resultados.aysBls / (resultados.bpdPromedio || 1)) * 100, 1)
+    const tanquesTexto = ultima
+      ? ultima.tanques.map((t, i) => `Tanque#${i + 1}: ${fmt(t.netos)} Bls`).join('\n')
+      : '—'
 
-    return `📊 *${pozo.empresa ?? '—'}*
-📅 Fecha: ${dateFormat(new Date())}
-🛢️ Pozo: ${pozo.nombre}
-👤 Supervisor de Área: ${supervisorArea || '—'}
-⏰ Hora: ${new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })} Hrs.
-📋 Asunto: ${esPreliminar ? 'Prueba preliminar (cálculo forzado)' : `Finaliza prueba de producción por ${pozo.horasEval} horas`}
+    return `GERENCIA DE PRODUCCION
+DIVISIÓN PUNTA DE MATA
 
-*Tiempos de Prueba*
-Inicio: ${primera ? dateFormat(primera.timestamp) : '—'}
-${esPreliminar ? 'Corte parcial' : 'Finaliza'}: ${ultima ? dateFormat(ultima.timestamp) : '—'}
+*REPORTE DE OPERACIONES DE WELL TESTING*
 
-*Parámetros de Producción (Promediados)*
-Bpd: ${fmt(resultados.bpdPromedio)} Bls
-Netos: ${fmt(resultados.netosPromedio)} Bls
-Q.G: ${fmt(resultados.qgPromedio, 2)} MMSCFD
-AyS/BSW: ${fmt((resultados.aysBls / (resultados.bpdPromedio || 1)) * 100, 1)}%
+Empresa: ${pozo.empresa ?? '—'}
+Equipo: ${pozo.equipo ?? '—'}
+Fecha: ${dateFormat(new Date())}
+Hora: ${new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })} Hrs.
 
-${esPreliminar
+Supv. PDVSA: ${reporte.supervisorPDVSA ?? '—'}
+
+Well Testing ${pozo.empresa ?? '—'}:
+Diurno: ${reporte.cuadrillaDiurno ?? '—'}
+Nocturno: ${reporte.cuadrillaNocturno ?? '—'}
+
+Fecha Inicio de operaciones: ${lecturas[0] ? dateFormat(lecturas[0].timestamp) : '—'}
+Fecha de Alineación Well Testing: ${reporte.fechaAlineacion ? dateTimeFormat(reporte.fechaAlineacion) : '—'}
+
+Pozo: ${pozo.nombre}
+
+Actual: ${reporte.estadoActual ?? '—'}
+
+Nota: ${reporte.notas ?? '—'}
+
+*Parámetros*
+P.Cab: ${ultima ? fmt(ultima.operativos.pCab, 1) : '—'} Psi
+P.Csg: ${ultima?.operativos.pCsg !== undefined ? fmt(ultima.operativos.pCsg, 1) : '—'}
+P.sep: ${ultima ? fmt(ultima.operativos.pSep, 1) : '—'} Psi
+P.Línea: Red.: ${ultima?.operativos.reductorPulgadas ?? '—'}
+Bph: ${fmt(bphPromedio)} bls
+Bpd: ${fmt(resultados.bpdPromedio)} bls
+Total Desplazado: ${fmt(resultados.netosPromedio)} Bls
+Volumen Total desplazado: ${fmt(resultados.netosPromedio)} bls
+Total Desp 24H: ${fmt(resultados.proyeccion24H)} bls
+
+*Tipo de fluido retornado*
+API: ${reporte.tipoFluido?.api !== undefined ? `${fmt(reporte.tipoFluido.api, 1)}°` : '—'}
+BSW: ${aysBswPct}%
+H2S: ${reporte.tipoFluido?.h2s ?? '—'}
+
+*Caudal De Gas Parámetros*
+Meter Run: ${pozo.meterRun ?? '—'}
+Placa Orificio: ${pozo.diamOrif ? `${pozo.diamOrif} P.` : '—'}
+Estática (Pf): ${ultima?.gas ? `${fmt(ultima.gas.pf, 1)} Psi` : '—'}
+Presión Diferencial (Hw): ${ultima?.gas ? `${fmt(ultima.gas.hw, 2)} InH2O` : '—'}
+GE Gas: ${ultima?.gas ? fmt(ultima.gas.gg, 2) : '—'}
+Tgas: ${ultima?.gas ? `${fmt(ultima.gas.tGas, 0)}°F` : '—'}
+QG: ${fmt(resultados.qgPromedio, 2)} MMSCFD
+
+*Tanques Parámetro*
+${tanquesTexto}
+Existencia/Tanques: ${reporte.resumenTanques ? `${fmt(reporte.resumenTanques.existencia)} Bls` : '—'}
+Trasegable: ${reporte.resumenTanques ? `${fmt(reporte.resumenTanques.trasegable)} bls` : '—'}
+Total trasegado: ${reporte.resumenTanques ? fmt(reporte.resumenTanques.totalTrasegado) : '—'}
+Nivel De Cellar: ${reporte.nivelCellar !== undefined ? `${fmt(reporte.nivelCellar, 0)} %` : '—'}
+Total Viajes de Vacuum: ${reporte.viajesVacuum ?? '—'}
+
+${resultados.tipoCalculo === 'PRELIMINAR_FORZADO'
   ? '⚠️ *CÁLCULO PRELIMINAR — no representa el cierre oficial de 24H*'
   : enviado
   ? '📤 *Enviado a Supervisión — pendiente de aprobación*'
