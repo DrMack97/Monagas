@@ -51,6 +51,7 @@ export interface IPozo {
   meterRun?: number   // pulg — Meter Run D
   diamOrif?: number   // pulg — Diámetro Placa d
   empresa?: string    // Empresa contratista que ejecuta el servicio (encabezado de reporte)
+  equipo?: string     // Identificador del equipo de medición (ej. "WT-DSI-01") — encabezado del reporte PDVSA, dato estable del pozo igual que `empresa`
   legal?: IPozoLegal  // Información legal — ver IPozoLegal. Opcional: pozos existentes no lo tienen todavía.
   horasEval: number
   estado: EstadoEvaluacion
@@ -113,6 +114,38 @@ export interface IAprobacion {
   comentario?: string
 }
 
+/**
+ * Campos administrativos/de cierre del formato "REPORTE DE
+ * OPERACIONES DE WELL TESTING" (Gerencia de Producción, División
+ * Punta de Mata) que no tienen equivalente en el resto del esquema.
+ * Se llenan UNA SOLA VEZ por evaluación, no por lectura horaria — el
+ * Operador los captura al cerrar el ciclo en ReportePage.tsx, igual
+ * que ya hace con `resultados`.
+ *
+ * BSW% NO está acá — es el mismo concepto que `aysPct` (Agua y
+ * Sedimentos) que ya existe por tanque en cada lectura, solo con otro
+ * nombre. No se duplica.
+ */
+export interface IReporteOperativo {
+  supervisorPDVSA?: string
+  cuadrillaDiurno?: string
+  cuadrillaNocturno?: string
+  fechaAlineacion?: Date // Cuándo se alineó el pozo al skid de well testing — distinta de fechaInicio (cuándo arrancó ESTE ciclo de medición)
+  estadoActual?: string  // Texto libre, ej. "Pozo alineado a través del SWT DSI con retorno de fluidos a tanques y quema de gas en sitio"
+  notas?: string
+  tipoFluido?: {
+    api: number   // Gravedad API (°)
+    h2s?: string  // Presencia/medición de H2S — texto libre (ppm, "Negativo", etc.), no siempre se mide con un número
+  }
+  resumenTanques?: {
+    existencia: number     // Existencia total en tanques (Bls) al momento del reporte
+    trasegable: number     // Volumen trasegable (Bls)
+    totalTrasegado: number // Total trasegado acumulado (Bls)
+  }
+  nivelCellar?: number  // %
+  viajesVacuum?: number // Cantidad de viajes de camión vacuum
+}
+
 export interface IEvaluacion {
   id: string
   pozoId: string
@@ -125,6 +158,7 @@ export interface IEvaluacion {
   config: IConfigEval
   resultados?: IResultadosEval
   aprobaciones?: IAprobacion[]
+  reporteOperativo?: IReporteOperativo
   creadoEn: Date
 }
 
@@ -159,6 +193,24 @@ export interface ILecturaGas {
 export interface ILecturaOp {
   pCab: number
   pSep: number
+  /**
+   * Presión de casing — campo "P.Csg" del reporte PDVSA. Opcional
+   * porque las lecturas ya guardadas antes de este campo no lo
+   * tienen (no aplica retroactivamente, y no siempre se mide).
+   */
+  pCsg?: number
+  /**
+   * Tamaño del estrangulador/reductor en el cabezal — campo "Red."
+   * del reporte PDVSA (ej. "1/2""). Es un STRING, no un número: se
+   * expresa como fracción de pulgada, no como cantidad continua.
+   *
+   * OJO — no confundir con ILecturaTanque.reductor: ese es un valor
+   * en Bls usado en calcTanque() para corregir el cálculo de volumen
+   * por tanque, un concepto completamente distinto que solo comparte
+   * el nombre en español. Este (reductorPulgadas) es puramente
+   * descriptivo para el reporte, no participa en ningún cálculo.
+   */
+  reductorPulgadas?: string
 }
 
 export interface ILectura {

@@ -32,6 +32,8 @@ export default function NewWellPage() {
 
   const [nombre, setNombre] = useState('')
   const [campo, setCampo] = useState('')
+  const [empresa, setEmpresa] = useState('')
+  const [equipo, setEquipo] = useState('')
   const [zonaSeleccionada, setZonaSeleccionada] = useState(zona ?? 'FAJA')
   const [horasEval, setHorasEval] = useState('5')
   const [limResorte, setLimResorte] = useState('300')
@@ -74,6 +76,8 @@ export default function NewWellPage() {
       await addDoc(collection(db, 'pozos'), {
         nombre,
         campo,
+        ...(empresa.trim() && { empresa: empresa.trim() }),
+        ...(equipo.trim() && { equipo: equipo.trim() }),
         zona: zonaFinal,
         ft: tanquesFinales[0]?.ft.toString() ?? '2.40',
         limResorte: parseFloat(limResorte) || 0,
@@ -111,6 +115,8 @@ export default function NewWellPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Nombre del Pozo" value={nombre} onChange={(e) => setNombre(e.target.value)} required placeholder="ej: MFB-1025" />
             <Input label="Campo" value={campo} onChange={(e) => setCampo(e.target.value)} required placeholder="ej: Bare" />
+            <Input label="Empresa" value={empresa} onChange={(e) => setEmpresa(e.target.value)} placeholder="ej: Del Sur International, S.A." />
+            <Input label="Equipo" value={equipo} onChange={(e) => setEquipo(e.target.value)} placeholder="ej: WT-DSI-01" />
           </div>
 
           <div>

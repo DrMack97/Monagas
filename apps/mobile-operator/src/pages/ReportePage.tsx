@@ -24,7 +24,7 @@
 // sincronización no puede hacerse desde este cliente.
 
 import { useState } from 'react'
-import { FiSend, FiAlertTriangle, FiCheckCircle, FiSave, FiFileText } from 'react-icons/fi'
+import { FiSend, FiAlertTriangle, FiCheckCircle, FiSave, FiFileText, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
@@ -32,7 +32,7 @@ import { usePozoInfo } from '../hooks/usePozoInfo'
 import { calcularPromedioEvaluacion } from '@core/calculos'
 import { fmt, dateFormat } from '../utils/formatters'
 import { exportarInformeExcel } from '../utils/exportExcel'
-import type { IResultadosEval } from '@core/types'
+import type { IResultadosEval, IReporteOperativo } from '@core/types'
 
 interface ReportePageProps {
   pozoId: string
@@ -49,6 +49,51 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
   const [enviado, setEnviado] = useState(false)
   const [supervisorArea, setSupervisorArea] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  // Campos de cierre del formato "REPORTE DE OPERACIONES DE WELL
+  // TESTING" (Gerencia de Producción, División Punta de Mata) — se
+  // llenan una sola vez al cerrar el ciclo, no por lectura horaria
+  // (ver IReporteOperativo en @monagas/core, checklist Fase 4 #36/37).
+  const [supervisorPDVSA, setSupervisorPDVSA] = useState('')
+  const [cuadrillaDiurno, setCuadrillaDiurno] = useState('')
+  const [cuadrillaNocturno, setCuadrillaNocturno] = useState('')
+  const [fechaAlineacion, setFechaAlineacion] = useState('')
+  const [estadoActual, setEstadoActual] = useState('')
+  const [notas, setNotas] = useState('')
+  const [api, setApi] = useState('')
+  const [h2s, setH2s] = useState('')
+  const [existencia, setExistencia] = useState('')
+  const [trasegable, setTrasegable] = useState('')
+  const [totalTrasegado, setTotalTrasegado] = useState('')
+  const [nivelCellar, setNivelCellar] = useState('')
+  const [viajesVacuum, setViajesVacuum] = useState('')
+  const [mostrarDatosPDVSA, setMostrarDatosPDVSA] = useState(false)
+
+  function construirReporteOperativo(): IReporteOperativo {
+    return {
+      ...(supervisorPDVSA.trim() && { supervisorPDVSA: supervisorPDVSA.trim() }),
+      ...(cuadrillaDiurno.trim() && { cuadrillaDiurno: cuadrillaDiurno.trim() }),
+      ...(cuadrillaNocturno.trim() && { cuadrillaNocturno: cuadrillaNocturno.trim() }),
+      ...(fechaAlineacion && { fechaAlineacion: new Date(fechaAlineacion) }),
+      ...(estadoActual.trim() && { estadoActual: estadoActual.trim() }),
+      ...(notas.trim() && { notas: notas.trim() }),
+      ...((api || h2s) && {
+        tipoFluido: {
+          api: parseFloat(api) || 0,
+          ...(h2s.trim() && { h2s: h2s.trim() }),
+        },
+      }),
+      ...((existencia || trasegable || totalTrasegado) && {
+        resumenTanques: {
+          existencia: parseFloat(existencia) || 0,
+          trasegable: parseFloat(trasegable) || 0,
+          totalTrasegado: parseFloat(totalTrasegado) || 0,
+        },
+      }),
+      ...(nivelCellar && { nivelCellar: parseFloat(nivelCellar) || 0 }),
+      ...(viajesVacuum && { viajesVacuum: parseFloat(viajesVacuum) || 0 }),
+    }
+  }
 
   const cicloCompleto = pozo ? lecturas.length >= pozo.horasEval : false
 
@@ -86,8 +131,10 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
     setEnviando(true)
     setError(null)
     try {
+      const reporteOperativo = construirReporteOperativo()
       await updateDoc(doc(db, 'evaluaciones', evalId), {
         resultados,
+        ...(Object.keys(reporteOperativo).length > 0 && { reporteOperativo }),
         ...(resultados.tipoCalculo === 'FINAL_24H' && {
           estado: 'PENDIENTE_SUPERVISOR',
           fechaCierre: serverTimestamp(),
@@ -168,6 +215,68 @@ ${esPreliminar
             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm"
           />
         </div>
+      </div>
+
+      {/* Datos de cierre del formato PDVSA — opcionales, se llenan una
+          sola vez por reporte (ver IReporteOperativo, checklist Fase 4). */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+        <button
+          onClick={() => setMostrarDatosPDVSA((v) => !v)}
+          className="flex items-center justify-between w-full text-sm font-semibold text-slate-300"
+        >
+          Datos del Reporte (PDVSA)
+          {mostrarDatosPDVSA ? <FiChevronUp aria-hidden="true" /> : <FiChevronDown aria-hidden="true" />}
+        </button>
+
+        {mostrarDatosPDVSA && (
+          <div className="mt-3 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <CampoTexto label="Supv. PDVSA" value={supervisorPDVSA} onChange={setSupervisorPDVSA} />
+              <CampoTexto label="Fecha Alineación" value={fechaAlineacion} onChange={setFechaAlineacion} type="datetime-local" />
+              <CampoTexto label="Cuadrilla Diurno" value={cuadrillaDiurno} onChange={setCuadrillaDiurno} />
+              <CampoTexto label="Cuadrilla Nocturno" value={cuadrillaNocturno} onChange={setCuadrillaNocturno} />
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Actual (estado del pozo)</label>
+              <textarea
+                value={estadoActual}
+                onChange={(e) => setEstadoActual(e.target.value)}
+                rows={2}
+                placeholder="ej: Pozo alineado a través del SWT DSI con retorno de fluidos a tanques y quema de gas en sitio"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Nota</label>
+              <textarea
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                rows={2}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm"
+              />
+            </div>
+
+            <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Tipo de fluido retornado</p>
+            <div className="grid grid-cols-2 gap-3">
+              <CampoTexto label="API (°)" value={api} onChange={setApi} type="number" />
+              <CampoTexto label="H2S" value={h2s} onChange={setH2s} />
+            </div>
+            <p className="text-xs text-slate-500">
+              BSW: se toma del AyS% ya registrado en las lecturas — no se repite acá.
+            </p>
+
+            <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Tanques</p>
+            <div className="grid grid-cols-2 gap-3">
+              <CampoTexto label="Existencia (Bls)" value={existencia} onChange={setExistencia} type="number" />
+              <CampoTexto label="Trasegable (Bls)" value={trasegable} onChange={setTrasegable} type="number" />
+              <CampoTexto label="Total Trasegado (Bls)" value={totalTrasegado} onChange={setTotalTrasegado} type="number" />
+              <CampoTexto label="Nivel Cellar (%)" value={nivelCellar} onChange={setNivelCellar} type="number" />
+              <CampoTexto label="Viajes de Vacuum" value={viajesVacuum} onChange={setViajesVacuum} type="number" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Botón de cálculo — siempre disponible, sin condición de 24h */}
@@ -266,6 +375,30 @@ function Dato({ label, valor }: { label: string; valor: string }) {
     <div>
       <p className="text-xs text-slate-500">{label}</p>
       <p className="text-white font-mono">{valor}</p>
+    </div>
+  )
+}
+
+function CampoTexto({
+  label,
+  value,
+  onChange,
+  type = 'text',
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  type?: string
+}) {
+  return (
+    <div>
+      <label className="block text-xs text-slate-500 mb-1">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm"
+      />
     </div>
   )
 }

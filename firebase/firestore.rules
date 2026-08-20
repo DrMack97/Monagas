@@ -87,7 +87,10 @@ service cloud.firestore {
         resource.data.operadorId == request.auth.uid &&
         resource.data.estado == 'EN_CURSO' &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['horasEvaluadas', 'resultados', 'estado', 'fechaCierre']);
+          // reporteOperativo: campos de cierre del formato PDVSA
+          // (Gerencia de Producción, División Punta de Mata), ver
+          // IReporteOperativo en @monagas/core — checklist Fase 4.
+          .hasOnly(['horasEvaluadas', 'resultados', 'estado', 'fechaCierre', 'reporteOperativo']);
     }
 
     // Corrección de una lectura individual por el Supervisor (drill-down

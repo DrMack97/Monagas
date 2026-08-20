@@ -58,6 +58,8 @@ export default function RegistroPage() {
   const [gg, setGg] = useState('0.6')
   const [pCab, setPCab] = useState('0')
   const [pSep, setPSep] = useState('0')
+  const [pCsg, setPCsg] = useState('0')
+  const [reductorPulgadas, setReductorPulgadas] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [guardadoOk, setGuardadoOk] = useState(false)
@@ -187,7 +189,12 @@ export default function RegistroPage() {
           timestamp: new Date(),
           tanques,
           ...(gas && { gas }),
-          operativos: { pCab: parseFloat(pCab) || 0, pSep: parseFloat(pSep) || 0 },
+          operativos: {
+            pCab: parseFloat(pCab) || 0,
+            pSep: parseFloat(pSep) || 0,
+            pCsg: parseFloat(pCsg) || 0,
+            ...(reductorPulgadas.trim() && { reductorPulgadas: reductorPulgadas.trim() }),
+          },
           alertas,
         }),
         updateDoc(doc(db, 'evaluaciones', evalId), {
@@ -353,6 +360,19 @@ export default function RegistroPage() {
             <div>
               <label className="block text-xs text-slate-500 mb-1">P. Separador (psig)</label>
               <input type="number" value={pSep} onChange={(e) => setPSep(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">P. Casing (psig)</label>
+              <input type="number" value={pCsg} onChange={(e) => setPCsg(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Reductor (pulg)</label>
+              <input
+                value={reductorPulgadas}
+                onChange={(e) => setReductorPulgadas(e.target.value)}
+                placeholder={'ej: 1/2"'}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+              />
             </div>
           </div>
         </section>

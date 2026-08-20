@@ -2,13 +2,17 @@
 //
 // Detalle y edición de un pozo. El alcance de edición depende del rol:
 //   SUP_CAMPO (solo en SU propio pozo) — únicamente tanques y límites.
-//   SUP_AREA/GERENTE — todo, incluyendo nombre/campo/zona.
+//   SUP_AREA/GERENTE — tanques, límites, y además Empresa/Equipo
+//     (encabezado del reporte PDVSA — ver checklist Fase 4). Nombre/
+//     campo/zona siguen sin ser editables desde acá (se fijan una vez
+//     al crear el pozo en NewWellPage.tsx).
 //
 // El update de SUP_CAMPO envía EXCLUSIVAMENTE {tanques, limResorte,
 // limGamma} — nada más — para coincidir exacto con hasOnly([...]) de
 // canEditOwnTanquesYLimites() en firestore.rules. Enviar cualquier
 // otro campo, aunque no cambie de valor, arriesga que Firestore
-// rechace el write completo.
+// rechace el write completo. SUP_AREA/GERENTE (canManagePozoEnZona, sin
+// hasOnly) sí pueden mandar empresa/equipo en el mismo payload.
 
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -92,6 +96,8 @@ export default function WellDetailPage() {
   const [tanques, setTanques] = useState<ITank[]>([])
   const [limResorte, setLimResorte] = useState('')
   const [limGamma, setLimGamma] = useState('')
+  const [empresa, setEmpresa] = useState('')
+  const [equipo, setEquipo] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null)
@@ -101,6 +107,8 @@ export default function WellDetailPage() {
       setTanques(pozo.tanques)
       setLimResorte(String(pozo.limResorte))
       setLimGamma(String(pozo.limGamma))
+      setEmpresa(pozo.empresa ?? '')
+      setEquipo(pozo.equipo ?? '')
     }
   }, [pozo])
 
@@ -116,12 +124,16 @@ export default function WellDetailPage() {
     setGuardando(true)
     setErrorGuardar(null)
     try {
-      // Payload EXACTO — solo estos 3 campos, sin importar el rol,
-      // para que también funcione bajo la regla restringida de SUP_CAMPO.
+      // Payload EXACTO para SUP_CAMPO — solo estos 3 campos, para que
+      // coincida con hasOnly([...]) de canEditOwnTanquesYLimites() en
+      // firestore.rules. SUP_AREA/GERENTE (canManagePozoEnZona, sin
+      // restricción de campos) sí pueden mandar empresa/equipo además
+      // — agregados aquí condicionalmente, nunca para SUP_CAMPO.
       await updateDoc(doc(db, 'pozos', pozoId), {
         tanques,
         limResorte: parseFloat(limResorte) || 0,
         limGamma: parseFloat(limGamma) || 0,
+        ...(puedeEditarTodo && { empresa, equipo }),
       })
       setGuardadoOk(true)
     } catch (err: any) {
@@ -154,6 +166,16 @@ export default function WellDetailPage() {
           <div className="text-sm text-slate-400 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2">
             Solo lectura — no tienes permiso de edición sobre este pozo.
           </div>
+        )}
+
+        {puedeEditarTodo && (
+          <section className="space-y-4">
+            <h2 className="text-sm font-semibold text-slate-300">Identificación (encabezado de reporte)</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Empresa" value={empresa} onChange={(e) => { setEmpresa(e.target.value); setGuardadoOk(false) }} placeholder="ej: Del Sur International, S.A." />
+              <Input label="Equipo" value={equipo} onChange={(e) => { setEquipo(e.target.value); setGuardadoOk(false) }} placeholder="ej: WT-DSI-01" />
+            </div>
+          </section>
         )}
 
         <section className="space-y-3">

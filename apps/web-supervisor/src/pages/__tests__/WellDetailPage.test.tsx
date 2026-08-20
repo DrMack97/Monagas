@@ -1,11 +1,16 @@
 // src/pages/__tests__/WellDetailPage.test.tsx
 //
 // Protege el payload EXACTO que guardarTanquesYLimites() envía a
-// Firestore — debe ser siempre {tanques, limResorte, limGamma} y
-// nada más, sin importar el rol, para que coincida con hasOnly([...])
-// de canEditOwnTanquesYLimites() en firestore.rules. Agregar un
-// campo aquí sin actualizar la regla (o viceversa) rompe el guardado
-// de SUP_CAMPO en producción sin que tsc lo detecte.
+// Firestore para SUP_CAMPO — debe ser siempre {tanques, limResorte,
+// limGamma} y nada más, para coincidir con hasOnly([...]) de
+// canEditOwnTanquesYLimites() en firestore.rules. Agregar un campo
+// aquí sin actualizar la regla (o viceversa) rompe el guardado de
+// SUP_CAMPO en producción sin que tsc lo detecte.
+//
+// SUP_AREA/GERENTE SÍ mandan campos extra a propósito desde el item
+// #37 (Fase 4) — empresa/equipo, el encabezado del reporte PDVSA —
+// porque canManagePozoEnZona() no tiene hasOnly(), a diferencia de la
+// regla restringida de SUP_CAMPO.
 
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -81,7 +86,7 @@ describe('WellDetailPage', () => {
     expect(Object.keys(payload).sort()).toEqual(['limGamma', 'limResorte', 'tanques'])
   })
 
-  it('SUP_AREA/GERENTE guardan con el mismo payload restringido — no agregan campos extra', async () => {
+  it('SUP_AREA/GERENTE además mandan empresa/equipo (permitido, sin hasOnly restringiéndolos)', async () => {
     useAuthMock.mockReturnValue({ rol: 'SUP_AREA' })
     renderPage()
     const user = userEvent.setup()
@@ -90,7 +95,7 @@ describe('WellDetailPage', () => {
 
     await waitFor(() => expect(updateDocMock).toHaveBeenCalled())
     const payload = updateDocMock.mock.calls[0][1]
-    expect(Object.keys(payload).sort()).toEqual(['limGamma', 'limResorte', 'tanques'])
+    expect(Object.keys(payload).sort()).toEqual(['empresa', 'equipo', 'limGamma', 'limResorte', 'tanques'])
   })
 
   it('muestra "solo lectura" y oculta Guardar cuando el rol no tiene permiso de edición', () => {
