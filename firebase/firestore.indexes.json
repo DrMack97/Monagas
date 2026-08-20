@@ -1,4 +1,14 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "evaluaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "pozoId", "order": "ASCENDING" },
+        { "fieldPath": "zona", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

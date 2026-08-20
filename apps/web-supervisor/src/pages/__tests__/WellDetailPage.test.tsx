@@ -13,10 +13,15 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import WellDetailPage from '../WellDetailPage'
 
 const updateDocMock = jest.fn().mockResolvedValue(undefined)
+const getDocsMock = jest.fn().mockResolvedValue({ docs: [] })
 
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn((...args: any[]) => args),
   updateDoc: (...args: any[]) => updateDocMock(...args),
+  collection: jest.fn(),
+  query: jest.fn(),
+  orderBy: jest.fn(),
+  getDocs: (...args: any[]) => getDocsMock(...args),
 }))
 
 const useAuthMock = jest.fn()
@@ -27,6 +32,14 @@ jest.mock('../../hooks/useAuth', () => ({
 const usePozoMock = jest.fn()
 jest.mock('../../hooks/usePozo', () => ({
   usePozo: () => usePozoMock(),
+}))
+
+// Evaluaciones Oficiales: sin datos por defecto — no es lo que este
+// archivo protege (ver exportExcel.test.ts si se agrega más adelante).
+// Mockeado para que WellDetailPage no dispare el onSnapshot real de
+// useEvaluacionesOficiales, que 'firebase/firestore' arriba no cubre.
+jest.mock('../../hooks/useEvaluacionesOficiales', () => ({
+  useEvaluacionesOficiales: () => ({ evaluaciones: [], loading: false, error: null }),
 }))
 
 const POZO_BASE = {

@@ -12,21 +12,79 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { FiArrowLeft } from 'react-icons/fi'
-import { doc, updateDoc } from 'firebase/firestore'
+import { FiArrowLeft, FiDownload } from 'react-icons/fi'
+import { doc, updateDoc, collection, query, orderBy, getDocs } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { usePozo } from '../hooks/usePozo'
+import { useEvaluacionesOficiales } from '../hooks/useEvaluacionesOficiales'
+import { exportarInformeOficialExcel } from '../utils/exportExcel'
 import Input from '../components/common/Input'
 import Button from '../components/common/Button'
 import { LoadingState, ErrorState } from '../components/dashboard/DashboardStates'
-import type { ITank } from '@core/types'
+import type { ITank, IPozo, IEvaluacion, ILectura } from '@core/types'
+
+function fechaCorta(d: Date | undefined): string {
+  if (!d) return '—'
+  return d.toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// Exporta bajo demanda — las lecturas de cada evaluación se traen con
+// un getDocs puntual al hacer click, no con un onSnapshot en vivo por
+// fila: esta sección puede listar varios ciclos históricos y no tiene
+// sentido mantener una suscripción abierta a cada uno solo para
+// habilitar un botón.
+function FilaEvaluacionOficial({ pozo, evaluacion }: { pozo: IPozo; evaluacion: IEvaluacion }) {
+  const [exportando, setExportando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function exportar() {
+    setExportando(true)
+    setError(null)
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'evaluaciones', evaluacion.id, 'lecturas'), orderBy('hora', 'asc'))
+      )
+      const lecturas = snap.docs.map((d) => {
+        const data = d.data()
+        const timestamp = data.timestamp && typeof data.timestamp.toDate === 'function' ? data.timestamp.toDate() : data.timestamp
+        return { id: d.id, ...data, timestamp } as ILectura
+      })
+      exportarInformeOficialExcel({ pozo, evaluacion, lecturas })
+    } catch (err: any) {
+      setError('No se pudo exportar. Intenta de nuevo.')
+    } finally {
+      setExportando(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2.5">
+      <div>
+        <p className="text-sm text-white">{fechaCorta(evaluacion.fechaCierre)}</p>
+        <p className="text-xs text-slate-500">
+          Netos: <span className="font-mono">{(evaluacion.resultados?.netosPromedio ?? 0).toFixed(1)}</span> Bls
+          {' · '}{evaluacion.estado === 'OFICIAL' ? 'Oficial' : 'Aprobada'}
+        </p>
+        {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+      </div>
+      <button
+        onClick={exportar}
+        disabled={exportando}
+        className="flex items-center gap-1.5 text-xs text-amber-400 whitespace-nowrap disabled:opacity-50"
+      >
+        <FiDownload aria-hidden="true" /> {exportando ? 'Exportando...' : 'Exportar Excel'}
+      </button>
+    </div>
+  )
+}
 
 export default function WellDetailPage() {
   const { pozoId } = useParams<{ pozoId: string }>()
   const navigate = useNavigate()
   const { rol } = useAuth()
   const { pozo, loading, error } = usePozo(pozoId)
+  const { evaluaciones: evaluacionesOficiales, loading: loadingEvaluaciones, error: errorEvaluaciones } = useEvaluacionesOficiales(pozoId, pozo?.zona)
 
   const puedeEditarTodo = rol === 'SUP_AREA' || rol === 'GERENTE'
   const puedeEditarTanquesYLimites = puedeEditarTodo || rol === 'SUP_CAMPO'
@@ -143,6 +201,25 @@ export default function WellDetailPage() {
               disabled={!puedeEditarTanquesYLimites}
             />
           </div>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-slate-300">Evaluaciones Oficiales</h2>
+          {loadingEvaluaciones ? (
+            <p className="text-xs text-slate-500">Cargando historial...</p>
+          ) : errorEvaluaciones ? (
+            <p className="text-xs text-red-400">No se pudo cargar el historial de evaluaciones.</p>
+          ) : evaluacionesOficiales.length === 0 ? (
+            <p className="text-xs text-slate-500">
+              Este pozo todavía no tiene ninguna evaluación aprobada.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {evaluacionesOficiales.map((evaluacion) => (
+                <FilaEvaluacionOficial key={evaluacion.id} pozo={pozo} evaluacion={evaluacion} />
+              ))}
+            </div>
+          )}
         </section>
 
         {!puedeEditarTodo && (
