@@ -6,18 +6,22 @@
 // esta página no filtra nada por su cuenta, solo consume lo que el
 // hook ya devolvió correctamente autorizado.
 //
-// Nota de diseño: las métricas mostradas (pozos en curso, pendientes,
+// Nota de diseño: las métricas de pozos (en curso, pendientes,
 // personal asignado) se calculan a partir de IPozo directamente, sin
-// queries adicionales a /evaluaciones. Un "Total Netos Fiscalizado"
-// agregado requeriría denormalizar ese dato en el pozo (actualizado
-// por Cloud Function al cerrar cada evaluación) — no está en el
-// alcance de esta entrega, se deja como nota para no inventar cifras.
+// queries adicionales a /evaluaciones. "Total Netos Fiscalizado" SÍ
+// necesita esas queries — en vez de denormalizar el dato en el pozo
+// (la opción que se descartó a propósito, ver checklist Fase 5 #40),
+// se reutiliza useAnalyticsData.ts tal cual, que ya resuelve esto
+// mismo para AnalyticsPage.tsx con el scoping correcto por rol/zona
+// (SUP_CAMPO: 1 pozo · SUP_AREA: su zona · GERENTE: todos) — sin
+// inventar un segundo cálculo en paralelo.
 
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiDroplet, FiCheckCircle, FiClock, FiUsers } from 'react-icons/fi'
+import { FiDroplet, FiCheckCircle, FiClock, FiUsers, FiTrendingUp } from 'react-icons/fi'
 import { useAuth } from '../hooks/useAuth'
 import { usePozosVisibles } from '../hooks/usePozosVisibles'
+import { useAnalyticsData } from '../hooks/useAnalyticsData'
 import Header from '../components/common/Header'
 import Sidebar from '../components/common/Sidebar'
 import MetricCard from '../components/dashboard/MetricCard'
@@ -41,6 +45,11 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const { user, rol, zona, pozoAsignado, loading: loadingAuth, logout } = useAuth()
   const { pozos, loading: loadingPozos, error } = usePozosVisibles(rol, zona, pozoAsignado)
+  // useAnalyticsData ya se auto-restringe a SUP_AREA/GERENTE (mismo
+  // alcance que Analytics) — SUP_CAMPO no gestiona zona/portafolio,
+  // así que no aplica mostrarle un total fiscalizado agregado.
+  const puedeVerFiscalizado = rol === 'SUP_AREA' || rol === 'GERENTE'
+  const { kpis, loading: loadingKpis } = useAnalyticsData(rol, zona)
 
   const metricas = useMemo(() => {
     const enCurso = pozos.filter((p) => p.estado === 'EN_CURSO').length
@@ -80,11 +89,20 @@ export default function DashboardPage() {
 
         <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
           {/* Métricas clave */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={`grid grid-cols-2 gap-3 ${puedeVerFiscalizado ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
             <MetricCard label="Pozos visibles" value={String(metricas.total)} icon={<FiDroplet />} accent="slate" />
             <MetricCard label="En Curso" value={String(metricas.enCurso)} icon={<FiCheckCircle />} accent="amber" />
             <MetricCard label="Pendientes" value={String(metricas.pendientes)} icon={<FiClock />} accent="blue" />
             <MetricCard label="Personal asignado" value={String(metricas.totalPersonal)} icon={<FiUsers />} accent="emerald" />
+            {puedeVerFiscalizado && (
+              <MetricCard
+                label="Total Netos Fiscalizado"
+                value={loadingKpis ? '—' : kpis.produccionTotal.toFixed(1)}
+                unit="Bls"
+                icon={<FiTrendingUp />}
+                accent="emerald"
+              />
+            )}
           </div>
 
           {/* Lista de pozos */}
