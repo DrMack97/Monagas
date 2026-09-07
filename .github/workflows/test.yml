@@ -34,5 +34,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Sin "-r" — mismo motivo que build.yml: el script "test" de la
+      # raíz ya es "pnpm -r test", no hace falta (ni conviene)
+      # duplicarlo aquí.
       - name: Run tests
-        run: pnpm test -r
+        run: pnpm test

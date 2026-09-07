@@ -31,5 +31,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Sin "-r": el script "build" de la raíz (package.json) ya es
+      # "pnpm -r build". Con "-r" aquí, pnpm duplica la recursión y ese
+      # "-r" extra termina forwarded como argumento literal al comando
+      # de CADA paquete — tsc y vite lo rechazan ("Unknown option -r"),
+      # descubierto en la primera ejecución real de este workflow tras
+      # arreglar el paso de pnpm (ver checklist Fase 6, #43).
       - name: Build all packages
-        run: pnpm build -r
+        run: pnpm build

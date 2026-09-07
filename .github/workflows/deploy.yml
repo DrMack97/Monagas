@@ -39,8 +39,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Sin "-r" — mismo bug real encontrado y corregido en build.yml
+      # (checklist Fase 6, #43): duplicaba la recursión y forwardeaba
+      # un "-r" literal a tsc/vite.
       - name: Build
-        run: pnpm build -r
+        run: pnpm build
 
       - name: Deploy to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
