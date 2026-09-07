@@ -7,10 +7,47 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function rol() {
+      return request.auth.token.rol;
+    }
+
+    function isRoot()    { return rol() == 'ROOT'; }
+    function isGerente() { return rol() == 'GERENTE'; }
+    function isSupArea() { return rol() == 'SUP_AREA'; }
+
+    // Operador y Supervisor de Campo: mismo Custom Claim singular que
+    // usa firestore.rules (pozoAsignado) para su único pozo asignado.
+    function isAssignedToPozo(pozoId) {
+      return request.auth.token.pozoAsignado == pozoId;
+    }
+
+    // La zona del pozo no viaja en el path del archivo ni en un Custom
+    // Claim — hay que leerla de Firestore. Storage Rules puede
+    // consultar Firestore directamente (cross-service rules), igual
+    // que firestore.rules ya hace con get() dentro de la misma
+    // base de datos.
+    function zonaDelPozo(pozoId) {
+      return firestore.get(/databases/(default)/documents/pozos/$(pozoId)).data.zona;
+    }
+
+    // Mismo criterio de autoridad que la regla de LECTURA de
+    // /pozos/{pozoId} en firestore.rules (isRoot || canViewPozosEnZona
+    // || isAssignedToPozo) — quien puede ver el pozo puede ver/subir
+    // sus evidencias, nadie más. Antes esta función no existía: CUALQUIER
+    // usuario autenticado podía leer o escribir el storage de CUALQUIER
+    // pozo, sin importar rol ni zona (hallazgo documentado en
+    // .security-review.md, checklist Fase 6 #41).
+    function puedeAccederPozo(pozoId) {
+      return isRoot()
+        || isGerente()
+        || (isSupArea() && request.auth.token.zona == zonaDelPozo(pozoId))
+        || isAssignedToPozo(pozoId);
+    }
+
     // Fotos de actividad de pozo, evidencias, reportes PDF (Fase 3)
     match /pozos/{pozoId}/{allPaths=**} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn()
+      allow read: if isSignedIn() && puedeAccederPozo(pozoId);
+      allow write: if isSignedIn() && puedeAccederPozo(pozoId)
                    && request.resource.size < 10 * 1024 * 1024; // 10MB máx
     }
   }
