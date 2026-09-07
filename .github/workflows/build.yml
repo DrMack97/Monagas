@@ -1,7 +1,12 @@
-# TODO: Workflow de build en main/staging - Player 3 (Fullstack)
-# Paso 1: Trigger en push a main o staging
-# Paso 2: Build de todas las apps y packages
-# Entregable: Build exitoso antes de deploy
+# Build de todas las apps y packages en push a main/staging.
+#
+# Historial real: este workflow existía desde "fase 1" pero SIEMPRE
+# falló, en las 2 únicas ejecuciones que tuvo — "Unable to locate
+# executable file: pnpm". Le faltaba instalar pnpm antes de usarlo;
+# `cache: 'pnpm'` en setup-node solo configura el caché, no instala el
+# binario. Se agrega pnpm/action-setup, que además toma la versión
+# automáticamente del campo "packageManager" del package.json raíz
+# (pnpm@8.15.0), sin necesidad de repetirla aquí. Ver checklist Fase 6, #43.
 name: Build
 
 on:
@@ -13,15 +18,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Build all packages
         run: pnpm build -r

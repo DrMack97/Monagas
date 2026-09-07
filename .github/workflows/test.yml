@@ -1,8 +1,13 @@
-# TODO: Workflow de tests en push - Player 3 (Fullstack)
-# Paso 1: Trigger en push a cualquier rama
-# Paso 2: Instalar dependencias con pnpm
-# Paso 3: Ejecutar pnpm test -r
-# Entregable: PR no puede mergear si tests fallan
+# Tests en cada push/PR.
+#
+# Historial real: nunca pasó, en ninguna de sus ejecuciones — mismo bug
+# que build.yml (pnpm no se instalaba). Corregido con pnpm/action-setup.
+#
+# Aviso importante: aun con eso corregido, esta ejecución seguirá
+# fallando hasta que se resuelva el checklist Fase 6, #46 —
+# firebase/functions/jest.config.js apunta a un src/setupTests.ts que
+# no existe y usa testEnvironment: 'jsdom' para un backend de Node. Eso
+# es correcto que falle: es una señal real, no un bug del workflow.
 name: Test
 
 on:
@@ -16,15 +21,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Run tests
         run: pnpm test -r

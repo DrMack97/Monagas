@@ -1,32 +1,47 @@
-# TODO: Workflow de deploy automático a Firebase - Player 3 (Fullstack)
-# Paso 1: Trigger en push a main
-# Paso 2: Deploy web-supervisor a Firebase Hosting
-# Paso 3: Deploy functions a Firebase Functions
-# Entregable: main se despliega automáticamente a producción
+# Deploy a Firebase Hosting.
+#
+# Deliberadamente NO se dispara solo en push a main. Nunca se ha hecho
+# un deploy real de este proyecto a ningún ambiente de Firebase (dev,
+# staging o prod) — todo el trabajo hasta hoy se verificó contra
+# emuladores locales — y tampoco existe todavía el secret
+# FIREBASE_SERVICE_ACCOUNT ni la variable FIREBASE_PROJECT_ID en este
+# repositorio (confirmado: `gh secret list` no devuelve nada). Dejar
+# esto en automático haría que el primer deploy real de la historia del
+# proyecto ocurriera solo, en el momento en que alguien configure esos
+# secrets, sin ninguno de los pasos previos del checklist Fase 6
+# (deploy a staging, prueba de aceptación, revisión de seguridad) —
+# exactamente lo contrario a la forma de trabajar de este proyecto
+# (item por item, verificado, nunca a ciegas).
+#
+# Queda como disparo manual (workflow_dispatch) para cuando se llegue
+# al checklist Fase 6, #52 (deploy real a producción) y ya estén los
+# secrets configurados a propósito.
 name: Deploy
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-      
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
+
       - name: Build
         run: pnpm build -r
-      
+
       - name: Deploy to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
