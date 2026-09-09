@@ -36,6 +36,15 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
+      # firebase/functions arranca el emulador de Firestore/Storage
+      # (Java) via `firebase emulators:exec` — firebase-tools exige
+      # JDK >=21 y el runner de GitHub no trae uno activo por defecto.
+      - name: Setup Java (para los emuladores de Firestore/Storage)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
