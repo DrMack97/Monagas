@@ -24,8 +24,11 @@ if (!admin.apps.length) {
 async function esperarCustomClaims(uid: string): Promise<Record<string, unknown> | undefined> {
   // El trigger corre async del lado del emulador - no hay forma de
   // "esperarlo" directamente, así que se sondea el claim hasta que
-  // aparezca (con un tope), en vez de un sleep fijo arbitrario.
-  for (let i = 0; i < 20; i++) {
+  // aparezca (con un tope), en vez de un sleep fijo arbitrario. 40
+  // intentos x 500ms = 20s: en local el trigger normalmente responde
+  // en <1s, pero en un runner de CI compartido y frío se vio tardar
+  // más — más margen que castigar la corrida real con un tope corto.
+  for (let i = 0; i < 40; i++) {
     const user = await admin.auth().getUser(uid)
     if (user.customClaims?.rol) return user.customClaims
     await new Promise((r) => setTimeout(r, 500))
@@ -55,7 +58,7 @@ describe('assignRole (trigger real, contra el emulador)', () => {
 
     const claims = await esperarCustomClaims(uid)
     expect(claims).toEqual({ rol: 'SUP_AREA', pozoAsignado: null, zona: 'MONAGAS' })
-  }, 15000)
+  }, 25000)
 
   it('degrada a OPERADOR cualquier rol no reconocido — incluido "ROOT"', async () => {
     // Este es exactamente el caso documentado en
@@ -74,5 +77,5 @@ describe('assignRole (trigger real, contra el emulador)', () => {
 
     const claims = await esperarCustomClaims(uid)
     expect(claims?.rol).toBe('OPERADOR')
-  }, 15000)
+  }, 25000)
 })
