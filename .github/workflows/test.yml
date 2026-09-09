@@ -3,11 +3,16 @@
 # Historial real: nunca pasó, en ninguna de sus ejecuciones — mismo bug
 # que build.yml (pnpm no se instalaba). Corregido con pnpm/action-setup.
 #
-# Aviso importante: aun con eso corregido, esta ejecución seguirá
-# fallando hasta que se resuelva el checklist Fase 6, #46 —
-# firebase/functions/jest.config.js apunta a un src/setupTests.ts que
-# no existe y usa testEnvironment: 'jsdom' para un backend de Node. Eso
-# es correcto que falle: es una señal real, no un bug del workflow.
+# firebase/functions tenía además su propio bug (jest.config.js roto,
+# copiado de una app de React con testEnvironment:'jsdom' y un
+# setupTests.ts que nunca existió) y CERO tests reales (4 archivos con
+# `expect(true).toBe(true)`, checklist Fase 6 #46) — corregido: el
+# script "test" de firebase/functions ahora se auto-contiene con
+# `firebase emulators:exec` (levanta auth+firestore+functions, corre
+# jest contra ellos de verdad, y los apaga solo), con tests reales de
+# integración. firebase-tools quedó como devDependency del proyecto
+# (antes esto dependía de una instalación global que solo existía en
+# la máquina de desarrollo — no habría funcionado nunca en este CI).
 name: Test
 
 on:

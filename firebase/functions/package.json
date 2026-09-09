@@ -10,31 +10,25 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test": "jest"
+    "test": "cross-env FUNCTIONS_DISCOVERY_TIMEOUT=60 npx firebase emulators:exec --project well-testing-dev --only auth,firestore,functions \"jest\""
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "@monagas/core": "workspace:*",
-    "@sentry/node": "^7.100.0",
     "express": "^4.18.2",
     "firebase-admin": "^11.11.0",
     "firebase-functions": "^4.4.1"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
-    "@types/chai": "^5.2.3",
     "@types/express": "^4.17.21",
     "@types/jest": "^30.0.0",
-    "@types/mocha": "^10.0.10",
     "@types/node": "^20.19.43",
-    "@types/sinon": "^22.0.0",
-    "chai": "^6.2.2",
+    "cross-env": "^7.0.3",
     "firebase-functions-test": "^3.1.0",
     "jest": "^29.7.0",
-    "mocha": "^11.7.6",
-    "sinon": "^22.0.0",
     "ts-jest": "^29.4.11",
     "typescript": "^5.4.5"
   },

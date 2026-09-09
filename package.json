@@ -8,11 +8,13 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
-    "firebase:emulate": "firebase emulators:start"
+    "firebase:emulate": "cd firebase && cross-env FUNCTIONS_DISCOVERY_TIMEOUT=60 npx firebase emulators:start --project well-testing-dev"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
     "prettier": "^3.2.0",
-    "eslint": "^8.57.0"
+    "eslint": "^8.57.0",
+    "cross-env": "^7.0.3",
+    "firebase-tools": "^15.22.4"
   }
 }

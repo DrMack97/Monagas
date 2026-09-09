@@ -10,14 +10,17 @@ seguridad y `docs/technical/offline-strategy.md` para el diseño offline).
 
 - Node.js — el proyecto declara `nodejs20` como runtime en
   `firebase/firebase.json` (`functions.runtime`) y `>=20` en
-  `firebase/functions/package.json` (`engines`). **Importante:** ver la
-  sección 5 (Problemas conocidos) — tener un Node global muy por encima
-  de 20 rompe el emulador de Functions.
+  `firebase/functions/package.json` (`engines`). Un Node global mucho más
+  nuevo (probado con v26) funciona sin problema — ver sección 5 sobre el
+  timeout del emulador de Functions, que no es un problema de versión de
+  Node.
 - pnpm `8.15.0` — fijado en `package.json` raíz (`packageManager`). Con
   Corepack activado (`corepack enable`) se usa automáticamente esa
   versión exacta.
-- Firebase CLI (`firebase-tools`) — cualquier versión reciente sirve para
-  desarrollo local; verificada contra `15.22.4`.
+- Firebase CLI (`firebase-tools`) — es una devDependency real del
+  proyecto (no una instalación global — antes de esto lo era, y el CI
+  nunca hubiera podido correrla). `npx firebase` ya resuelve la versión
+  del proyecto.
 - `gh` CLI, si vas a tocar GitHub Actions o secrets del repositorio.
 
 ## 2. Instalación local
@@ -39,9 +42,12 @@ Fase 6, #45).
 ## 3. Levantar los emuladores
 
 ```bash
-cd firebase
-npx firebase emulators:start --project well-testing-dev
+pnpm run firebase:emulate
 ```
+
+(Equivale a `cd firebase && FUNCTIONS_DISCOVERY_TIMEOUT=60 npx firebase
+emulators:start --project well-testing-dev` — ver sección 5 sobre por
+qué hace falta esa variable de entorno.)
 
 Puertos: Auth `9099`, Firestore `8080`, Functions `5001`, Storage `9199`,
 UI en `4000`. `firebase.json` tiene `singleProjectMode: true`, necesario
@@ -98,26 +104,38 @@ Con ese usuario ya podés entrar al panel web y, desde ahí, usar
 Área real de cada zona — a partir de ahí, la gestión de personal sigue el
 flujo normal descrito en la Guía del Supervisor.
 
-## 5. Problemas conocidos (sin resolver todavía)
+## 5. Problemas conocidos
 
-- **El emulador de Functions no carga ninguna función, confirmado en
-  vivo.** Con Node global muy por encima de v20 (probado con v26), el
-  arranque completo (`auth,firestore,functions,storage`) siempre falla
-  con `Failed to load function definition from source: ... Cannot
-  determine backend specification. Timeout after 10000`. No es solo un
-  aviso — se confirmó escribiendo un documento en `/usuarios/{uid}` con
-  el emulador corriendo y esperando: `assignRole.ts` (trigger de
-  Firestore) nunca se ejecutó. Esto bloquea CUALQUIER prueba real de
-  Cloud Functions (triggers y callables por igual) mientras no se
-  resuelva — más urgente y más amplio que el problema puntual de
-  `jest.config.js` (checklist Fase 6, #46). Sospecha, sin confirmar
-  todavía: incompatibilidad entre el SDK `firebase-functions@4.9.0`
-  (viejo — la propia CLI recomienda `>=5.1.0`) y una versión de Node muy
-  nueva. Workaround mientras tanto: instalar Node 20 específicamente
-  para este proyecto (con un gestor de versiones como `nvm-windows`) en
-  vez de depender del Node global de la máquina.
-- **`jest.config.js` roto** en `firebase/functions` (checklist Fase 6,
-  #46) — apunta a un `src/setupTests.ts` inexistente.
+- **Resuelto — el emulador de Functions podía no cargar ninguna
+  función.** Al arrancar el set completo
+  (`auth,firestore,functions,storage`), a veces fallaba con `Failed to
+  load function definition from source: ... Cannot determine backend
+  specification. Timeout after 10000`. Se investigó a fondo (checklist
+  Fase 6, #46) y **no era un problema de versión de Node ni del SDK**:
+  invocando el mecanismo de descubrimiento a mano
+  (`node_modules/.bin/firebase-functions` con `FUNCTIONS_CONTROL_API=true`)
+  respondía en ~1.5s con el manifiesto completo y correcto de las 10
+  funciones — el timeout de 10 segundos del CLI simplemente no le
+  alcanza cuando compite por CPU con el arranque simultáneo de
+  Firestore/Storage (procesos Java pesados) en esta máquina. La
+  solución real es la variable de entorno `FUNCTIONS_DISCOVERY_TIMEOUT`
+  (en segundos) — ya está aplicada en `pnpm run firebase:emulate` y en
+  el script `test` de `firebase/functions`, no hace falta setearla a
+  mano. Verificado en vivo repetidas veces: con esto, las 10 funciones
+  cargan y los triggers de Firestore (`assignRole.ts` probado
+  explícitamente) se ejecutan con normalidad.
+- **Resuelto — `firebase/functions` no tenía ningún test real.**
+  `jest.config.js` estaba copiado tal cual de una app de React
+  (`testEnvironment:'jsdom'`, un `setupTests.ts` que nunca existió para
+  este paquete) y los 4 archivos de test existentes eran decorativos —
+  puro `expect(true).toBe(true)`, sin probar nada (checklist Fase 6,
+  #46). Se corrigió la config (`testEnvironment: 'node'`), se
+  eliminaron los tests falsos, y se escribió un test real de
+  integración (`tests/assignRole.test.ts`) que prueba, contra el
+  emulador real, tanto el caso normal como la trampa del rol "ROOT"
+  descrita en la sección 4. El script `test` de `firebase/functions`
+  ahora se auto-contiene con `firebase emulators:exec` — no requiere
+  tener los emuladores corriendo de antemano.
 - **VAPID key** de notificaciones push no configurada en
   `apps/mobile-operator/.env` — paso manual en la consola de Firebase
   (checklist Fase 6, #47).
