@@ -26,16 +26,17 @@ async function esperarCustomClaims(uid: string): Promise<Record<string, unknown>
   // "esperarlo" directamente, así que se sondea el claim hasta que
   // aparezca (con un tope), en vez de un sleep fijo arbitrario.
   //
-  // El tope es grande (90s) a propósito: en local el trigger responde
-  // en <1s, pero en el runner de GitHub Actions (2 vCPU compartidas)
-  // corriendo a la vez Firestore (JVM) + Functions + este mismo jest,
-  // se midió que ni 10s ni 20s alcanzaban — la descarga/registro del
-  // manifiesto de funciones contra el emulador de Firestore compite
-  // por CPU con todo lo demás. Más vale un test lento que uno flaky.
-  for (let i = 0; i < 90; i++) {
+  // Nota: si esto empieza a fallar con el claim en `undefined` SIEMPRE
+  // (no solo lento), sospechar primero de packages/core/dist faltante
+  // o desactualizado — un MODULE_NOT_FOUND ahí tumba TODA la carga de
+  // funciones (assignRole incluido) de forma silenciosa para quien
+  // solo mira este test, no es un problema de timing. Pasó una vez en
+  // CI (ver historial del checklist Fase 6, #46) — el script "test"
+  // ya corre "pnpm build" antes por eso.
+  for (let i = 0; i < 30; i++) {
     const user = await admin.auth().getUser(uid)
     if (user.customClaims?.rol) return user.customClaims
-    await new Promise((r) => setTimeout(r, 1000))
+    await new Promise((r) => setTimeout(r, 500))
   }
   return undefined
 }

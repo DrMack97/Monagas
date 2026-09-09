@@ -4,6 +4,7 @@
 # Entregable: git status solo muestra archivos de código
 node_modules/
 dist/
+lib/
 .build/
 .env
 .env.local

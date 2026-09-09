@@ -10,7 +10,7 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test": "cross-env FUNCTIONS_DISCOVERY_TIMEOUT=60 npx firebase emulators:exec --project well-testing-dev --only auth,firestore,functions \"jest\""
+    "test": "pnpm --filter @monagas/core build && npm run build && cross-env FUNCTIONS_DISCOVERY_TIMEOUT=60 npx firebase emulators:exec --project well-testing-dev --only auth,firestore,functions \"jest\""
   },
   "engines": {
     "node": ">=20"

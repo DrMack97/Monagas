@@ -48,6 +48,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Imprescindible antes de "test": firebase/functions importa
+      # @monagas/core compilado (packages/core/dist/index.js), no su
+      # código fuente — sin este paso, en un checkout nuevo ese dist/
+      # no existe y firebase/functions falla con MODULE_NOT_FOUND al
+      # cargar las funciones (visto en la primera ejecución real de
+      # este workflow en GitHub Actions; en local "funcionaba" solo
+      # porque ya había un dist/ de una compilación anterior).
+      - name: Build
+        run: pnpm build
+
       # Sin "-r" — mismo motivo que build.yml: el script "test" de la
       # raíz ya es "pnpm -r test", no hace falta (ni conviene)
       # duplicarlo aquí.
