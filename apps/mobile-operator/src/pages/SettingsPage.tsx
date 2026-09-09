@@ -15,7 +15,6 @@ export default function SettingsPage() {
   const { user, rol, logout } = useAuth()
   const { requestPermission } = useNotifications()
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
-  const [offlineMode, setOfflineMode] = useState(false)
 
   const handleToggleNotifications = async () => {
     if (notificationsEnabled) {
@@ -75,23 +74,25 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Modo Offline */}
+      {/* Guardado offline: siempre activo, no es una opción que se pueda
+          apagar — Firestore guarda todo localmente por su cuenta y lo
+          envía solo cuando vuelve la señal (ver docs/technical/
+          offline-strategy.md). Antes había un switch aquí que no hacía
+          nada (estado local sin ningún efecto real) — daba a entender
+          que había que "activarlo" para que funcionara, cuando en
+          realidad nunca se apaga. Se reemplaza por un indicador fijo. */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-white font-medium">Guardar offline</p>
-            <p className="text-sm text-slate-500">Guardar lecturas sin conexión</p>
+            <p className="text-white font-medium">Guardado offline</p>
+            <p className="text-sm text-slate-500">
+              Siempre activo — tus lecturas se guardan en el dispositivo y
+              se envían solas cuando vuelve la señal.
+            </p>
           </div>
-          <button
-            onClick={() => setOfflineMode(!offlineMode)}
-            className={`w-12 h-6 rounded-full transition-colors ${
-              offlineMode ? 'bg-amber-500' : 'bg-slate-700'
-            }`}
-          >
-            <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
-              offlineMode ? 'translate-x-6' : 'translate-x-1'
-            }`}></div>
-          </button>
+          <span className="text-xs font-medium text-emerald-400 border border-emerald-900 rounded-full px-2.5 py-1 whitespace-nowrap">
+            Activo
+          </span>
         </div>
       </div>
 
