@@ -24,14 +24,18 @@ if (!admin.apps.length) {
 async function esperarCustomClaims(uid: string): Promise<Record<string, unknown> | undefined> {
   // El trigger corre async del lado del emulador - no hay forma de
   // "esperarlo" directamente, así que se sondea el claim hasta que
-  // aparezca (con un tope), en vez de un sleep fijo arbitrario. 40
-  // intentos x 500ms = 20s: en local el trigger normalmente responde
-  // en <1s, pero en un runner de CI compartido y frío se vio tardar
-  // más — más margen que castigar la corrida real con un tope corto.
-  for (let i = 0; i < 40; i++) {
+  // aparezca (con un tope), en vez de un sleep fijo arbitrario.
+  //
+  // El tope es grande (90s) a propósito: en local el trigger responde
+  // en <1s, pero en el runner de GitHub Actions (2 vCPU compartidas)
+  // corriendo a la vez Firestore (JVM) + Functions + este mismo jest,
+  // se midió que ni 10s ni 20s alcanzaban — la descarga/registro del
+  // manifiesto de funciones contra el emulador de Firestore compite
+  // por CPU con todo lo demás. Más vale un test lento que uno flaky.
+  for (let i = 0; i < 90; i++) {
     const user = await admin.auth().getUser(uid)
     if (user.customClaims?.rol) return user.customClaims
-    await new Promise((r) => setTimeout(r, 500))
+    await new Promise((r) => setTimeout(r, 1000))
   }
   return undefined
 }
@@ -58,7 +62,7 @@ describe('assignRole (trigger real, contra el emulador)', () => {
 
     const claims = await esperarCustomClaims(uid)
     expect(claims).toEqual({ rol: 'SUP_AREA', pozoAsignado: null, zona: 'MONAGAS' })
-  }, 25000)
+  }, 100000)
 
   it('degrada a OPERADOR cualquier rol no reconocido — incluido "ROOT"', async () => {
     // Este es exactamente el caso documentado en
@@ -77,5 +81,5 @@ describe('assignRole (trigger real, contra el emulador)', () => {
 
     const claims = await esperarCustomClaims(uid)
     expect(claims?.rol).toBe('OPERADOR')
-  }, 25000)
+  }, 100000)
 })
