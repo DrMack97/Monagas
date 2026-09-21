@@ -7,43 +7,36 @@ evidencia — no es una auditoría de seguridad profesional (ver
 
 Leyenda: ✅ verificado · ⚠️ hallazgo real sin corregir · ⬜ pendiente · 🙋 solo lo puede hacer el dueño del proyecto
 
-## 1. Revisión final de `firestore.rules` — hallazgos reales
+## 1. Revisión final de `firestore.rules` — corregida (#51b)
 
-Revisadas línea por línea. Las reglas de aprobación, zona y edición de pozos
-están bien acotadas y probadas contra el emulador (ver checklist Fases 2–5),
-pero esta revisión encontró **cuatro huecos** que ninguna fase anterior cubrió:
+Revisadas línea por línea. La revisión encontró **cinco huecos** que ninguna
+fase anterior cubrió. Todos quedaron **corregidos y cubiertos por tests
+automáticos** (`firebase/functions/tests/firestore-rules.test.ts`, 29 casos,
+corren en `pnpm test` y en CI). Antes de corregir, esos tests se corrieron
+contra las reglas viejas: **14 fallaban** (cada uno = un hueco explotable);
+con las reglas nuevas pasan 29/29.
 
-- ⚠️ **Un Operador puede fabricar una evaluación "OFICIAL".**
-  `/evaluaciones` → `allow create` solo exige `isOperador()` y estar asignado
-  al pozo; **no restringe ningún campo**. El cliente (`useEvaluacionActual.ts`)
-  escribe `estado`, `zona` y demás, pero nada impide que un cliente modificado
-  cree una evaluación con `estado: 'OFICIAL'`, `resultados` inventados o una
-  `zona` ajena. Corrección propuesta: exigir en la regla
-  `request.resource.data.estado == 'EN_CURSO'`,
-  `operadorId == request.auth.uid` y que `zona` coincida con la del pozo
-  (`get()` al pozo), más `keys().hasOnly([...])`.
-- ⚠️ **Lecturas de cualquier zona legibles por cualquier usuario autenticado.**
-  `/evaluaciones/{id}/lecturas` → `allow read: if request.auth != null`. Es el
-  mismo tipo de hueco que se cerró en `storage.rules` (#41b): alguien con
-  sesión (incluso un Operador de otro pozo) que conozca un `evalId` puede leer
-  las mediciones. Corrección: `get()` a la evaluación padre y aplicar el mismo
-  predicado que su regla de lectura.
-- ⚠️ **Un Operador puede agregar lecturas a una evaluación ya cerrada.**
-  `lecturas` → `allow create` verifica `operadorId` pero **no `estado ==
-  'EN_CURSO'`**. Tras cerrar/aprobar un ciclo se podrían añadir lecturas, y
-  `onLecturaEdit` solo recalcula en *update*, no en *create*.
-- ⚠️ **`/usuarios` legible por cualquier usuario autenticado, incluido
-  `fcmToken`.** Cualquier Operador puede listar a todo el personal (nombre,
-  rol, zona, pozo) y los tokens de push de todos. Corrección: lectura propia +
-  SUP_AREA de su zona + GERENTE/ROOT, y mover `fcmToken` a un documento
-  privado.
-- ⬜ **Las reglas no tienen tests automatizados.** Toda la verificación fue
-  con scripts ad hoc contra el emulador. Antes de tocar las reglas (por los
-  cuatro puntos de arriba) conviene agregar `@firebase/rules-unit-testing`
-  para no reabrir huecos ya cerrados.
-
-Sugerencia: convertir estos cuatro puntos en **un ítem nuevo (#51b)** —
-corrección + tests — antes de cualquier deploy a producción.
+- ✅ **Un Operador podía fabricar una evaluación "OFICIAL".** `create` no
+  restringía ningún campo. Ahora exige `estado == 'EN_CURSO'`,
+  `operadorId == uid`, `zona` igual a la del pozo (`get()`) y solo los 8
+  campos que escribe `useEvaluacionActual.ts`.
+- ✅ **Un Operador podía auto-aprobarse** (hallazgo nuevo, no estaba en la
+  primera revisión): `estado` era editable por el Operador sin restringir el
+  valor destino, así que un `update` directo a `OFICIAL` o
+  `APROBADA_SUPERVISOR` saltaba al supervisor. Ahora solo puede quedar en
+  `EN_CURSO` o `PENDIENTE_SUPERVISOR`.
+- ✅ **Lecturas de cualquier zona legibles por cualquier autenticado.** Ahora
+  `lecturas` se lee con el mismo criterio que su evaluación padre.
+- ✅ **Se podían agregar lecturas a una evaluación cerrada.** Ahora `create`
+  exige que la evaluación esté `EN_CURSO`.
+- ✅ **`/usuarios` legible por cualquier autenticado (con `fcmToken`).** Ahora:
+  el propio usuario, SUP_AREA de esa zona, GERENTE y ROOT. *Residual:* el
+  `fcmToken` sigue dentro del documento, visible a supervisores de la zona
+  (no permite enviar push sin la clave de servidor).
+- Las reglas ya no dependen de verificación ad hoc: hay 29 tests con casos
+  permitidos (los flujos reales de las apps) y denegados.
+- ⬜ **Redesplegar las reglas** en cada ambiente al que ya se hayan llevado
+  (staging: ver checklist #45).
 
 ## 2. Repositorio público
 
@@ -105,7 +98,7 @@ Rollback (no hay nada automatizado; esto es lo que existe):
 
 ## 6. Puertas de salida (todas deben ser ✅)
 
-- [ ] Los 4 huecos de reglas corregidos y con tests (#51b)
+- [x] Los 5 huecos de reglas corregidos y con tests (#51b)
 - [ ] `well-testing-staging` completo: Firestore + Storage + Functions (#45)
 - [ ] Ciclo completo Operador → Supervisor → exportación en staging (#49)
 - [ ] Aceptación con una persona real de campo (#50)
