@@ -10,8 +10,8 @@
     "source": "functions",
     "runtime": "nodejs20",
     "predeploy": [
-      "npm --prefix \"$RESOURCE_DIR/../../packages/core\" run build",
-      "npm --prefix \"$RESOURCE_DIR\" run build"
+      "cd ../packages/core && npm run build",
+      "cd functions && npm run build"
     ]
   },
   "emulators": {
