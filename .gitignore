@@ -13,3 +13,9 @@ lib/
 .idea/
 .vscode/
 coverage/
+
+# Config de cliente Firebase para apps nativas: pertenece al proyecto/ambiente
+# de cada quien (dev/staging/prod), no se versiona. Descargar con:
+#   firebase apps:sdkconfig ANDROID <APP_ID> --project <PROJECT_ID>
+google-services.json
+GoogleService-Info.plist

@@ -40,13 +40,19 @@ con las reglas nuevas pasan 29/29.
 
 ## 2. Repositorio público
 
-- ⚠️ `apps/mobile-operator/google-services.json` está **commiteado en un repo
-  público** y pertenece al proyecto `well-testing-prod` (con `package_name`
-  `Willy.Tank`, que además no coincide con el `appId`
-  `com.monagas.operator` de Capacitor). Las claves de cliente de Firebase no
-  son secretas, pero sin App Check cualquiera puede usarlas contra el
-  proyecto. Decidir: sacarlo del repo (`.gitignore`), regenerarlo con el
-  package correcto, y considerar App Check.
+- ✅ `apps/mobile-operator/google-services.json` (del proyecto
+  `well-testing-prod`, con `package_name` `Willy.Tank` que no coincide con
+  el `appId` `com.monagas.operator`, y en la carpeta equivocada: Gradle
+  nunca lo leyó) **dejó de versionarse** y `google-services.json` /
+  `GoogleService-Info.plist` quedaron en `.gitignore`. El archivo local
+  sigue en disco.
+- ⚠️ **Sigue en el historial de git** (commit `2d73b34`) de un repo público.
+  Purgarlo exige reescribir el historial con `push --force` (destructivo:
+  no se hizo). Son claves de *cliente* (no secretas), pero sin App Check
+  cualquiera puede usarlas: la mitigación real es 🙋 **restringir esa API key**
+  en Google Cloud Console (APIs y servicios → Credenciales → restricciones de
+  aplicación/API) y considerar App Check. Para push nativo habrá que generar un
+  `google-services.json` nuevo con el package correcto y sin commitearlo.
 - ⬜ Confirmar si el repositorio debe seguir público (se decidió mantenerlo
   público al hacer el primer push, tras el #43; conviene revisarlo antes de
   producción, dado lo documentado en `.security-review.md`).
@@ -76,9 +82,14 @@ con las reglas nuevas pasan 29/29.
   Esto cambia el alcance del ítem #47.
 - ⬜ APK firmado de release (keystore propio, guardado fuera del repo).
 - ⬜ Prueba en dispositivo real (ver #48 / #50).
-- ⬜ Dependencias de Expo (`expo`, `expo-notifications`, `expo-clipboard`,
-  `@expo/metro-runtime`) y scripts `expo start` en
-  `apps/mobile-operator/package.json`: sin ningún uso en el código — retirar.
+- ✅ Dependencias muertas retiradas de `apps/mobile-operator/package.json`
+  (cero usos reales, verificado): `expo`, `expo-clipboard`,
+  `expo-notifications`, `@expo/metro-runtime`, `@sentry/react-native`,
+  `react-native`, `react-native-maps`, `react-native-web`,
+  `@testing-library/react-native`, el `main` de Expo y los scripts
+  `expo start`. Los plugins de Capacitor (cámara, geolocalización,
+  preferencias) se dejan: hoy ningún código los usa, pero añaden permisos al
+  APK — quitarlos si no van a usarse antes del release.
 
 ## 5. Plan de despliegue y rollback
 
