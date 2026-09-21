@@ -107,6 +107,33 @@ Rollback (no hay nada automatizado; esto es lo que existe):
 - **App móvil:** conservar el APK anterior; no hay canal de distribución
   definido todavía.
 
+## 5b. Ciclo completo verificado en local (equivalente parcial del #49)
+
+Con las reglas corregidas del #51b, contra los emuladores reales (Auth +
+Firestore + Functions) y las **apps reales en el navegador** (no scripts):
+
+1. Operador inicia sesión → la app crea el ciclo (`evaluaciones` create con
+   los 8 campos permitidos) y `assignRole` había asignado sus claims.
+2. Registra una lectura desde el formulario real (lectura creada con el ciclo
+   `EN_CURSO`; la tabla la lee).
+3. Con las 5 lecturas del ciclo (4 sembradas clonando la estructura de la
+   primera), el reporte ofrece "Calcular Promedio Final" y "Enviar a
+   Supervisor": la evaluación pasa a `PENDIENTE_SUPERVISOR` (netos 557.07 Bls)
+   y `onEvalSubmit` sincroniza el pozo y libera el candado.
+4. Supervisor de Área inicia sesión: Personal lista a su Operador (regla nueva
+   de `/usuarios`), la cola de aprobaciones muestra la evaluación, sus 5
+   lecturas se abren, y **Aprobar** deja evaluación y pozo en `OFICIAL`
+   (`onApprove`).
+5. El historial de "Evaluaciones Oficiales" del pozo la lista y "Exportar
+   Excel" lee las lecturas sin error de permisos; consola sin errores de
+   permisos en ninguna de las dos apps.
+
+**Lo que esto NO cubre** (por eso el #49 sigue abierto): no fue contra
+staging (sin Functions/Storage/Auth desplegados), no probó el modo offline ni
+el APK, y las lecturas 2–5 no pasaron por el formulario. Un intento de
+"Guardar Snapshot" en el reporte guarda `resultados` sin cerrar el ciclo
+(comportamiento esperado).
+
 ## 6. Puertas de salida (todas deben ser ✅)
 
 - [x] Los 5 huecos de reglas corregidos y con tests (#51b)
