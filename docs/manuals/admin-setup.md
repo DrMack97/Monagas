@@ -151,3 +151,36 @@ Ver `.github/workflows/`. `build.yml` y `test.yml` corren en cada push;
 secret de Firebase configurado en el repositorio todavía
 (`FIREBASE_SERVICE_ACCOUNT`, `FIREBASE_PROJECT_ID`), y no debería
 activarse en automático hasta completar el resto del checklist Fase 6.
+
+## 7. Compilar el APK de Android (Capacitor)
+
+Requisitos ya verificados en esta máquina: JDK 21, Android SDK
+(`%LOCALAPPDATA%\Android\Sdk`, con `platform-tools` y `build-tools`) y
+Capacitor CLI 8.
+
+```bash
+cd apps/mobile-operator
+npm run build                 # vite build -> dist/
+npx cap sync android          # copia dist/ y los plugins al proyecto nativo
+# Una sola vez por máquina: decirle a Gradle dónde está el SDK
+echo "sdk.dir=C:/Users/<tu-usuario>/AppData/Local/Android/Sdk" > android/local.properties
+cd android && ./gradlew assembleDebug
+# -> android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+- La primera compilación descarga Gradle y todas las dependencias: tardó
+  ~16 minutos. Las siguientes son mucho más rápidas.
+- `capacitor.config.ts` → `webDir` debe ser `dist` (igual que `outDir` de
+  Vite). Antes decía `web-build`, una carpeta que nunca existió, y la carpeta
+  `android/` estaba a medias (sin `gradlew` ni `AndroidManifest.xml`); se
+  regeneró con `npx cap add android` (checklist Fase 6, #48).
+- `android/local.properties`, `.gradle/`, `build/` y los assets copiados
+  (`app/src/main/assets/public`) están en el `.gitignore` de `android/` — no
+  se versionan.
+- El APK **debug** apunta al backend que tenga el `.env` con el que se hizo
+  `npm run build` (hoy `well-testing-dev`, que en la nube real no tiene
+  Firestore habilitado). Para probar funcionalmente hace falta staging
+  completo (#45) y un `.env` de staging.
+- Pendiente: APK de *release* firmado, y push nativo (las notificaciones web
+  con VAPID no funcionan en el WebView de Android — ver
+  `docs/technical/go-live-checklist.md`, sección 4).
