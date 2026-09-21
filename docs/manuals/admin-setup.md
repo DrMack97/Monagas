@@ -139,10 +139,14 @@ flujo normal descrito en la Guía del Supervisor.
 - **VAPID key** de notificaciones push no configurada en
   `apps/mobile-operator/.env` — paso manual en la consola de Firebase
   (checklist Fase 6, #47).
-- **Ningún ambiente real desplegado todavía** — `well-testing-staging` y
-  `well-testing-prod` existen en `.firebaserc` pero nunca se les desplegó
-  nada; todo el desarrollo se verificó contra emuladores locales
-  (checklist Fase 6, #45 y #52).
+- **Staging a medias** (checklist Fase 6, #45). `well-testing-staging` ya
+  tiene Firestore (Native, `southamerica-east1`) con las Reglas e Índices
+  reales desplegados. Pendiente: (1) crear el bucket de Storage desde la
+  consola (requiere Blaze), (2) que la cuenta de facturación quede
+  **abierta** — el deploy de Functions falla con *"Billing account for
+  project … is not open"*, (3) registrar la app web y crear los `.env` de
+  staging. `well-testing-dev` y `well-testing-prod` no tienen Firestore
+  habilitado en la nube: todo lo demás se verificó contra emuladores.
 
 ## 6. CI/CD
 
