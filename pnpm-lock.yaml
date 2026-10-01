@@ -206,8 +206,8 @@ importers:
   firebase/functions:
     dependencies:
       '@monagas/core':
-        specifier: workspace:*
-        version: link:../../packages/core
+        specifier: file:./vendor/monagas-core
+        version: file:firebase/functions/vendor/monagas-core
       express:
         specifier: ^4.18.2
         version: 4.22.2
@@ -11535,3 +11535,8 @@ packages:
   /zod@4.6.1:
     resolution: {integrity: sha512-341aRWQsve0rvronKNTqZpjmzdbUDlFuzHaI/XLg/Ej82qffDJRRfBTCuv7+9q/rMjB6LSLyEBnW4InJeMtt/Q==}
     dev: true
+
+  file:firebase/functions/vendor/monagas-core:
+    resolution: {directory: firebase/functions/vendor/monagas-core, type: directory}
+    name: '@monagas/core'
+    dev: false

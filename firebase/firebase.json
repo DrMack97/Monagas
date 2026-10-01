@@ -11,6 +11,7 @@
     "runtime": "nodejs20",
     "predeploy": [
       "cd ../packages/core && npm run build",
+      "node functions/scripts/vendor-core.js",
       "cd functions && npm run build"
     ]
   },

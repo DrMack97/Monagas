@@ -76,7 +76,7 @@ beforeEach(async () => {
     await setDoc(doc(db, 'evaluaciones/evPendiente'), evalNueva({ estado: 'PENDIENTE_SUPERVISOR' }))
     await setDoc(doc(db, 'evaluaciones/evEnCurso/lecturas/l1'), { hora: 1, tanques: [], operativos: {} })
   })
-})
+}, 20000) // 8 escrituras en frío contra el emulador — 5000ms (default de Jest) no siempre alcanza
 
 describe('/evaluaciones — create', () => {
   it('permite al Operador asignado crear el ciclo EN_CURSO legítimo (lo que hace la app)', async () => {
