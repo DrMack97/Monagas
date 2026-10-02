@@ -12,6 +12,7 @@
     "predeploy": [
       "cd ../packages/core && npm run build",
       "node functions/scripts/vendor-core.js",
+      "pnpm install",
       "cd functions && npm run build"
     ]
   },
