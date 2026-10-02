@@ -139,14 +139,18 @@ flujo normal descrito en la Guía del Supervisor.
 - **VAPID key** de notificaciones push no configurada en
   `apps/mobile-operator/.env` — paso manual en la consola de Firebase
   (checklist Fase 6, #47).
-- **Staging a medias** (checklist Fase 6, #45). `well-testing-staging` ya
-  tiene Firestore (Native, `southamerica-east1`) con las Reglas e Índices
-  reales desplegados. Pendiente: (1) crear el bucket de Storage desde la
-  consola (requiere Blaze), (2) que la cuenta de facturación quede
-  **abierta** — el deploy de Functions falla con *"Billing account for
-  project … is not open"*, (3) registrar la app web y crear los `.env` de
-  staging. `well-testing-dev` y `well-testing-prod` no tienen Firestore
-  habilitado en la nube: todo lo demás se verificó contra emuladores.
+- **Resuelto — `well-testing-staging` completo** (checklist Fase 6, #45).
+  Firestore (Native, `southamerica-east1`), Storage, Authentication
+  (correo/contraseña) y las 10 Cloud Functions están activos y verificados
+  de verdad: se creó un usuario real en el proyecto y se confirmó, leyendo
+  `firebase functions:log`, que `assignRole` corrió su código compilado en
+  la nube y asignó el Custom Claim correcto — no solo que el deploy "dijo"
+  que terminó bien. `build:staging`/`dev:staging` (Vite `--mode staging`)
+  en ambas apps leen `.env.staging` (no versionado, igual que `.env` — se
+  arma con `firebase apps:sdkconfig WEB <appId> --project
+  well-testing-staging`). `well-testing-dev` y `well-testing-prod` siguen
+  sin tocar — todo el desarrollo del día a día se sigue verificando contra
+  emuladores locales.
 
 ## 6. CI/CD
 

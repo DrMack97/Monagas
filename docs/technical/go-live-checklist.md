@@ -59,19 +59,29 @@ con las reglas nuevas pasan 29/29.
 
 ## 3. Infraestructura de producción (`well-testing-prod`)
 
-- 🙋 Plan Blaze con cuenta de facturación **abierta** (en staging el deploy de
-  Functions falla con *"Billing account … is not open"*).
+`well-testing-staging` ya pasó por todo esto (checklist #45, resuelto) —
+sirve de referencia exacta de los pasos para producción:
+
+- 🙋 Plan Blaze con cuenta de facturación **abierta** — en staging dio el
+  error *"Billing account … is not open"* hasta que se abrió de verdad; no
+  basta con vincularla.
 - 🙋 Elegir región de Firestore y crear la base de datos — es **permanente**.
   Recomendación: `southamerica-east1`, igual que staging.
-- ⬜ Al crearla, activar protección contra borrado y recuperación a un punto en
-  el tiempo (`firebase firestore:databases:create "(default)" --location
+- ⬜ A diferencia de staging: activar protección contra borrado y
+  recuperación a un punto en el tiempo
+  (`firebase firestore:databases:create "(default)" --location
   southamerica-east1 --delete-protection ENABLED --point-in-time-recovery
-  ENABLED`) y programar backups.
+  ENABLED`) y programar backups — en staging no se activó a propósito.
 - 🙋 Alerta de presupuesto en Google Cloud Billing (ej. US$5).
-- ⬜ `.env.production` de ambas apps (hoy solo existe `.env` de dev).
+- ⬜ `.env.production` de ambas apps (ya existe el mecanismo —
+  `build:staging`/`dev:staging` en `package.json` con Vite `--mode` — falta
+  repetirlo con `production` y los datos reales de ese proyecto).
+- ⬜ 🙋 Activar Storage (botón "Comenzar") y Authentication (proveedor
+  correo/contraseña) desde la consola — ninguno de los dos se activa solo;
+  en staging el deploy de Functions/Storage no avisa que falta Auth hasta
+  que de verdad se prueba un login.
 - ⬜ Crear el primer usuario ROOT con `firebase/functions/scripts/create-root-user.js`
   (ver `docs/manuals/admin-setup.md`, sección 4).
-- ⬜ Storage: ver checklist #45 (bucket sin crear, requiere Blaze).
 - ⬜ VAPID key (#47) — solo aplica a notificaciones web; ver punto 4.
 
 ## 4. App móvil
@@ -128,16 +138,17 @@ Firestore + Functions) y las **apps reales en el navegador** (no scripts):
    Excel" lee las lecturas sin error de permisos; consola sin errores de
    permisos en ninguna de las dos apps.
 
-**Lo que esto NO cubre** (por eso el #49 sigue abierto): no fue contra
-staging (sin Functions/Storage/Auth desplegados), no probó el modo offline ni
-el APK, y las lecturas 2–5 no pasaron por el formulario. Un intento de
-"Guardar Snapshot" en el reporte guarda `resultados` sin cerrar el ciclo
-(comportamiento esperado).
+**Lo que esto NO cubre** (por eso el #49 sigue abierto): fue contra
+emuladores locales, no contra staging — que ya está completo (#45) pero
+donde este mismo recorrido con las apps reales todavía no se repitió.
+Tampoco probó el modo offline ni el APK, y las lecturas 2–5 no pasaron por
+el formulario. Un intento de "Guardar Snapshot" en el reporte guarda
+`resultados` sin cerrar el ciclo (comportamiento esperado).
 
 ## 6. Puertas de salida (todas deben ser ✅)
 
 - [x] Los 5 huecos de reglas corregidos y con tests (#51b)
-- [ ] `well-testing-staging` completo: Firestore + Storage + Functions (#45)
+- [x] `well-testing-staging` completo: Firestore + Storage + Auth + Functions (#45)
 - [ ] Ciclo completo Operador → Supervisor → exportación en staging (#49)
 - [ ] Aceptación con una persona real de campo (#50)
 - [ ] PITR + protección contra borrado + alerta de presupuesto en producción
