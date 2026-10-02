@@ -5,7 +5,12 @@
 node_modules/
 dist/
 lib/
-vendor/
+# firebase/functions/vendor/monagas-core/ es un paquete local (protocolo
+# file:, ver vendor-core.js) que pnpm necesita resolver ya en el primer
+# "pnpm install" de un checkout nuevo — por eso su package.json SÍ se
+# versiona (ver excepción abajo). Solo se ignora el dist/ que genera el
+# predeploy/build, igual que cualquier otro build output.
+firebase/functions/vendor/monagas-core/dist/
 .build/
 .env
 .env.local
