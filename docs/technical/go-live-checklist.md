@@ -117,7 +117,7 @@ Rollback (no hay nada automatizado; esto es lo que existe):
 - **App móvil:** conservar el APK anterior; no hay canal de distribución
   definido todavía.
 
-## 5b. Ciclo completo verificado en local (equivalente parcial del #49)
+## 5b. Ciclo completo — local y staging real (#49)
 
 Con las reglas corregidas del #51b, contra los emuladores reales (Auth +
 Firestore + Functions) y las **apps reales en el navegador** (no scripts):
@@ -138,18 +138,50 @@ Firestore + Functions) y las **apps reales en el navegador** (no scripts):
    Excel" lee las lecturas sin error de permisos; consola sin errores de
    permisos en ninguna de las dos apps.
 
-**Lo que esto NO cubre** (por eso el #49 sigue abierto): fue contra
-emuladores locales, no contra staging — que ya está completo (#45) pero
-donde este mismo recorrido con las apps reales todavía no se repitió.
-Tampoco probó el modo offline ni el APK, y las lecturas 2–5 no pasaron por
-el formulario. Un intento de "Guardar Snapshot" en el reporte guarda
-`resultados` sin cerrar el ciclo (comportamiento esperado).
+### Staging real (#49)
+
+El mismo recorrido contra `well-testing-staging` con el SDK de cliente real y
+las reglas desplegadas (`firebase/functions/scripts/e2e-cloud.cjs`, reutilizable
+para el smoke test de producción, #52): **20/20 verificaciones**.
+
+- Operador abre el ciclo (transacción + candado), registra 3 lecturas, cierra y
+  envía; Supervisor ve la cola, abre las lecturas, corrige una, y aprueba →
+  evaluación y pozo `OFICIAL`; historial lista la evaluación.
+- **Funciones en la nube**, confirmadas en `functions:log` y por sus efectos:
+  `assignRole`, `onEvalSubmit`, `onLecturaEdit` (la corrección +30 recalculó el
+  promedio de 579.53 a 589.53), `onApprove`, `notifyMgr` y `notifyOperator`
+  (estas dos se omiten limpiamente: los usuarios de prueba no tienen token de
+  push). Los triggers v1 viven en `us-central1` y la base en
+  `southamerica-east1`: funciona, con un salto de región (aviso de la CLI).
+- **6 intentos prohibidos, todos denegados por las reglas reales:** crear una
+  evaluación ya OFICIAL, auto-aprobarse, leer/agregar lecturas de un ciclo
+  ajeno, agregar lecturas a un ciclo cerrado, y que un Operador liste a todo el
+  personal.
+- Sin datos residuales en staging (pozos, evaluaciones, usuarios, Auth: 0).
+
+**Lo que esto NO cubre** (por eso la puerta de salida solo cubre datos y
+reglas): no se usaron las pantallas — la prueba usa el SDK directo con tokens
+personalizados, no inicia sesión por el formulario (login real con
+correo/contraseña y UI contra staging siguen sin probarse), no probó modo
+offline ni el APK, ni la exportación a Excel (que se generó contra datos
+locales en el recorrido anterior). Una evaluación de ciclo parcial (`Guardar
+Snapshot`) guarda `resultados` sin cerrarla (esperado).
+
+**Aprendizajes de la prueba (útiles para #52):**
+- Firmar custom tokens exige el rol *Service Account Token Creator* sobre la
+  cuenta `firebase-adminsdk-*` (`iam.serviceAccounts.signBlob`); tarda 1–2
+  minutos en propagarse.
+- **El reloj de este equipo iba ~7 horas adelantado** respecto a Google; con
+  eso Google rechaza tokens firmados localmente (`INVALID_CUSTOM_TOKEN`, iat en
+  el futuro). Conviene sincronizar la hora de Windows: los tokens normales de
+  inicio de sesión los emite Google y no se ven afectados, pero otros procesos
+  que firmen o validen con la hora local sí.
 
 ## 6. Puertas de salida (todas deben ser ✅)
 
 - [x] Los 5 huecos de reglas corregidos y con tests (#51b)
 - [x] `well-testing-staging` completo: Firestore + Storage + Auth + Functions (#45)
-- [ ] Ciclo completo Operador → Supervisor → exportación en staging (#49)
+- [x] Ciclo completo Operador → Supervisor → OFICIAL en staging real (#49, nivel de datos y reglas; ver 5b)
 - [ ] Aceptación con una persona real de campo (#50)
 - [ ] PITR + protección contra borrado + alerta de presupuesto en producción
 - [ ] Revisión de seguridad por alguien con experiencia dedicada
