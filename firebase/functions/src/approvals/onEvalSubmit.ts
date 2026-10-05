@@ -14,50 +14,50 @@
 // Reescrito contra el esquema real — el original apuntaba a las
 // colecciones inexistentes 'evaluations'/'wells' (inglés) y nunca
 // pudo haber disparado en la app real.
-import * as functions from 'firebase-functions/v1'
+import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { getFirestore } from 'firebase-admin/firestore'
 
-export const onEvalSubmit = functions.firestore
-  .document('evaluaciones/{evalId}')
-  .onWrite(async (change, context) => {
-    const before = change.before.data()
-    const after = change.after.data()
+export const onEvalSubmit = onDocumentWritten('evaluaciones/{evalId}', async (event) => {
+  const change = event.data
+  if (!change) return
+  const before = change.before.data()
+  const after = change.after.data()
 
-    if (before?.estado === 'PENDIENTE_SUPERVISOR' || after?.estado !== 'PENDIENTE_SUPERVISOR') {
+  if (before?.estado === 'PENDIENTE_SUPERVISOR' || after?.estado !== 'PENDIENTE_SUPERVISOR') {
+    return
+  }
+
+  const evalId = event.params.evalId
+  const pozoId = after?.pozoId
+
+  if (!pozoId) {
+    console.error(`Evaluación ${evalId} no tiene pozoId — no se puede sincronizar el pozo.`)
+    return
+  }
+
+  try {
+    const pozoRef = getFirestore().collection('pozos').doc(pozoId)
+    const pozoDoc = await pozoRef.get()
+
+    if (!pozoDoc.exists) {
+      console.error(`Pozo ${pozoId} no encontrado (evaluación ${evalId}).`)
       return
     }
 
-    const evalId = context.params.evalId
-    const pozoId = after?.pozoId
+    // evalEnCursoId -> null libera el candado de useEvaluacionActual.ts
+    // (mobile-operator) para que el próximo ciclo cree una evaluación
+    // nueva en vez de seguir apuntando a esta, ya cerrada.
+    await pozoRef.update({ estado: 'PENDIENTE_SUPERVISOR', evalEnCursoId: null })
+    console.log(`Pozo ${pozoId} sincronizado a PENDIENTE_SUPERVISOR (evaluación ${evalId}).`)
 
-    if (!pozoId) {
-      console.error(`Evaluación ${evalId} no tiene pozoId — no se puede sincronizar el pozo.`)
-      return
-    }
-
-    try {
-      const pozoRef = getFirestore().collection('pozos').doc(pozoId)
-      const pozoDoc = await pozoRef.get()
-
-      if (!pozoDoc.exists) {
-        console.error(`Pozo ${pozoId} no encontrado (evaluación ${evalId}).`)
-        return
-      }
-
-      // evalEnCursoId -> null libera el candado de useEvaluacionActual.ts
-      // (mobile-operator) para que el próximo ciclo cree una evaluación
-      // nueva en vez de seguir apuntando a esta, ya cerrada.
-      await pozoRef.update({ estado: 'PENDIENTE_SUPERVISOR', evalEnCursoId: null })
-      console.log(`Pozo ${pozoId} sincronizado a PENDIENTE_SUPERVISOR (evaluación ${evalId}).`)
-
-      // notifyMgr.ts (firebase/functions/src/notifications/) ya escucha
-      // este mismo cambio de estado de forma independiente — no se
-      // invoca desde aquí (los triggers de Firestore no se "llaman"
-      // entre sí). Pero notifyMgr.ts tiene el mismo problema de
-      // esquema falso ('evaluations'/'wells'/'users' en inglés) y
-      // necesita su propia reescritura para disparar de verdad.
-    } catch (error) {
-      console.error(`Error sincronizando pozo ${pozoId} para evaluación ${evalId}:`, error)
-      throw error
-    }
-  })
+    // notifyMgr.ts (firebase/functions/src/notifications/) ya escucha
+    // este mismo cambio de estado de forma independiente — no se
+    // invoca desde aquí (los triggers de Firestore no se "llaman"
+    // entre sí). Pero notifyMgr.ts tiene el mismo problema de
+    // esquema falso ('evaluations'/'wells'/'users' en inglés) y
+    // necesita su propia reescritura para disparar de verdad.
+  } catch (error) {
+    console.error(`Error sincronizando pozo ${pozoId} para evaluación ${evalId}:`, error)
+    throw error
+  }
+})

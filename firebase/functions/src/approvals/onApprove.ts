@@ -16,53 +16,53 @@
 // colecciones inexistentes 'evaluations'/'wells' (inglés) y al campo
 // mal escrito 'fechaOfficial', ninguno de los cuales existe en la app
 // real.
-import * as functions from 'firebase-functions/v1'
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { getFirestore } from 'firebase-admin/firestore'
 
-export const onApprove = functions.firestore
-  .document('evaluaciones/{evalId}')
-  .onUpdate(async (change, context) => {
-    const before = change.before.data()
-    const after = change.after.data()
+export const onApprove = onDocumentUpdated('evaluaciones/{evalId}', async (event) => {
+  const change = event.data
+  if (!change) return
+  const before = change.before.data()
+  const after = change.after.data()
 
-    if (before?.estado === 'APROBADA_SUPERVISOR' || after?.estado !== 'APROBADA_SUPERVISOR') {
+  if (before?.estado === 'APROBADA_SUPERVISOR' || after?.estado !== 'APROBADA_SUPERVISOR') {
+    return
+  }
+
+  const evalId = event.params.evalId
+  const pozoId = after?.pozoId
+
+  if (!pozoId) {
+    console.error(`Evaluación ${evalId} no tiene pozoId — no se puede sincronizar el pozo.`)
+    return
+  }
+
+  try {
+    const db = getFirestore()
+    const pozoRef = db.collection('pozos').doc(pozoId)
+    const pozoDoc = await pozoRef.get()
+
+    if (!pozoDoc.exists) {
+      console.error(`Pozo ${pozoId} no encontrado (evaluación ${evalId}).`)
       return
     }
 
-    const evalId = context.params.evalId
-    const pozoId = after?.pozoId
+    // Batch: la evaluación pasa a OFICIAL y el pozo se sincroniza en
+    // la misma escritura atómica — evita que uno se actualice y el
+    // otro falle, dejándolos inconsistentes.
+    const batch = db.batch()
+    batch.update(change.after.ref, { estado: 'OFICIAL' })
+    batch.update(pozoRef, { estado: 'OFICIAL' })
+    await batch.commit()
 
-    if (!pozoId) {
-      console.error(`Evaluación ${evalId} no tiene pozoId — no se puede sincronizar el pozo.`)
-      return
-    }
+    console.log(`Evaluación ${evalId} aprobada → OFICIAL. Pozo ${pozoId} sincronizado.`)
 
-    try {
-      const db = getFirestore()
-      const pozoRef = db.collection('pozos').doc(pozoId)
-      const pozoDoc = await pozoRef.get()
-
-      if (!pozoDoc.exists) {
-        console.error(`Pozo ${pozoId} no encontrado (evaluación ${evalId}).`)
-        return
-      }
-
-      // Batch: la evaluación pasa a OFICIAL y el pozo se sincroniza en
-      // la misma escritura atómica — evita que uno se actualice y el
-      // otro falle, dejándolos inconsistentes.
-      const batch = db.batch()
-      batch.update(change.after.ref, { estado: 'OFICIAL' })
-      batch.update(pozoRef, { estado: 'OFICIAL' })
-      await batch.commit()
-
-      console.log(`Evaluación ${evalId} aprobada → OFICIAL. Pozo ${pozoId} sincronizado.`)
-
-      // notifyOperator.ts (firebase/functions/src/notifications/) ya
-      // escucha este mismo cambio de forma independiente — no se
-      // invoca desde aquí. Tiene el mismo problema de esquema falso y
-      // necesita su propia reescritura para disparar de verdad.
-    } catch (error) {
-      console.error(`Error aprobando evaluación ${evalId} (pozo ${pozoId}):`, error)
-      throw error
-    }
-  })
+    // notifyOperator.ts (firebase/functions/src/notifications/) ya
+    // escucha este mismo cambio de forma independiente — no se
+    // invoca desde aquí. Tiene el mismo problema de esquema falso y
+    // necesita su propia reescritura para disparar de verdad.
+  } catch (error) {
+    console.error(`Error aprobando evaluación ${evalId} (pozo ${pozoId}):`, error)
+    throw error
+  }
+})

@@ -12,24 +12,24 @@
 // y evaluation.motivoRechazo, ninguno de los cuales existe — el dato
 // real vive en resultados.netosPromedio y en el último elemento de
 // aprobaciones[].comentario respectivamente.
-import * as functions from 'firebase-functions/v1'
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getMessaging, type Message } from 'firebase-admin/messaging'
 
-export const notifyOperator = functions.firestore
-  .document('evaluaciones/{evalId}')
-  .onUpdate(async (change, context) => {
-    const before = change.before.data()
-    const after = change.after.data()
-    const evalId = context.params.evalId
+export const notifyOperator = onDocumentUpdated('evaluaciones/{evalId}', async (event) => {
+  const change = event.data
+  if (!change) return
+  const before = change.before.data()
+  const after = change.after.data()
+  const evalId = event.params.evalId
 
-    const aprobada = before?.estado !== 'OFICIAL' && after?.estado === 'OFICIAL'
-    const rechazada = before?.estado === 'PENDIENTE_SUPERVISOR' && after?.estado === 'EN_CURSO'
+  const aprobada = before?.estado !== 'OFICIAL' && after?.estado === 'OFICIAL'
+  const rechazada = before?.estado === 'PENDIENTE_SUPERVISOR' && after?.estado === 'EN_CURSO'
 
-    if (!aprobada && !rechazada) return
+  if (!aprobada && !rechazada) return
 
-    await enviarNotificacionAOperador(after, aprobada ? 'APROBADA' : 'RECHAZADA', evalId)
-  })
+  await enviarNotificacionAOperador(after, aprobada ? 'APROBADA' : 'RECHAZADA', evalId)
+})
 
 async function enviarNotificacionAOperador(
   evaluacion: FirebaseFirestore.DocumentData | undefined,

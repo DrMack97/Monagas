@@ -23,4 +23,9 @@ export default {
   // tramos deben quedar fuera de la lista de ignorados.
   transformIgnorePatterns: ['/node_modules/(?!\\.pnpm/jose@|jose/)'],
   testPathIgnorePatterns: ['/node_modules/', '/lib/'],
+  // Todas las suites comparten UN emulador de Firestore y firestore-rules.test.ts
+  // hace clearFirestore() en cada beforeEach: en paralelo borra los datos de
+  // triggers.test.ts / assignRole.test.ts a mitad de prueba (fallos intermitentes
+  // vistos al añadir triggers.test.ts).
+  maxWorkers: 1,
 };

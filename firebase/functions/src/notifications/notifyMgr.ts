@@ -14,23 +14,23 @@
 // PENDIENTE_SUPERVISOR — ver onApprove.ts), no hay un paso separado
 // donde el gerente "revisa después". Nunca pudo haber disparado
 // contra la app real.
-import * as functions from 'firebase-functions/v1'
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getMessaging, type Message } from 'firebase-admin/messaging'
 
-export const notifyMgr = functions.firestore
-  .document('evaluaciones/{evalId}')
-  .onUpdate(async (change, context) => {
-    const before = change.before.data()
-    const after = change.after.data()
-    const evalId = context.params.evalId
+export const notifyMgr = onDocumentUpdated('evaluaciones/{evalId}', async (event) => {
+  const change = event.data
+  if (!change) return
+  const before = change.before.data()
+  const after = change.after.data()
+  const evalId = event.params.evalId
 
-    if (before?.estado === 'PENDIENTE_SUPERVISOR' || after?.estado !== 'PENDIENTE_SUPERVISOR') {
-      return
-    }
+  if (before?.estado === 'PENDIENTE_SUPERVISOR' || after?.estado !== 'PENDIENTE_SUPERVISOR') {
+    return
+  }
 
-    await notificarAprobadores(after, evalId)
-  })
+  await notificarAprobadores(after, evalId)
+})
 
 async function notificarAprobadores(
   evaluacion: FirebaseFirestore.DocumentData | undefined,
