@@ -1,63 +1,107 @@
-// TODO: Tests de notificaciones - Player 3 (Fullstack)
-// Paso 1: Test requestPermission granted
-// Paso 2: Test requestPermission denied
-// Paso 3: Test FCM token guardado en Firestore
-// Prompt de implementación rápida:
-// "Crear tests para useNotifications con mocks"
-// Entregable:
-// - requestPermission granted → fcmToken set
-// - requestPermission denied → permission false
-// - FCM token guardado en Firestore
-import { act, renderHook } from '@testing-library/react'
+// src/hooks/useNotifications.test.ts
+//
+// Pruebas del hook sobre services/push.ts (que se simula entero: su lógica ya
+// la cubre services/push.test.ts). Aquí se verifica el pegamento de React:
+// preferencia por defecto, qué hace el interruptor, y que el Dashboard solo
+// registre el dispositivo si el usuario no apagó las notificaciones.
+//
+// Reemplaza a la versión anterior, que probaba el flujo web (Notification +
+// firebase/messaging + VAPID) — eliminado porque no funciona en el WebView.
+
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { useNotifications } from './useNotifications'
 
-// Mock Firebase Messaging — onMessage debe devolver una función de
-// unsubscribe real: el cleanup del useEffect de useNotifications la
-// invoca al desmontar, y un jest.fn() sin retorno explícito devuelve
-// undefined (rompe con "unsubscribeForeground is not a function").
-jest.mock('firebase/messaging', () => ({
-  getMessaging: jest.fn(() => ({})),
-  isSupported: jest.fn().mockResolvedValue(true),
-  getToken: jest.fn().mockResolvedValue('test-fcm-token'),
-  onMessage: jest.fn(() => jest.fn()),
-  onBackgroundMessage: jest.fn(),
+// La fábrica crea los mocks DENTRO de jest.mock (se hoistea por encima de los
+// imports; una constante externa estaría aún sin inicializar) y luego se
+// importa el módulo simulado para configurarlos.
+jest.mock('../services/push', () => ({
+  pushSoportado: jest.fn(),
+  activarPush: jest.fn(),
+  desactivarPush: jest.fn(),
+  leerPreferencia: jest.fn(),
+  guardarPreferencia: jest.fn(),
+  suscribirRecibidas: jest.fn(),
 }))
+import * as svc from '../services/push'
+const mockSvc = svc as unknown as Record<string, jest.Mock>
 
-// jsdom no implementa la Notification API — se stubea a nivel global
-// para todo el archivo en vez de mutar/restaurar por test.
-beforeAll(() => {
-  ;(globalThis as any).Notification = { requestPermission: jest.fn(), permission: 'default' }
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockSvc.pushSoportado.mockReturnValue(true)
+  mockSvc.leerPreferencia.mockResolvedValue(true)
+  mockSvc.activarPush.mockResolvedValue('activadas')
+  mockSvc.desactivarPush.mockResolvedValue(undefined)
+  mockSvc.guardarPreferencia.mockResolvedValue(undefined)
+  mockSvc.suscribirRecibidas.mockReturnValue(jest.fn())
 })
 
 describe('useNotifications', () => {
-  it('debe solicitar permiso y obtener FCM token', async () => {
+  it('lee la preferencia guardada al montar', async () => {
+    mockSvc.leerPreferencia.mockResolvedValue(false)
     const { result } = renderHook(() => useNotifications())
-
-    ;(Notification.requestPermission as jest.Mock).mockResolvedValueOnce('granted')
-
-    let granted = false
-    // requestPermission dispara setState internamente — sin act(),
-    // result.current queda con el snapshot pre-update.
-    await act(async () => {
-      granted = await result.current.requestPermission()
-    })
-
-    expect(granted).toBe(true)
-    expect(result.current.permission).toBe(true)
-    expect(result.current.fcmToken).toBe('test-fcm-token')
+    await waitFor(() => expect(result.current.habilitadas).toBe(false))
   })
 
-  it('debe negar permiso si usuario rechaza', async () => {
+  it('en navegador (no soportado) no lee preferencia ni se suscribe', () => {
+    mockSvc.pushSoportado.mockReturnValue(false)
     const { result } = renderHook(() => useNotifications())
+    expect(result.current.soportado).toBe(false)
+    expect(mockSvc.leerPreferencia).not.toHaveBeenCalled()
+    expect(mockSvc.suscribirRecibidas).not.toHaveBeenCalled()
+  })
 
-    ;(Notification.requestPermission as jest.Mock).mockResolvedValueOnce('denied')
+  it('se desuscribe de los avisos al desmontar', () => {
+    const baja = jest.fn()
+    mockSvc.suscribirRecibidas.mockReturnValue(baja)
+    const { unmount } = renderHook(() => useNotifications())
+    unmount()
+    expect(baja).toHaveBeenCalled()
+  })
 
-    let granted = true
-    await act(async () => {
-      granted = await result.current.requestPermission()
-    })
+  it('activar(): guarda la preferencia, registra el dispositivo y devuelve true', async () => {
+    const { result } = renderHook(() => useNotifications())
+    let ok = false
+    await act(async () => { ok = await result.current.activar() })
+    expect(ok).toBe(true)
+    expect(mockSvc.guardarPreferencia).toHaveBeenCalledWith(true)
+    expect(mockSvc.activarPush).toHaveBeenCalled()
+    expect(result.current.permisoDenegado).toBe(false)
+  })
 
-    expect(granted).toBe(false)
-    expect(result.current.permission).toBe(false)
+  it('activar() con permiso denegado: devuelve false y marca permisoDenegado', async () => {
+    mockSvc.activarPush.mockResolvedValue('denegadas')
+    const { result } = renderHook(() => useNotifications())
+    let ok = true
+    await act(async () => { ok = await result.current.activar() })
+    expect(ok).toBe(false)
+    expect(result.current.permisoDenegado).toBe(true)
+  })
+
+  it('desactivar(): guarda la preferencia en false y quita el token', async () => {
+    const { result } = renderHook(() => useNotifications())
+    await act(async () => { await result.current.desactivar() })
+    expect(mockSvc.guardarPreferencia).toHaveBeenCalledWith(false)
+    expect(mockSvc.desactivarPush).toHaveBeenCalled()
+    expect(result.current.habilitadas).toBe(false)
+  })
+
+  it('sincronizar() registra el dispositivo si la preferencia está activada', async () => {
+    const { result } = renderHook(() => useNotifications())
+    await act(async () => { await result.current.sincronizar() })
+    expect(mockSvc.activarPush).toHaveBeenCalledTimes(1)
+  })
+
+  it('sincronizar() NO registra si el usuario apagó las notificaciones', async () => {
+    mockSvc.leerPreferencia.mockResolvedValue(false)
+    const { result } = renderHook(() => useNotifications())
+    await act(async () => { await result.current.sincronizar() })
+    expect(mockSvc.activarPush).not.toHaveBeenCalled()
+  })
+
+  it('sincronizar() en navegador no hace nada', async () => {
+    mockSvc.pushSoportado.mockReturnValue(false)
+    const { result } = renderHook(() => useNotifications())
+    await act(async () => { await result.current.sincronizar() })
+    expect(mockSvc.activarPush).not.toHaveBeenCalled()
   })
 })

@@ -136,9 +136,11 @@ flujo normal descrito en la Guía del Supervisor.
   descrita en la sección 4. El script `test` de `firebase/functions`
   ahora se auto-contiene con `firebase emulators:exec` — no requiere
   tener los emuladores corriendo de antemano.
-- **VAPID key** de notificaciones push no configurada en
-  `apps/mobile-operator/.env` — paso manual en la consola de Firebase
-  (checklist Fase 6, #47).
+- **Notificaciones push** (checklist Fase 6, #47). El Operador ya tiene push
+  nativo (FCM vía `@capacitor/push-notifications`) y **no necesita VAPID**.
+  Pendiente: probarlo en un teléfono real, y las notificaciones del Supervisor
+  (web), que sí necesitan una VAPID key generada en la consola — ver
+  `docs/technical/go-live-checklist.md`, sección 4.
 - **Resuelto — `well-testing-staging` completo** (checklist Fase 6, #45).
   Firestore (Native, `southamerica-east1`), Storage, Authentication
   (correo/contraseña) y las 10 Cloud Functions están activos y verificados
@@ -189,6 +191,13 @@ cd android && ./gradlew assembleDebug
   `npm run build` (hoy `well-testing-dev`, que en la nube real no tiene
   Firestore habilitado). Para probar funcionalmente hace falta staging
   completo (#45) y un `.env` de staging.
-- Pendiente: APK de *release* firmado, y push nativo (las notificaciones web
-  con VAPID no funcionan en el WebView de Android — ver
-  `docs/technical/go-live-checklist.md`, sección 4).
+- **Push nativo:** el APK necesita `android/app/google-services.json` del
+  proyecto al que apunte (sin él compila, pero el push no funciona; el plugin
+  de Google Services solo se aplica si el archivo existe). Se obtiene con
+  `firebase apps:create ANDROID "Monagas Operator" --package-name
+  com.monagas.operator --project <proyecto>` (una vez) y
+  `firebase apps:sdkconfig ANDROID <appId> --project <proyecto> --out
+  apps/mobile-operator/android/app/google-services.json`. Está en
+  `.gitignore`. Para un APK contra staging: `npm run build:staging`, `npx cap
+  sync android`, `./gradlew assembleDebug`.
+- Pendiente: APK de *release* firmado.

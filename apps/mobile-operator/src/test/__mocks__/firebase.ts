@@ -1,6 +1,6 @@
 // src/test/__mocks__/firebase.ts
 //
-// Reemplaza services/firebase.ts y services/firebase-messaging.ts en
+// Reemplaza services/firebase.ts en
 // tests (ver moduleNameMapper en jest.config.cjs). Ningún test
 // unitario debe inicializar el SDK real de Firebase ni depender de
 // import.meta.env — cada test que necesite comportamiento específico
@@ -11,5 +11,3 @@ export const app = {}
 export const auth = {}
 export const db = {}
 export const storage = {}
-export const getMessagingInstance = () => Promise.resolve({})
-export const VAPID_KEY = 'test-vapid-key'

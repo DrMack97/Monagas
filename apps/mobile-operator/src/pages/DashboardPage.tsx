@@ -5,10 +5,12 @@
 // asignado (Custom Claim `pozoAsignado`, ver firestore.rules), leído
 // vía usePozoInfo. Sin pozo asignado no hay nada que registrar.
 
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiSettings, FiDroplet } from 'react-icons/fi'
 import { useAuth } from '../hooks/useAuth'
 import { usePozoInfo } from '../hooks/usePozoInfo'
+import { useNotifications } from '../hooks/useNotifications'
 import EmptyState from '../components/EmptyState'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -16,6 +18,13 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const { user, pozoAsignado, logout } = useAuth()
   const { pozo, loading } = usePozoInfo(pozoAsignado ?? undefined)
+  const { sincronizar } = useNotifications()
+
+  // Al abrir la app: registra el dispositivo para recibir avisos de aprobación
+  // (pide el permiso de Android la primera vez). No hace nada en navegador.
+  useEffect(() => {
+    sincronizar().catch((err) => console.error('No se pudo activar las notificaciones:', err))
+  }, [sincronizar])
 
   return (
     <div className="min-h-screen bg-slate-950">

@@ -82,14 +82,42 @@ sirve de referencia exacta de los pasos para producción:
   que de verdad se prueba un login.
 - ⬜ Crear el primer usuario ROOT con `firebase/functions/scripts/create-root-user.js`
   (ver `docs/manuals/admin-setup.md`, sección 4).
-- ⬜ VAPID key (#47) — solo aplica a notificaciones web; ver punto 4.
+- ⬜ 🙋 Registrar la app Android de producción (`firebase apps:create ANDROID
+  "Monagas Operator" --package-name com.monagas.operator --project
+  well-testing-prod`), bajar su `google-services.json` a `android/app/` y
+  compilar el APK de release con ese archivo — el de staging no sirve (otro
+  proyecto de Firebase).
+- ⬜ 🙋 VAPID key de producción — solo si se construyen las notificaciones web
+  del Supervisor (ver punto 4).
 
 ## 4. App móvil
 
-- ⚠️ Las notificaciones push web (`firebase/messaging` + VAPID) **no funcionan
-  dentro del WebView de Android** que empaqueta Capacitor. Para push nativo
-  hace falta `@capacitor/push-notifications` + `google-services.json` correcto.
-  Esto cambia el alcance del ítem #47.
+- ✅ **Push nativo del Operador construido (#47)**, con `@capacitor/push-notifications`
+  + FCM. El flujo web anterior (`Notification` + `firebase/messaging` + VAPID)
+  no funciona en el WebView de Android y se eliminó. Verificado: 38/38 tests de
+  `mobile-operator` (de 12 a 38: 19 del servicio y 9 del hook, sobre permisos, token, listeners y cierre de
+  sesión sin señal) y APK que compila con el plugin de Google Services aplicado,
+  `POST_NOTIFICATIONS` + `c2dm.RECEIVE` en el manifiesto final y la
+  configuración de **staging**; la API de FCM responde en staging.
+- ⚠️ **No verificado: la entrega real a un teléfono.** Sin dispositivo, no se
+  probó que el diálogo de permiso aparezca, que el token llegue a Firestore ni
+  que la notificación se vea. Prueba manual con el APK de staging: iniciar sesión
+  como Operador → aceptar el permiso → comprobar `usuarios/{uid}.fcmToken` en
+  la consola → cerrar la evaluación y aprobarla como Supervisor → debe llegar
+  "Evaluación aprobada" (con la app abierta, cerrada y en segundo plano).
+- ⚠️ **Hallazgos corregidos por el camino:** el Operador nunca registraba su
+  token (el interruptor de Ajustes arrancaba "encendido" sin haber pedido jamás
+  el permiso); `@capacitor/push-notifications` no declara `POST_NOTIFICATIONS`
+  (sin él, Android 13+ ni muestra el diálogo — se agregó al manifiesto); el
+  canal `evaluaciones` que usa `notifyOperator` no existía en el dispositivo;
+  y al cerrar sesión el token quedaba en el usuario anterior (se borra ahora,
+  con tope de 3 s para no colgar el cierre sin señal).
+- ⬜ **Supervisor: sin notificaciones.** `notifyMgr` les envía avisos, pero
+  `web-supervisor` no tiene ningún código de push, así que ningún Supervisor
+  tiene `fcmToken` y nunca reciben nada. Requiere VAPID key (🙋 generarla en
+  Firebase → Configuración → Cloud Messaging → certificados web push), un
+  `firebase-messaging-sw.js` y un hook en `web-supervisor`. No se construyó:
+  no se puede probar push web sin navegador real con la clave.
 - ⬜ APK firmado de release (keystore propio, guardado fuera del repo).
 - ⬜ Prueba en dispositivo real (ver #48 / #50).
 - ✅ Dependencias muertas retiradas de `apps/mobile-operator/package.json`

@@ -4,7 +4,6 @@
 // no tiene esos campos — undefined siempre). Ahora usa useAuth real:
 // email y rol vienen del propio User/Custom Claims; logout es real.
 
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiArrowLeft } from 'react-icons/fi'
 import { useAuth } from '../hooks/useAuth'
@@ -13,16 +12,13 @@ import { useNotifications } from '../hooks/useNotifications'
 export default function SettingsPage() {
   const navigate = useNavigate()
   const { user, rol, logout } = useAuth()
-  const { requestPermission } = useNotifications()
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
+  const { soportado, habilitadas, permisoDenegado, activar, desactivar } = useNotifications()
 
+  // Interruptor real (antes era estado local que arrancaba "encendido" sin
+  // haber pedido nunca el permiso — ver useNotifications.ts).
   const handleToggleNotifications = async () => {
-    if (notificationsEnabled) {
-      setNotificationsEnabled(false)
-    } else {
-      const granted = await requestPermission()
-      setNotificationsEnabled(granted)
-    }
+    if (habilitadas) await desactivar()
+    else await activar()
   }
 
   async function handleLogout() {
@@ -56,22 +52,36 @@ export default function SettingsPage() {
 
       {/* Notificaciones */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-white font-medium">Notificaciones push</p>
-            <p className="text-sm text-slate-500">Recibir alertas de aprobaciones</p>
+            <p className="text-sm text-slate-500">
+              {soportado
+                ? 'Recibir un aviso cuando tu supervisor apruebe o rechace una evaluación'
+                : 'Disponible solo en la app instalada en el teléfono'}
+            </p>
           </div>
           <button
             onClick={handleToggleNotifications}
-            className={`w-12 h-6 rounded-full transition-colors ${
-              notificationsEnabled ? 'bg-amber-500' : 'bg-slate-700'
+            disabled={!soportado}
+            role="switch"
+            aria-checked={soportado && habilitadas}
+            aria-label="Notificaciones push"
+            className={`w-12 h-6 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
+              soportado && habilitadas ? 'bg-amber-500' : 'bg-slate-700'
             }`}
           >
             <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
-              notificationsEnabled ? 'translate-x-6' : 'translate-x-1'
+              soportado && habilitadas ? 'translate-x-6' : 'translate-x-1'
             }`}></div>
           </button>
         </div>
+        {soportado && habilitadas && permisoDenegado && (
+          <p className="text-xs text-amber-400 mt-3">
+            Android bloqueó las notificaciones de esta app. Actívalas en Ajustes del teléfono
+            → Aplicaciones → Monagas Operator → Notificaciones.
+          </p>
+        )}
       </div>
 
       {/* Guardado offline: siempre activo, no es una opción que se pueda

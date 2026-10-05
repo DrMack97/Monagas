@@ -90,9 +90,13 @@ Dos excepciones a tener en cuenta:
 Desde el ícono de engranaje en la pantalla principal:
 
 - **Tu correo y tu rol** — de solo lectura, informativo.
-- **Notificaciones push** — actívalas para enterarte apenas tu Supervisor
-  aprueba o rechaza una evaluación, sin tener que estar revisando la app.
-  La primera vez te va a pedir permiso del sistema operativo.
+- **Notificaciones push** — te avisan apenas tu Supervisor aprueba o rechaza
+  una evaluación, sin tener que estar revisando la app. Quedan activadas por
+  defecto: la primera vez que abres la app, Android te pide permiso — acéptalo.
+  Puedes apagarlas con este interruptor. Si dijiste que no al permiso, Android
+  las bloquea: actívalas en Ajustes del teléfono → Aplicaciones → Monagas
+  Operator → Notificaciones. Solo funcionan en la app instalada, no en el
+  navegador. Si cierras sesión, el teléfono deja de recibir tus avisos.
 - **Guardado offline** — siempre activo, no es algo que enciendas o
   apagues (ver sección 6).
 - **Cerrar sesión.**

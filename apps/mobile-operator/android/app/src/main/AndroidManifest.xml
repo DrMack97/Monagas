@@ -38,4 +38,10 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Android 13+ (API 33): sin este permiso declarado, el sistema nunca muestra
+         el diálogo de permiso de notificaciones y bloquea todos los avisos push.
+         @capacitor/push-notifications NO lo declara por su cuenta (checklist
+         Fase 6, #47). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

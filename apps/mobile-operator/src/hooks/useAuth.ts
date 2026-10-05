@@ -15,6 +15,7 @@ import {
   type User,
 } from 'firebase/auth'
 import { auth } from '../services/firebase'
+import { limpiarTokenAlCerrarSesion } from '../services/push'
 import type { Rol } from '@core/types'
 
 interface AuthState {
@@ -79,6 +80,9 @@ export function useAuth() {
   }, [])
 
   const logout = useCallback(async () => {
+    // Antes de cerrar sesión, para que el siguiente que entre en este teléfono
+    // no deje al anterior recibiendo sus avisos (ver services/push.ts).
+    await limpiarTokenAlCerrarSesion()
     await firebaseSignOut(auth)
   }, [])
 

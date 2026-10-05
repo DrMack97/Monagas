@@ -5,7 +5,7 @@
 // test suite fallaba con "Cannot use import statement outside a
 // module" antes de siquiera correr un test.
 //
-// services/firebase(-messaging) usan import.meta.env (sintaxis de
+// services/firebase usa import.meta.env (sintaxis de
 // Vite) — TypeScript no permite emitir eso a CommonJS, así que se
 // mockean por completo vía moduleNameMapper: ningún test unitario
 // debe inicializar el SDK real de Firebase de todos modos.
@@ -14,7 +14,6 @@ module.exports = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   moduleNameMapper: {
-    '.*/services/firebase-messaging$': '<rootDir>/src/test/__mocks__/firebase.ts',
     '.*/services/firebase$': '<rootDir>/src/test/__mocks__/firebase.ts',
     '^@core/(.*)$': '<rootDir>/../../packages/core/src/$1',
     '^@core$': '<rootDir>/../../packages/core/src/index.ts',
