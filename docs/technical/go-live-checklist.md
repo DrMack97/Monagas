@@ -87,8 +87,9 @@ sirve de referencia exacta de los pasos para producción:
   well-testing-prod`), bajar su `google-services.json` a `android/app/` y
   compilar el APK de release con ese archivo — el de staging no sirve (otro
   proyecto de Firebase).
-- ⬜ 🙋 VAPID key de producción — solo si se construyen las notificaciones web
-  del Supervisor (ver punto 4).
+- ✅ No hace falta ninguna VAPID key: el SDK web usa la suya por defecto (ver
+  punto 4). Basta con registrar la app web de producción y poner sus datos en
+  `apps/web-supervisor/.env.production`.
 
 ## 4. App móvil
 
@@ -112,12 +113,29 @@ sirve de referencia exacta de los pasos para producción:
   canal `evaluaciones` que usa `notifyOperator` no existía en el dispositivo;
   y al cerrar sesión el token quedaba en el usuario anterior (se borra ahora,
   con tope de 3 s para no colgar el cierre sin señal).
-- ⬜ **Supervisor: sin notificaciones.** `notifyMgr` les envía avisos, pero
-  `web-supervisor` no tiene ningún código de push, así que ningún Supervisor
-  tiene `fcmToken` y nunca reciben nada. Requiere VAPID key (🙋 generarla en
-  Firebase → Configuración → Cloud Messaging → certificados web push), un
-  `firebase-messaging-sw.js` y un hook en `web-supervisor`. No se construyó:
-  no se puede probar push web sin navegador real con la clave.
+- ✅ **Push web del Supervisor construido (#47b)** para SUP_AREA y GERENTE (los
+  que recibe `notifyMgr`): botón "Activar avisos" en el Header (el permiso solo
+  se pide con un clic), service worker `/firebase-messaging-sw.js`, aviso
+  emergente con la pestaña visible, y limpieza del token al cerrar sesión (tope
+  de 3 s). **Corrección a lo dicho antes: la VAPID key propia NO es necesaria**
+  — `getToken()` sin clave usa `DEFAULT_VAPID_KEY` del SDK (verificado en
+  `@firebase/messaging`). El service worker no puede leer `import.meta.env`:
+  lo genera un plugin de `vite.config.ts` desde `sw/firebase-messaging-sw.template.js`
+  con la configuración del ambiente (dev, build y CI sin `.env` no fallan).
+  Verificado: 31 tests nuevos (web-supervisor), build de staging con el worker
+  correcto, y en un navegador real contra staging: el worker se instala y
+  activa (carga el SDK desde gstatic), el inicio de sesión funciona y el botón
+  muestra "Avisos bloqueados" cuando el permiso está denegado.
+- ⚠️ **No verificado: la entrega real al navegador.** Este equipo no tiene un
+  Chrome conectado y el panel integrado no admite push (permiso denegado), así
+  que no se vio el diálogo de permiso, el token real ni la notificación. Prueba
+  manual: `pnpm --filter @monagas/web-supervisor dev:staging` (o la web
+  desplegada) → entrar como SUP_AREA/GERENTE → "Activar avisos" → Permitir →
+  comprobar `usuarios/{uid}.fcmToken` → cerrar una evaluación de su zona como
+  Operador → debe llegar "Nueva evaluación pendiente" (pestaña visible, en
+  segundo plano y cerrada). Tras "Salir" el campo `fcmToken` debe desaparecer.
+- ⚠️ Un token web es por navegador: el campo `usuarios/{uid}.fcmToken` guarda
+  uno solo, así que quien use dos navegadores solo recibe en el último activado.
 - ⬜ APK firmado de release (keystore propio, guardado fuera del repo).
 - ⬜ Prueba en dispositivo real (ver #48 / #50).
 - ✅ Dependencias muertas retiradas de `apps/mobile-operator/package.json`

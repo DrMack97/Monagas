@@ -20,6 +20,7 @@ import WellDetailPage from './pages/WellDetailPage'
 import UsersPage from './pages/UsersPage'
 import ApprovalQueuePage from './pages/ApprovalQueuePage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import AvisosGlobales from './components/AvisosGlobales'
 
 function RutaProtegida({ children }: { children: ReactNode }) {
   const { user, rol, loading } = useAuth()
@@ -61,6 +62,7 @@ function RutaSoloGestion({ children }: { children: ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <AvisosGlobales />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
 
