@@ -147,6 +147,17 @@ async function falla(p) { try { await p; return false } catch (e) { return /perm
     const recal = await esperar(async () => { const n = (await adb.collection('evaluaciones').doc(evalRef.id).get()).data().resultados.netosPromedio; return Math.abs(n - antes - 10) < 0.01 ? n : null })
     check('onLecturaEdit (nube): corregir una lectura recalcula el promedio (+30/3 = +10)', !!recal, `${antes.toFixed(2)} → ${recal ? recal.toFixed(2) : 'sin cambio'}`)
 
+    // rechazar (igual que useApprovals.rechazar): vuelve a EN_CURSO con el motivo y onReject
+    // devuelve el candado del pozo a ESTA evaluación. Añadido tras migrar los triggers a 2.ª
+    // gen: el rechazo no tenía ninguna prueba en la nube.
+    await F.updateDoc(F.doc(sup.db, 'evaluaciones', evalRef.id), { estado: 'EN_CURSO', aprobaciones: F.arrayUnion({ rol: 'SUP_AREA', uid: ids.sup, accion: 'RECHAZAR', comentario: 'E2E: revisar presión de cabezal', timestamp: new Date() }) })
+    const rechazada = await esperar(async () => { const p = (await adb.collection('pozos').doc(ids.pozo).get()).data(); return p.estado === 'EN_CURSO' && p.evalEnCursoId === evalRef.id })
+    check('onReject (nube): pozo → EN_CURSO y candado devuelto a la misma evaluación', !!rechazada)
+    // El Operador la corrige y la vuelve a enviar → onEvalSubmit sincroniza otra vez
+    await F.updateDoc(evalRef, { estado: 'PENDIENTE_SUPERVISOR', fechaCierre: F.serverTimestamp() })
+    const reenviada = await esperar(async () => { const p = (await adb.collection('pozos').doc(ids.pozo).get()).data(); return p.estado === 'PENDIENTE_SUPERVISOR' && p.evalEnCursoId === null })
+    check('onEvalSubmit (nube): al reenviar tras el rechazo vuelve a sincronizar el pozo', !!reenviada)
+
     // aprobar (igual que useApprovals.aprobar)
     await F.updateDoc(F.doc(sup.db, 'evaluaciones', evalRef.id), { estado: 'APROBADA_SUPERVISOR', aprobaciones: F.arrayUnion({ rol: 'SUP_AREA', uid: ids.sup, accion: 'APROBAR', timestamp: new Date() }) })
     const oficial = await esperar(async () => { const e = (await adb.collection('evaluaciones').doc(evalRef.id).get()).data(), p = (await adb.collection('pozos').doc(ids.pozo).get()).data(); return e.estado === 'OFICIAL' && p.estado === 'OFICIAL' })
@@ -156,7 +167,7 @@ async function falla(p) { try { await p; return false } catch (e) { return /perm
     const hist = await F.getDocs(F.query(F.collection(sup.db, 'evaluaciones'), F.where('pozoId', '==', ids.pozo), F.where('zona', '==', 'MONAGAS'), F.where('estado', 'in', ['OFICIAL', 'APROBADA_SUPERVISOR'])))
     check('Historial de oficiales del pozo lista la evaluación', hist.size === 1)
     const e = (await adb.collection('evaluaciones').doc(evalRef.id).get()).data()
-    check('Evaluación final trae reporteOperativo y aprobación registrada', !!e.reporteOperativo?.supervisorPDVSA && e.aprobaciones?.length === 1)
+    check('Evaluación final trae reporteOperativo y el historial rechazo → aprobación', !!e.reporteOperativo?.supervisorPDVSA && e.aprobaciones?.length === 2 && e.aprobaciones[0].accion === 'RECHAZAR' && e.aprobaciones[1].accion === 'APROBAR')
   } catch (err) {
     check('EJECUCIÓN SIN EXCEPCIONES', false, err.message)
   } finally {

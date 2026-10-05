@@ -96,22 +96,42 @@ sirve de referencia exacta de los pasos para producción:
   `firebase-admin` 11 → 14. Dos cambios de ruptura, ya migrados: (1) `firebase-functions`
   7 usa por defecto la API v2, así que los 6 triggers v1 (`onEvalSubmit`,
   `onApprove`, `onReject`, `onLecturaEdit`, `notifyOperator`, `notifyMgr`)
-  importan de `firebase-functions/v1` (siguen siendo 1.ª gen, sin recrearlos);
+  pasaron primero a `firebase-functions/v1` y luego a 2.ª gen (ver el punto siguiente);
   (2) `firebase-admin` 14 eliminó `admin.firestore()`/`messaging()`/`auth()`
   → imports modulares (`getFirestore`, `getMessaging`, `getAuth`). Se retiró
   `firebase-functions-test` (sin ningún uso). CI y `engines` en Node 22.
-  **Verificado:** 31/31 tests contra emuladores con Node 22 real; despliegue a
-  `well-testing-staging` (las 10 funciones "Node.js 22") y **E2E de nube
-  20/20** con logs sin errores. *No ejercitado:* `getMessaging().send()` real
+  **Verificado:** tests contra emuladores con Node 22 real; despliegue a
+  `well-testing-staging` (las 10 funciones "Node.js 22") y **E2E de nube** con logs
+  sin errores. *No ejercitado:* `getMessaging().send()` real
   (necesita un token válido; se verá en la prueba con dispositivo, ver sección 4).
   Hallazgos: `firebase-admin` 14 arrastra `jose` 6 (solo ESM) y Jest 29 no lo
   carga — `jest.config.js` lo transpila con ts-jest; en la nube Node 22 lo carga
   nativo (verificado). Con **Node 26 local** el emulador de Functions no ejecuta
   los triggers (usar Node 22; ver `admin-setup.md`).
-- ⚠️ Pendiente menor: los 6 triggers v1 viven en `us-central1` y la base en
-  `southamerica-east1` (aviso de la CLI en cada deploy). Mover los triggers a la
-  región de la base exige recrearlos (cambio de 1.ª a 2.ª gen); conviene hacerlo
-  **antes** de producción, no después.
+- ✅ **Los 6 triggers de evaluaciones migrados de 1.ª a 2.ª generación** y ahora
+  corren en `southamerica-east1`, la región de la base (antes `us-central1`: salto
+  de región en cada evento y aviso de la CLI en cada deploy). Son
+  `onDocumentUpdated`/`onDocumentWritten` de `firebase-functions/v2/firestore`
+  (evento `event` en vez de `change, context`); no llevan región fija: el CLI
+  coloca los triggers v2 de Firestore en la región de la base. Google no permite
+  convertir 1.ª → 2.ª gen en el lugar: en staging se **borraron las 6 viejas y se
+  crearon las nuevas** (hubo un corte de unos minutos, sin datos reales). **En
+  producción no habrá corte** porque se desplegarán ya como 2.ª gen.
+  **Verificado:** `tests/triggers.test.ts` (nuevo, 5 pruebas contra el emulador:
+  enviar → corregir lectura → rechazar → reenviar → aprobar) — pasa idéntico
+  contra el código v1 original y contra el v2, lo que demuestra que la migración
+  conserva el comportamiento; suite completa **36/36**; despliegue a staging
+  (`functions:list`: las 10 en v2, `nodejs22`, triggers en `southamerica-east1`);
+  y **E2E de nube 22/22** (se añadió el rechazo y el reenvío, que no tenían
+  ninguna prueba en la nube) con logs sin errores. *Se hallaron de paso:* Jest
+  corría las suites en paralelo y `firestore-rules.test.ts` (que limpia Firestore en
+  cada prueba) borraba los datos de las otras → fallos intermitentes; ahora
+  `maxWorkers: 1`.
+- ℹ️ Los 3 callables (`crearPersonal`, `reassignPozo`, `setPersonalActivo`) siguen
+  en `us-central1` porque los clientes los llaman con la región por defecto
+  (`getFunctions(app)`); moverlos exigiría cambiar ambas apps. Solo afecta a la
+  latencia de esas 3 operaciones administrativas, no es un problema de
+  corrección.
 
 ## 4. App móvil
 
@@ -210,17 +230,20 @@ Firestore + Functions) y las **apps reales en el navegador** (no scripts):
 
 El mismo recorrido contra `well-testing-staging` con el SDK de cliente real y
 las reglas desplegadas (`firebase/functions/scripts/e2e-cloud.cjs`, reutilizable
-para el smoke test de producción, #52): **20/20 verificaciones**.
+para el smoke test de producción, #52): **22/22 verificaciones** (20 en el recorrido original
++ rechazo y reenvío, añadidos al migrar los triggers a 2.ª gen).
 
 - Operador abre el ciclo (transacción + candado), registra 3 lecturas, cierra y
-  envía; Supervisor ve la cola, abre las lecturas, corrige una, y aprueba →
-  evaluación y pozo `OFICIAL`; historial lista la evaluación.
+  envía; Supervisor ve la cola, abre las lecturas, corrige una, **rechaza** (el
+  Operador la reenvía) y aprueba → evaluación y pozo `OFICIAL`; historial lista
+  la evaluación.
 - **Funciones en la nube**, confirmadas en `functions:log` y por sus efectos:
   `assignRole`, `onEvalSubmit`, `onLecturaEdit` (la corrección +30 recalculó el
   promedio de 579.53 a 589.53), `onApprove`, `notifyMgr` y `notifyOperator`
   (estas dos se omiten limpiamente: los usuarios de prueba no tienen token de
-  push). Los triggers v1 viven en `us-central1` y la base en
-  `southamerica-east1`: funciona, con un salto de región (aviso de la CLI).
+  push). *Nota histórica:* en esta primera corrida los triggers eran de 1.ª gen en
+  `us-central1` (salto de región); hoy son de 2.ª gen en `southamerica-east1` (ver
+  sección 3) y la prueba se repitió en ese estado.
 - **6 intentos prohibidos, todos denegados por las reglas reales:** crear una
   evaluación ya OFICIAL, auto-aprobarse, leer/agregar lecturas de un ciclo
   ajeno, agregar lecturas a un ciclo cerrado, y que un Operador liste a todo el

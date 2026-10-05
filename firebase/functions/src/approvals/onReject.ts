@@ -18,55 +18,55 @@
 // Reescrito contra el esquema real — el original apuntaba a la
 // colección inexistente 'evaluations' (inglés) y nunca pudo haber
 // disparado contra la app real.
-import * as functions from 'firebase-functions/v1'
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { getFirestore } from 'firebase-admin/firestore'
 
-export const onReject = functions.firestore
-  .document('evaluaciones/{evalId}')
-  .onUpdate(async (change, context) => {
-    const before = change.before.data()
-    const after = change.after.data()
+export const onReject = onDocumentUpdated('evaluaciones/{evalId}', async (event) => {
+  const change = event.data
+  if (!change) return
+  const before = change.before.data()
+  const after = change.after.data()
 
-    if (before?.estado !== 'PENDIENTE_SUPERVISOR' || after?.estado !== 'EN_CURSO') {
+  if (before?.estado !== 'PENDIENTE_SUPERVISOR' || after?.estado !== 'EN_CURSO') {
+    return
+  }
+
+  const evalId = event.params.evalId
+  const pozoId = after?.pozoId
+
+  if (!pozoId) {
+    console.error(`Evaluación ${evalId} no tiene pozoId — no se puede sincronizar el pozo.`)
+    return
+  }
+
+  try {
+    const pozoRef = getFirestore().collection('pozos').doc(pozoId)
+    const pozoDoc = await pozoRef.get()
+
+    if (!pozoDoc.exists) {
+      console.error(`Pozo ${pozoId} no encontrado (evaluación ${evalId}).`)
       return
     }
 
-    const evalId = context.params.evalId
-    const pozoId = after?.pozoId
+    // onEvalSubmit.ts ya había puesto evalEnCursoId en null cuando
+    // esta evaluación entró a PENDIENTE_SUPERVISOR. Al rechazarla hay
+    // que devolver el candado a ESTE MISMO evalId (no a null) para
+    // que useEvaluacionActual.ts la reabra en vez de crear una
+    // evaluación nueva al lado de la rechazada.
+    await pozoRef.update({ estado: 'EN_CURSO', evalEnCursoId: evalId })
 
-    if (!pozoId) {
-      console.error(`Evaluación ${evalId} no tiene pozoId — no se puede sincronizar el pozo.`)
-      return
-    }
+    const ultimaAprobacion = after?.aprobaciones?.[after.aprobaciones.length - 1]
+    console.log(
+      `Evaluación ${evalId} rechazada. Pozo ${pozoId} sincronizado a EN_CURSO.` +
+        (ultimaAprobacion?.comentario ? ` Motivo: ${ultimaAprobacion.comentario}` : '')
+    )
 
-    try {
-      const pozoRef = getFirestore().collection('pozos').doc(pozoId)
-      const pozoDoc = await pozoRef.get()
-
-      if (!pozoDoc.exists) {
-        console.error(`Pozo ${pozoId} no encontrado (evaluación ${evalId}).`)
-        return
-      }
-
-      // onEvalSubmit.ts ya había puesto evalEnCursoId en null cuando
-      // esta evaluación entró a PENDIENTE_SUPERVISOR. Al rechazarla hay
-      // que devolver el candado a ESTE MISMO evalId (no a null) para
-      // que useEvaluacionActual.ts la reabra en vez de crear una
-      // evaluación nueva al lado de la rechazada.
-      await pozoRef.update({ estado: 'EN_CURSO', evalEnCursoId: evalId })
-
-      const ultimaAprobacion = after?.aprobaciones?.[after.aprobaciones.length - 1]
-      console.log(
-        `Evaluación ${evalId} rechazada. Pozo ${pozoId} sincronizado a EN_CURSO.` +
-          (ultimaAprobacion?.comentario ? ` Motivo: ${ultimaAprobacion.comentario}` : '')
-      )
-
-      // notifyOperator.ts (firebase/functions/src/notifications/) ya
-      // escucha este mismo cambio de forma independiente — no se
-      // invoca desde aquí. Tiene el mismo problema de esquema falso y
-      // necesita su propia reescritura para disparar de verdad.
-    } catch (error) {
-      console.error(`Error sincronizando pozo ${pozoId} tras rechazo de ${evalId}:`, error)
-      throw error
-    }
-  })
+    // notifyOperator.ts (firebase/functions/src/notifications/) ya
+    // escucha este mismo cambio de forma independiente — no se
+    // invoca desde aquí. Tiene el mismo problema de esquema falso y
+    // necesita su propia reescritura para disparar de verdad.
+  } catch (error) {
+    console.error(`Error sincronizando pozo ${pozoId} tras rechazo de ${evalId}:`, error)
+    throw error
+  }
+})
