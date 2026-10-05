@@ -90,6 +90,28 @@ sirve de referencia exacta de los pasos para producción:
 - ✅ No hace falta ninguna VAPID key: el SDK web usa la suya por defecto (ver
   punto 4). Basta con registrar la app web de producción y poner sus datos en
   `apps/web-supervisor/.env.production`.
+- ✅ **Runtime de Functions actualizado a Node.js 22** (Node 20 se retira el
+  2026-10-30; un despliegue nuevo a producción con Node 20 habría quedado
+  fuera de soporte a las pocas semanas). `firebase-functions` 4.9 → 7.4 y
+  `firebase-admin` 11 → 14. Dos cambios de ruptura, ya migrados: (1) `firebase-functions`
+  7 usa por defecto la API v2, así que los 6 triggers v1 (`onEvalSubmit`,
+  `onApprove`, `onReject`, `onLecturaEdit`, `notifyOperator`, `notifyMgr`)
+  importan de `firebase-functions/v1` (siguen siendo 1.ª gen, sin recrearlos);
+  (2) `firebase-admin` 14 eliminó `admin.firestore()`/`messaging()`/`auth()`
+  → imports modulares (`getFirestore`, `getMessaging`, `getAuth`). Se retiró
+  `firebase-functions-test` (sin ningún uso). CI y `engines` en Node 22.
+  **Verificado:** 31/31 tests contra emuladores con Node 22 real; despliegue a
+  `well-testing-staging` (las 10 funciones "Node.js 22") y **E2E de nube
+  20/20** con logs sin errores. *No ejercitado:* `getMessaging().send()` real
+  (necesita un token válido; se verá en la prueba con dispositivo, ver sección 4).
+  Hallazgos: `firebase-admin` 14 arrastra `jose` 6 (solo ESM) y Jest 29 no lo
+  carga — `jest.config.js` lo transpila con ts-jest; en la nube Node 22 lo carga
+  nativo (verificado). Con **Node 26 local** el emulador de Functions no ejecuta
+  los triggers (usar Node 22; ver `admin-setup.md`).
+- ⚠️ Pendiente menor: los 6 triggers v1 viven en `us-central1` y la base en
+  `southamerica-east1` (aviso de la CLI en cada deploy). Mover los triggers a la
+  región de la base exige recrearlos (cambio de 1.ª a 2.ª gen); conviene hacerlo
+  **antes** de producción, no después.
 
 ## 4. App móvil
 

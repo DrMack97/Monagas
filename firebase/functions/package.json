@@ -13,23 +13,22 @@
     "test": "pnpm --filter @monagas/core build && node scripts/vendor-core.js && pnpm install && npm run build && cross-env FUNCTIONS_DISCOVERY_TIMEOUT=60 npx firebase emulators:exec --project well-testing-dev --only auth,firestore,functions \"jest\""
   },
   "engines": {
-    "node": ">=20"
+    "node": "22"
   },
   "dependencies": {
     "@monagas/core": "file:./vendor/monagas-core",
     "express": "^4.18.2",
-    "firebase-admin": "^11.11.0",
-    "firebase-functions": "^4.4.1"
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",
     "@jest/globals": "^30.4.1",
     "@types/express": "^4.17.21",
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.19.43",
+    "@types/node": "^22.20.5",
     "cross-env": "^7.0.3",
     "firebase": "10.14.1",
-    "firebase-functions-test": "^3.1.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.11",
     "typescript": "^5.4.5"

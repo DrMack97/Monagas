@@ -16,8 +16,8 @@
 // colecciones inexistentes 'evaluations'/'wells' (inglés) y al campo
 // mal escrito 'fechaOfficial', ninguno de los cuales existe en la app
 // real.
-import * as functions from 'firebase-functions'
-import * as admin from 'firebase-admin'
+import * as functions from 'firebase-functions/v1'
+import { getFirestore } from 'firebase-admin/firestore'
 
 export const onApprove = functions.firestore
   .document('evaluaciones/{evalId}')
@@ -38,7 +38,7 @@ export const onApprove = functions.firestore
     }
 
     try {
-      const db = admin.firestore()
+      const db = getFirestore()
       const pozoRef = db.collection('pozos').doc(pozoId)
       const pozoDoc = await pozoRef.get()
 

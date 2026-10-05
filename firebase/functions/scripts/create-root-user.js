@@ -38,7 +38,8 @@
 //   (GOOGLE_APPLICATION_CREDENTIALS apuntando a una service account, o
 //   `firebase login` + Application Default Credentials).
 
-const admin = require('firebase-admin')
+const { initializeApp } = require('firebase-admin/app')
+const { getAuth } = require('firebase-admin/auth')
 
 function parseArgs() {
   const args = process.argv.slice(2)
@@ -62,8 +63,8 @@ async function main() {
     process.exit(1)
   }
 
-  admin.initializeApp({ projectId: project })
-  const auth = admin.auth()
+  initializeApp({ projectId: project })
+  const auth = getAuth()
 
   let user
   try {

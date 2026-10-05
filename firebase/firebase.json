@@ -8,7 +8,7 @@
   },
   "functions": {
     "source": "functions",
-    "runtime": "nodejs20",
+    "runtime": "nodejs22",
     "predeploy": [
       "cd ../packages/core && npm run build",
       "node functions/scripts/vendor-core.js",

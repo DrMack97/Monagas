@@ -18,8 +18,8 @@
 // Reescrito contra el esquema real — el original apuntaba a la
 // colección inexistente 'evaluations' (inglés) y nunca pudo haber
 // disparado contra la app real.
-import * as functions from 'firebase-functions'
-import * as admin from 'firebase-admin'
+import * as functions from 'firebase-functions/v1'
+import { getFirestore } from 'firebase-admin/firestore'
 
 export const onReject = functions.firestore
   .document('evaluaciones/{evalId}')
@@ -40,7 +40,7 @@ export const onReject = functions.firestore
     }
 
     try {
-      const pozoRef = admin.firestore().collection('pozos').doc(pozoId)
+      const pozoRef = getFirestore().collection('pozos').doc(pozoId)
       const pozoDoc = await pozoRef.get()
 
       if (!pozoDoc.exists) {

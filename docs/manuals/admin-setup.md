@@ -8,12 +8,14 @@ seguridad y `docs/technical/offline-strategy.md` para el diseño offline).
 
 ## 1. Requisitos
 
-- Node.js — el proyecto declara `nodejs20` como runtime en
-  `firebase/firebase.json` (`functions.runtime`) y `>=20` en
-  `firebase/functions/package.json` (`engines`). Un Node global mucho más
-  nuevo (probado con v26) funciona sin problema — ver sección 5 sobre el
-  timeout del emulador de Functions, que no es un problema de versión de
-  Node.
+- Node.js **22** — el proyecto declara `nodejs22` como runtime en
+  `firebase/firebase.json` (`functions.runtime`) y `22` en
+  `firebase/functions/package.json` (`engines`); el CI también usa 22. Para
+  correr `pnpm test` de `firebase/functions` (emuladores) **usa Node 22**: con
+  Node 26 las apps y los tests de reglas funcionan, pero el emulador de
+  Functions no logra ejecutar los triggers de `firebase-functions` 7 (el worker
+  de `assignRole` termina al instante y los 2 tests de integración fallan);
+  con Node 22 pasan 31/31. Producción (Cloud Functions) corre Node 22.
 - pnpm `8.15.0` — fijado en `package.json` raíz (`packageManager`). Con
   Corepack activado (`corepack enable`) se usa automáticamente esa
   versión exacta.
