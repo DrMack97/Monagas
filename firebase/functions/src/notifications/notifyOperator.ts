@@ -12,8 +12,9 @@
 // y evaluation.motivoRechazo, ninguno de los cuales existe — el dato
 // real vive en resultados.netosPromedio y en el último elemento de
 // aprobaciones[].comentario respectivamente.
-import * as functions from 'firebase-functions'
-import * as admin from 'firebase-admin'
+import * as functions from 'firebase-functions/v1'
+import { getFirestore } from 'firebase-admin/firestore'
+import { getMessaging, type Message } from 'firebase-admin/messaging'
 
 export const notifyOperator = functions.firestore
   .document('evaluaciones/{evalId}')
@@ -41,7 +42,7 @@ async function enviarNotificacionAOperador(
   }
 
   try {
-    const operadorDoc = await admin.firestore().collection('usuarios').doc(evaluacion.operadorId).get()
+    const operadorDoc = await getFirestore().collection('usuarios').doc(evaluacion.operadorId).get()
     if (!operadorDoc.exists) {
       console.log(`Operador ${evaluacion.operadorId} no encontrado.`)
       return
@@ -53,7 +54,7 @@ async function enviarNotificacionAOperador(
       return
     }
 
-    const pozoDoc = await admin.firestore().collection('pozos').doc(evaluacion.pozoId).get()
+    const pozoDoc = await getFirestore().collection('pozos').doc(evaluacion.pozoId).get()
     const pozoNombre = pozoDoc.data()?.nombre ?? 'tu pozo'
 
     const title = tipo === 'APROBADA' ? 'Evaluación aprobada' : 'Evaluación rechazada'
@@ -65,7 +66,7 @@ async function enviarNotificacionAOperador(
             : ''
         }`
 
-    const message: admin.messaging.Message = {
+    const message: Message = {
       token: fcmToken,
       notification: { title, body },
       data: {
@@ -80,7 +81,7 @@ async function enviarNotificacionAOperador(
       },
     }
 
-    await admin.messaging().send(message)
+    await getMessaging().send(message)
     console.log(`Notificación ${tipo} enviada a operador ${evaluacion.operadorId} (evaluación ${evalId}).`)
   } catch (error) {
     console.error(`Error notificando al operador de la evaluación ${evalId}:`, error)

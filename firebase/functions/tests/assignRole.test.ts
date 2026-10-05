@@ -15,10 +15,12 @@
 //                        package.json)
 
 import { describe, it, expect, afterAll } from '@jest/globals'
-import * as admin from 'firebase-admin'
+import { initializeApp, getApps } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
+import { getFirestore } from 'firebase-admin/firestore'
 
-if (!admin.apps.length) {
-  admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'well-testing-dev' })
+if (!getApps().length) {
+  initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'well-testing-dev' })
 }
 
 async function esperarCustomClaims(uid: string): Promise<Record<string, unknown> | undefined> {
@@ -34,7 +36,7 @@ async function esperarCustomClaims(uid: string): Promise<Record<string, unknown>
   // CI (ver historial del checklist Fase 6, #46) — el script "test"
   // ya corre "pnpm build" antes por eso.
   for (let i = 0; i < 30; i++) {
-    const user = await admin.auth().getUser(uid)
+    const user = await getAuth().getUser(uid)
     if (user.customClaims?.rol) return user.customClaims
     await new Promise((r) => setTimeout(r, 500))
   }
@@ -45,17 +47,17 @@ describe('assignRole (trigger real, contra el emulador)', () => {
   const uidsCreados: string[] = []
 
   afterAll(async () => {
-    await Promise.all(uidsCreados.map((uid) => admin.auth().deleteUser(uid).catch(() => {})))
+    await Promise.all(uidsCreados.map((uid) => getAuth().deleteUser(uid).catch(() => {})))
     await Promise.all(
-      uidsCreados.map((uid) => admin.firestore().collection('usuarios').doc(uid).delete().catch(() => {}))
+      uidsCreados.map((uid) => getFirestore().collection('usuarios').doc(uid).delete().catch(() => {}))
     )
   })
 
   it('asigna el Custom Claim correcto (rol/zona) al crear /usuarios/{uid}', async () => {
     const uid = `test-assignrole-${Date.now()}`
     uidsCreados.push(uid)
-    await admin.auth().createUser({ uid })
-    await admin.firestore().collection('usuarios').doc(uid).set({
+    await getAuth().createUser({ uid })
+    await getFirestore().collection('usuarios').doc(uid).set({
       nombre: 'Test',
       rol: 'SUP_AREA',
       zona: 'MONAGAS',
@@ -73,8 +75,8 @@ describe('assignRole (trigger real, contra el emulador)', () => {
     // asigna el Custom Claim directo y nunca pasa por /usuarios/{uid}.
     const uid = `test-assignrole-root-${Date.now()}`
     uidsCreados.push(uid)
-    await admin.auth().createUser({ uid })
-    await admin.firestore().collection('usuarios').doc(uid).set({
+    await getAuth().createUser({ uid })
+    await getFirestore().collection('usuarios').doc(uid).set({
       nombre: 'Test',
       rol: 'ROOT',
       zona: null,

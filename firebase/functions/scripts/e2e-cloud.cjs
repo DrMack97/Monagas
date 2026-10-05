@@ -21,7 +21,9 @@
 //  - Hay que haber corrido "pnpm build" antes (usa packages/core/dist).
 const path = require('path')
 const { pathToFileURL } = require('url')
-const admin = require('firebase-admin')
+const { initializeApp: initAdmin } = require('firebase-admin/app')
+const { getFirestore: getAdminFirestore } = require('firebase-admin/firestore')
+const { getAuth: getAdminAuth } = require('firebase-admin/auth')
 const { initializeApp } = require('firebase/app')
 const { getAuth, signInWithCustomToken } = require('firebase/auth')
 const F = require('firebase/firestore')
@@ -31,8 +33,8 @@ if (!PROJECT || !WEB_API_KEY || !SERVICE_ACCOUNT) {
   console.error('Uso: node scripts/e2e-cloud.cjs <projectId> <webApiKey> <serviceAccountEmail>')
   process.exit(2)
 }
-admin.initializeApp({ projectId: PROJECT, serviceAccountId: SERVICE_ACCOUNT })
-const adb = admin.firestore(), aauth = admin.auth()
+initAdmin({ projectId: PROJECT, serviceAccountId: SERVICE_ACCOUNT })
+const adb = getAdminFirestore(), aauth = getAdminAuth()
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const resultados = []
 const check = (nombre, ok, detalle = '') => { resultados.push({ nombre, ok }); console.log(`${ok ? 'OK  ' : 'FAIL'} ${nombre}${detalle ? ' — ' + detalle : ''}`) }

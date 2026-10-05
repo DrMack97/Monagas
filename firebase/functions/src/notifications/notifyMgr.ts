@@ -14,8 +14,9 @@
 // PENDIENTE_SUPERVISOR — ver onApprove.ts), no hay un paso separado
 // donde el gerente "revisa después". Nunca pudo haber disparado
 // contra la app real.
-import * as functions from 'firebase-functions'
-import * as admin from 'firebase-admin'
+import * as functions from 'firebase-functions/v1'
+import { getFirestore } from 'firebase-admin/firestore'
+import { getMessaging, type Message } from 'firebase-admin/messaging'
 
 export const notifyMgr = functions.firestore
   .document('evaluaciones/{evalId}')
@@ -41,7 +42,7 @@ async function notificarAprobadores(
   }
 
   try {
-    const db = admin.firestore()
+    const db = getFirestore()
 
     // Mismo criterio de autoridad que canManagePozoEnZona() en
     // firestore.rules: GERENTE ve/aprueba todo sin restricción de
@@ -64,7 +65,7 @@ async function notificarAprobadores(
     const pozoDoc = await db.collection('pozos').doc(evaluacion.pozoId).get()
     const pozoNombre = pozoDoc.data()?.nombre ?? 'un pozo'
 
-    const message = (fcmToken: string): admin.messaging.Message => ({
+    const message = (fcmToken: string): Message => ({
       token: fcmToken,
       notification: {
         title: 'Nueva evaluación pendiente',
@@ -90,7 +91,7 @@ async function notificarAprobadores(
         continue
       }
       try {
-        await admin.messaging().send(message(fcmToken))
+        await getMessaging().send(message(fcmToken))
         enviadas++
       } catch (error) {
         console.error(`Error notificando al aprobador ${aprobadorDoc.id} (evaluación ${evalId}):`, error)

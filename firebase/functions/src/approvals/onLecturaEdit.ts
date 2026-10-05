@@ -9,8 +9,8 @@
 // vuelve a validar aquí explícitamente, no por desconfianza de la
 // regla, sino porque este trigger corre con Admin SDK y por lo tanto
 // no está sujeto a ella.
-import * as functions from 'firebase-functions'
-import * as admin from 'firebase-admin'
+import * as functions from 'firebase-functions/v1'
+import { getFirestore } from 'firebase-admin/firestore'
 import { calcularPromedioEvaluacion } from '@monagas/core'
 import type { ILectura, IResultadosEval } from '@monagas/core'
 
@@ -20,7 +20,7 @@ export const onLecturaEdit = functions.firestore
     const { evalId, lecturaId } = context.params
 
     try {
-      const db = admin.firestore()
+      const db = getFirestore()
       const evalRef = db.collection('evaluaciones').doc(evalId)
       const evalDoc = await evalRef.get()
 
