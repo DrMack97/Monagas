@@ -59,6 +59,15 @@ Por cada evaluación pendiente puedes:
 - **Rechazar**, con un motivo obligatorio — vuelve al Operador como
   EN_CURSO para que la corrija y la vuelva a cerrar.
 
+**Avisos de evaluaciones pendientes.** En la parte superior hay un botón
+"Activar avisos". Al pulsarlo el navegador pide permiso; si lo aceptas, te
+llega una notificación cada vez que un Operador cierra una evaluación de tu
+zona (aunque tengas la pestaña cerrada o en segundo plano; con la pestaña a la
+vista aparece un aviso dentro de la página). El permiso es **por navegador**:
+si usas otro equipo, actívalos allí también. Al pulsar "Salir" se desactivan en
+ese navegador. Si el navegador los bloqueó, el botón dice "Avisos bloqueados":
+se desbloquean desde el candado de la barra de direcciones.
+
 ## 5. Personal — exclusivo Área/Gerente
 
 Supervisor de Campo no tiene esta pantalla; no elige con quién trabaja.

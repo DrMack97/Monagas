@@ -12,6 +12,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@monagas/web-supervisor", "dev"],
       "port": 5174
+    },
+    {
+      "name": "web-supervisor-staging",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@monagas/web-supervisor", "dev:staging"],
+      "port": 5174
     }
   ]
 }

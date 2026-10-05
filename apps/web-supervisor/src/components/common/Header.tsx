@@ -10,6 +10,7 @@
 import { Link } from 'react-router-dom'
 import { FiDroplet } from 'react-icons/fi'
 import type { Rol } from '@core/types'
+import BotonAvisos from './BotonAvisos'
 
 const ROL_LABEL: Record<string, string> = {
   SUP_CAMPO: 'Supervisor de Campo',
@@ -34,6 +35,8 @@ export default function Header({ nombre, rol, onLogout }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-3">
+        {/* notifyMgr.ts solo avisa a SUP_AREA y GERENTE */}
+        {puedeGestionarUsuarios && <BotonAvisos />}
         {puedeGestionarUsuarios && (
           <Link
             to="/usuarios"

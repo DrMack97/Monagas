@@ -138,8 +138,10 @@ flujo normal descrito en la Guía del Supervisor.
   tener los emuladores corriendo de antemano.
 - **Notificaciones push** (checklist Fase 6, #47). El Operador ya tiene push
   nativo (FCM vía `@capacitor/push-notifications`) y **no necesita VAPID**.
-  Pendiente: probarlo en un teléfono real, y las notificaciones del Supervisor
-  (web), que sí necesitan una VAPID key generada en la consola — ver
+  Las notificaciones del Supervisor (web) también están construidas y **tampoco
+  necesitan VAPID key** (el SDK usa la suya por defecto); el service worker se
+  genera en el build con los datos del `.env` del ambiente. Pendiente: probar
+  ambas con un dispositivo/navegador real — ver
   `docs/technical/go-live-checklist.md`, sección 4.
 - **Resuelto — `well-testing-staging` completo** (checklist Fase 6, #45).
   Firestore (Native, `southamerica-east1`), Storage, Authentication

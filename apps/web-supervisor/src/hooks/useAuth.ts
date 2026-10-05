@@ -14,6 +14,7 @@ import {
   type User,
 } from 'firebase/auth'
 import { auth } from '../services/firebase'
+import { limpiarTokenAlCerrarSesion } from '../services/push'
 import type { Rol, Zona } from '@core/types'
 
 interface AuthState {
@@ -84,6 +85,9 @@ export function useAuth() {
   }, [])
 
   const logout = useCallback(async () => {
+    // Antes de signOut (aún hay sesión para escribir en el perfil): quita el
+    // token push de este navegador. Nunca lanza ni tarda más de 3 s.
+    await limpiarTokenAlCerrarSesion()
     await firebaseSignOut(auth)
   }, [])
 
