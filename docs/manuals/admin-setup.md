@@ -101,10 +101,24 @@ flujos de gestión de personal). Verificado end-to-end contra el emulador
 de Auth+Firestore: el claim queda `{rol:'ROOT', pozoAsignado:null,
 zona:null}` y no se crea ningún documento de perfil.
 
-Con ese usuario ya podés entrar al panel web y, desde ahí, usar
-`crearPersonal` (Cloud Function) para dar de alta al primer Supervisor de
-Área real de cada zona — a partir de ahí, la gestión de personal sigue el
-flujo normal descrito en la Guía del Supervisor.
+**ROOT no sirve para usar el panel ni para dar de alta al primer Supervisor.**
+`crearPersonal` solo la pueden llamar SUP_AREA y GERENTE (y solo crea
+OPERADOR/SUP_CAMPO), y el panel le bloquea la pantalla de Usuarios a ROOT. (Una
+versión anterior de esta guía decía lo contrario: era incorrecto.) El primer
+Gerente o Supervisor de Área se crea con otro script:
+
+```bash
+node scripts/create-supervisor-user.js --project <proyecto> --rol GERENTE --nombre "Nombre Apellido" --email correo@ejemplo.com
+# la clave, en la variable de entorno NEW_USER_PASSWORD (así no queda en el historial)
+# SUP_AREA: --rol SUP_AREA --zona MONAGAS (o FAJA)
+```
+
+Crea la cuenta, escribe `/usuarios/{uid}` (eso dispara `assignRole`, que asigna
+los permisos), y espera a confirmarlos; si las Functions no estuvieran
+desplegadas, los asigna él mismo y lo avisa. Se niega a tocar cuentas que ya
+existen. A partir de ese primer supervisor, el personal restante (Operadores y
+Supervisores de Campo) se da de alta desde la pantalla *Usuarios* del panel.
+Pasos completos de producción: `docs/technical/prod-deploy-runbook.md`.
 
 ## 5. Problemas conocidos
 
