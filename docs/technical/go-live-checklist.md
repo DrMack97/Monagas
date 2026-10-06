@@ -59,6 +59,27 @@ con las reglas nuevas pasan 29/29.
 
 ## 3. Infraestructura de producción (`well-testing-prod`)
 
+> **Paso a paso preparado:** [`prod-deploy-runbook.md`](prod-deploy-runbook.md) (#52), con el
+> estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
+> comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
+
+- ⚠️ **Hallazgo al prepararlo: no había forma de crear al primer Gerente/Supervisor de
+  Área** (`crearPersonal` no la puede llamar ROOT y solo crea Operadores/Sup. de Campo; el
+  panel bloquea Usuarios a ROOT; la guía decía lo contrario). Resuelto con
+  `firebase/functions/scripts/create-supervisor-user.js`, verificado contra staging real
+  (los permisos los asignó la Cloud Function `assignRole`) y contra emuladores sin
+  Functions (rama de respaldo), con 11 tests de validación.
+- ⚠️ **La clave de API filtrada en el historial público (`2d73b34`) sigue siendo la clave
+  activa de la app Android de producción** (comprobado). Hay que eliminarla *antes* de
+  registrar las apps nuevas (si no, Firebase la reutiliza): runbook, Fase C.
+- ✅ Se añadieron `*.jks`, `*.keystore` y `keystore.properties` al `.gitignore`: antes no
+  estaban y un keystore de firma dentro del repo público se habría subido.
+- ⚠️ `deploy.yml` despliega a Firebase Hosting pero `firebase.json` no tiene `hosting`, y
+  el repo no define dónde se aloja el panel web (hay un `.vercel` ignorado): decisión
+  pendiente, ver runbook.
+- ⚠️ El `build.gradle` de Android no tiene configuración de firma: `assembleRelease` sale
+  sin firmar. Preparado en el runbook (Fase G), pendiente de ejecutar con el keystore.
+
 `well-testing-staging` ya pasó por todo esto (checklist #45, resuelto) —
 sirve de referencia exacta de los pasos para producción:
 
