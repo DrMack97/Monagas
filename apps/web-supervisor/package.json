@@ -8,6 +8,8 @@
     "build": "vite build",
     "build:staging": "vite build --mode staging",
     "preview": "vite preview",
+    "deploy:staging": "vite build --mode staging && npx firebase deploy --only hosting --config firebase.json --project well-testing-staging",
+    "deploy:production": "vite build --mode production && npx firebase deploy --only hosting --config firebase.json --project well-testing-prod",
     "test": "jest",
     "lint": "eslint . --ext .ts,.tsx"
   },

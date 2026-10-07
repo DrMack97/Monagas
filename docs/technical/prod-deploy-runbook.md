@@ -25,32 +25,51 @@ bien · 🛑 si pasa esto, **parar** y no seguir.
 | Apps registradas | Solo **una app Android antigua** "WellTesting" (paquete `Willy.Tank`, que no es el real `com.monagas.operator`). Ninguna app web. |
 | Clave de API de esa app | **Es la misma que quedó en el historial público de git** (commit `2d73b34`). Sigue viva. Ver Fase C. |
 
+### La app Android antigua "WellTesting" (qué es exactamente)
+
+Es solo un **registro dentro de Firebase**, no una aplicación que exista en
+algún sitio. Datos comprobados:
+
+- Nombre "WellTesting", paquete **`Willy.Tank`**, ID
+  `1:301184874401:android:b3a1d5dda339dec901fde0`, dentro de `well-testing-prod`.
+- Sin huellas SHA registradas (nunca se firmó ni se probó un APK contra ella).
+- Su `google-services.json` se subió al repositorio el 2026-07-13 (commit
+  `2d73b34`, "85% de la fase 0"), en una carpeta donde Gradle nunca lo leía, y
+  **ningún código del proyecto la usa**: la app real se llama
+  `com.monagas.operator`.
+- No tiene funciones propias: no almacena datos ni hace nada. Lo único que "tiene"
+  es la **clave de API** del proyecto, que es lo que quedó expuesto (Fase C).
+- *Inferencia, no comprobada:* por el nombre de paquete, parece un registro hecho
+  a mano desde la consola en la primera etapa del proyecto, antes de decidir
+  Capacitor con `com.monagas.operator`.
+
+Por eso es seguro eliminarla: no hay nada que perder. Se deja para después de
+que la app nueva funcione, para no tocar dos cosas a la vez.
+
 Todo producción está por construir. Eso es bueno: no hay datos que migrar ni
 nada que romper, y las 10 funciones se crean directamente en 2.ª generación
 (sin el corte que sí hubo en staging).
 
-## 2. Decisiones que necesito de ti (con mi recomendación)
+## 2. Decisiones (respondidas el 2026-10-07, salvo las marcadas)
 
-1. **Dónde se aloja el panel web del Supervisor.** El repo **no lo define**:
-   `.github/workflows/deploy.yml` apunta a Firebase Hosting pero `firebase.json`
-   no tiene configuración de hosting, y hay un `.vercel` ignorado en
-   `apps/web-supervisor`. **Recomiendo Firebase Hosting**: mismo proyecto, HTTPS
-   automático (obligatorio para las notificaciones web), dominio
-   `well-testing-prod.web.app` sin configurar nada. Si prefieres Vercel u otro,
-   avísame: cambia la Fase F y hay que autorizar ese dominio en Authentication.
-2. **Región de Firestore: `southamerica-east1`** (la de staging y la de los
-   triggers). **Es permanente**: no se puede cambiar después. Recomiendo no
-   moverla.
-3. **Quién es el primer Gerente.** Es el dueño operativo de la app. Recomiendo
-   crearlo ya con el correo de la persona que va a quedarse a cargo (el tema de
-   traspaso de propiedad lo retomamos aparte; mientras tanto tu cuenta de Google
-   sigue siendo *Owner* del proyecto).
-4. **App Android antigua "WellTesting"**: recomiendo eliminarla una vez que la
-   nueva funcione (su `google-services.json` es público y apunta a un paquete
-   que no es el real). Es irreversible, por eso lo decides tú.
-5. **Cómo se distribuye el APK** (¿se pasa el archivo a mano o por Play Store?).
-   Este runbook asume a mano. Play Store añade pasos (cuenta de desarrollador,
-   ficha, revisión) que no están preparados.
+1. **Alojamiento del panel web: Firebase Hosting** — decisión *provisional*:
+   se ensayó en staging y funciona (ver Fase F). Las alternativas se
+   explicaron aparte (Vercel exige plan de pago para uso comercial; Netlify y
+   Cloudflare Pages son equivalentes técnicos; alojar en servidores propios solo
+   si PDVSA/Del Sur lo exigen). Si se cambia, cambia solo la Fase F.
+2. **Región de Firestore: `southamerica-east1`.** ✅ Confirmada. Es permanente.
+3. **Primer Gerente: el dueño operativo de la app.** ✅ Confirmado. Se crea con
+   su correo en la Fase D (el tema de traspaso de propiedad del proyecto de
+   Google se retoma aparte; mientras tanto tu cuenta sigue siendo *Owner*).
+4. **App Android antigua "WellTesting":** ⏳ pendiente. Qué es y qué tiene, en la
+   sección 1. Mi recomendación: eliminarla al final (no tiene nada que perder).
+5. **Distribución: dos etapas.** ✅ (a) APK firmado enviado **directamente al
+   dueño operativo** para que lo pruebe; (b) **Google Play Store** como objetivo
+   final, cuando la app "marche correctamente". La etapa (b) tiene sus propios
+   pasos (Fase G5).
+6. **Recuperación a un punto en el tiempo (PITR):** ⏳ pendiente. **No fue un
+   pedido tuyo: lo incluí yo** en el checklist de producción como seguro extra.
+   Qué es y cuánto cuesta, en la Fase A3. Mi recomendación: dejarla activada.
 
 ## 3. Puerta de entrada (antes de tocar producción)
 
@@ -94,7 +113,15 @@ npx firebase firestore:databases:create "(default)" --location southamerica-east
 
 - `--delete-protection ENABLED`: nadie puede borrar la base por accidente.
 - `--point-in-time-recovery ENABLED`: se puede volver a cualquier minuto de los
-  últimos 7 días (en staging no se activó a propósito).
+  últimos 7 días (en staging no se activó a propósito). **Es una recomendación
+  mía, no un requisito:** protege contra un borrado o una escritura masiva
+  errónea (el único caso en que un dato se pierde de verdad). Costo: se factura
+  el almacenamiento de las versiones de esos 7 días, en proporción al tamaño de la
+  base (GB-mes; **no hay capa gratuita** y exige facturación activa). Con una base
+  pequeña es una fracción mínima del total, pero no pude confirmar la tarifa
+  exacta por GB: consultarla en la página de precios de Firestore antes de decidir.
+  Se puede activar o desactivar más adelante. La protección contra borrado
+  (`--delete-protection`) es independiente y no cuesta nada.
 - ✅ `npx firebase firestore:databases:list --project well-testing-prod` muestra
   `southamerica-east1`, protección y PITR activos.
 
@@ -199,8 +226,13 @@ staging real y contra emuladores sin Functions).
 Prefiero que la clave del Gerente solo la conozcas tú.
 
 **Credenciales para correr el script** (este equipo no tiene `gcloud`). Elige una:
-- *Opción A (recomendada):* instalar Google Cloud CLI y ejecutar
-  `gcloud auth application-default login` (inicias sesión con tu cuenta Google).
+- *Opción A (recomendada):* instalar Google Cloud CLI
+  (`winget install -e --id Google.CloudSDK`, en una terminal nueva) y ejecutar
+  `gcloud auth application-default login` (se abre el navegador; inicias sesión con
+  la cuenta de Google dueña del proyecto). Queda guardada en tu usuario de Windows,
+  fuera del repositorio. **Se puede ensayar ya contra staging** antes de que
+  producción esté lista: yo hago una lectura de solo lectura para confirmar que
+  funciona.
 - *Opción B:* consola → ⚙ → *Service accounts* → *Generate new private key*;
   `GOOGLE_APPLICATION_CREDENTIALS` apuntando al `.json`. **Bórralo al terminar**
   y nunca lo guardes dentro del repo.
@@ -254,34 +286,53 @@ GOOGLE_APPLICATION_CREDENTIALS=<adc.json> node scripts/e2e-cloud.cjs well-testin
 
 ### Fase F — Panel web del Supervisor (🤖)
 
-*(Asume Firebase Hosting, decisión 1. Se ensaya primero en staging.)*
+*(Firebase Hosting, decisión 1. **Ensayada y verificada en staging el 2026-10-07**:
+https://well-testing-staging.web.app.)*
 
-1. Añadir a `firebase/firebase.json`:
-   ```json
-   "hosting": {
-     "public": "../apps/web-supervisor/dist",
-     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-     "rewrites": [{ "source": "**", "destination": "/index.html" }],
-     "headers": [{ "source": "/firebase-messaging-sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }]
-   }
-   ```
-   (La ruta `public` fuera de la carpeta de `firebase.json` **no está probada**: se confirma en el ensayo en staging; si la CLI la rechazara, se mueve el `firebase.json` o se copia `dist`.) `rewrites`: el panel es una SPA y las rutas como `/aprobaciones` no existen
-   como archivos. `no-cache` en el service worker: si se cacheara, un cambio no
-   llegaría a los navegadores.)
-2. **Ensayo en staging:** `npm run build:staging` → `firebase deploy --only
-   hosting --project well-testing-staging` → entrar, iniciar sesión, abrir
-   `/aprobaciones` directo (prueba el rewrite) y comprobar que
-   `https://…/firebase-messaging-sw.js` responde con el `projectId` de staging.
-3. **Producción:** `npm run build` en `apps/web-supervisor` (carga
-   `.env.production`) → `npx firebase deploy --only hosting --project
-   well-testing-prod`.
-- ✅ Antes de desplegar: `dist/firebase-messaging-sw.js` contiene
+**Hallazgo del ensayo:** poner `"public": "../apps/web-supervisor/dist"` en
+`firebase/firebase.json` **no funciona**: la CLI responde *"is outside of project
+directory"*. La solución es que el panel lleve su **propio**
+`apps/web-supervisor/firebase.json` (solo hosting, `"public": "dist"`) y se
+despliegue con `--config`. Ya está creado y es el que se probó:
+
+```json
+{ "hosting": {
+    "public": "dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }],
+    "headers": [{ "source": "/firebase-messaging-sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }]
+} }
+```
+
+(`rewrites`: el panel es una SPA y rutas como `/aprobaciones` no existen como
+archivos. `no-cache` en el service worker: si se cacheara, un cambio no llegaría a
+los navegadores.)
+
+**Comandos** (también como scripts de `apps/web-supervisor/package.json`):
+
+```bash
+cd apps/web-supervisor
+npm run deploy:staging      # compila con .env.staging y despliega a well-testing-staging
+npm run deploy:production   # compila con .env.production y despliega a well-testing-prod
+```
+
+- ✅ **Verificado en staging** (sitio real, HTTPS): carga el login; abrir
+  `/aprobaciones` directamente devuelve la aplicación (200) y redirige a `/login`
+  (prueba del `rewrite`); `/firebase-messaging-sw.js` responde 200 con
+  `Cache-Control: no-cache` y `projectId` de staging, y el worker se instala y
+  se activa; sin errores en la consola.
+- ⏳ **No verificado:** iniciar sesión en el sitio desplegado (requiere una
+  contraseña real: lo prueba una persona). Tampoco las notificaciones, que
+  necesitan un Chrome con permiso.
+- ✅ Antes de desplegar a producción: `dist/firebase-messaging-sw.js` contiene
   `"projectId":"well-testing-prod"`. 🛑 Si dice dev/staging, el build tomó otro
   `.env`.
-- ✅ Iniciar sesión como el Gerente; la pantalla *Usuarios* abre; "Activar
-  avisos" pide permiso (HTTPS, así que el push web puede funcionar).
-- Si el dominio no es `*.web.app`/`*.firebaseapp.com`, agregarlo en
-  Authentication → *Settings* → *Authorized domains*.
+- Al terminar: restringir la clave web a ese dominio (Fase C4). Si el dominio no
+  es `*.web.app`/`*.firebaseapp.com`, agregarlo en Authentication → *Settings* →
+  *Authorized domains*.
+- ⚠️ El sitio de staging quedó **público en internet** (cualquiera puede ver la
+  pantalla de login, igual que lo estará el de producción). No expone datos: las
+  reglas de Firestore exigen sesión.
 
 ### Fase G — APK firmado de release (🙋 + 🤖)
 
@@ -320,6 +371,34 @@ cd android && ./gradlew assembleRelease
   monagas`) y completar la restricción de la clave Android (C4).
 - Instalar en un teléfono: iniciar sesión, aceptar el permiso de notificaciones,
   comprobar que `usuarios/{uid}.fcmToken` aparece en Firestore.
+
+**G5. Etapa 2: Google Play Store (objetivo final, más adelante).** No se hace
+ahora; esto es lo que hay que saber para no cerrarse puertas:
+
+- **El nombre de paquete `com.monagas.operator` es permanente** una vez
+  publicada la app. Es el que ya usa el proyecto; conviene darlo por definitivo
+  *antes* de empezar con la Fase G.
+- **Cuenta de desarrollador de Google Play:** pago único de US$25 (no
+  reembolsable). Según lo publicado, una cuenta **personal** nueva debe pasar una
+  *prueba cerrada con 12 testers durante 14 días* antes de poder publicar; una
+  cuenta de **organización** (requiere número D-U-N-S) tiene otro camino.
+  *Estas reglas cambian: verificarlas en la consola de Play el día que se haga.*
+  Si la app va a ser de la empresa, conviene la cuenta de organización, no una
+  personal.
+- Play pide un **AAB** (`./gradlew bundleRelease`), no un APK, y usa *Play App
+  Signing*: Google guarda la clave final y tú firmas con una "clave de subida".
+  Se prepara con el mismo keystore de G1.
+- También exige: ficha de la tienda (descripción, capturas, icono), **política de
+  privacidad** publicada en una URL, formulario *Data safety* (qué datos se
+  recogen: correo, ubicación si se usara, token de notificaciones) y cumplir el
+  nivel mínimo de API de Android vigente. *(De memoria; verificar al hacerlo.)*
+- La app debe haber pasado antes la aceptación (#50) con personas reales.
+
+**Etapa 1 (ahora): APK al dueño operativo.** El APK firmado de G3 se le envía
+como archivo (correo, nube o mensajería). Él debe habilitar *"instalar apps de
+orígenes desconocidos"* para esa app. Como no hay Play de por medio, **cada
+actualización la instala a mano** y **debe estar firmada con el mismo keystore**
+(por eso G1 importa tanto); si cambia la firma, Android exige desinstalar primero.
 
 ### Fase H — Aceptación y apertura (🙋, ítem #50)
 

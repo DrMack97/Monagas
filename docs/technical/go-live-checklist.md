@@ -74,9 +74,15 @@ con las reglas nuevas pasan 29/29.
   registrar las apps nuevas (si no, Firebase la reutiliza): runbook, Fase C.
 - ✅ Se añadieron `*.jks`, `*.keystore` y `keystore.properties` al `.gitignore`: antes no
   estaban y un keystore de firma dentro del repo público se habría subido.
-- ⚠️ `deploy.yml` despliega a Firebase Hosting pero `firebase.json` no tiene `hosting`, y
-  el repo no define dónde se aloja el panel web (hay un `.vercel` ignorado): decisión
-  pendiente, ver runbook.
+- ✅ **Hosting del panel web ensayado en staging** (https://well-testing-staging.web.app):
+  Firebase Hosting, decisión provisional. La CLI **rechaza** un `public` fuera de la
+  carpeta de `firebase.json` ("outside of project directory"), así que el panel lleva su
+  propio `apps/web-supervisor/firebase.json` y se despliega con `--config`
+  (`npm run deploy:staging` / `deploy:production`). Verificado: carga, rewrite de SPA en
+  rutas profundas, service worker con `no-cache` y `projectId` correcto, sin errores.
+  *No verificado:* iniciar sesión en el sitio y las notificaciones (necesitan una persona
+  / un Chrome). `deploy.yml` sigue sin servir (apunta a Hosting sin config y no distingue
+  ambientes).
 - ⚠️ El `build.gradle` de Android no tiene configuración de firma: `assembleRelease` sale
   sin firmar. Preparado en el runbook (Fase G), pendiente de ejecutar con el keystore.
 

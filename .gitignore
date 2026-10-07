@@ -32,3 +32,6 @@ google-services.json
 *.keystore
 keystore.properties
 GoogleService-Info.plist
+
+# Caché local de firebase-tools (hosting)
+.firebase/
