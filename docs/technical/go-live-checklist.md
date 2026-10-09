@@ -105,7 +105,7 @@ sirve de referencia exacta de los pasos para producción:
   (`firebase firestore:databases:create "(default)" --location
   southamerica-east1 --delete-protection ENABLED --point-in-time-recovery
   ENABLED`) y programar backups — en staging no se activó a propósito.
-- 🙋 Alerta de presupuesto en Google Cloud Billing (ej. US$5).
+- 🙋 Alerta de presupuesto en Google Cloud Billing (ej. 5 EUR: la cuenta factura en euros).
 - ⬜ `.env.production` de ambas apps (ya existe el mecanismo —
   `build:staging`/`dev:staging` en `package.json` con Vite `--mode` — falta
   repetirlo con `production` y los datos reales de ese proyecto).

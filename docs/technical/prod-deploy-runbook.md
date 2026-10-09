@@ -102,7 +102,7 @@ cuenta de facturación **abierta** (la misma de staging).
 
 **A2. Alerta de presupuesto** (hazla ya, antes de que haya tráfico). Google
 Cloud Console → *Billing* → *Budgets & alerts* → *Create budget*, p. ej.
-US$5/mes con avisos al 50 / 90 / 100 %. Es una alerta, no un tope: no corta el
+5 EUR/mes (la cuenta factura en euros) con avisos al 50 / 90 / 100 %. Es una alerta, no un tope: no corta el
 servicio, solo te avisa.
 
 **A3. Crear Firestore** — ✅ **HECHO el 2026-10-08** (🤖, con tu confirmación de la
