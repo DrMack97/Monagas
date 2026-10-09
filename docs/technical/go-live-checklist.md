@@ -63,6 +63,12 @@ con las reglas nuevas pasan 29/29.
 > estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
 > comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
 
+- ✅ **Producción, avance real (2026-10-08):** facturación vinculada (misma cuenta de
+  staging, en EUR), API de Firestore activada y **base de datos creada** en
+  `southamerica-east1` con protección contra borrado. **PITR desactivado a propósito**
+  durante las pruebas; hay que activarlo al pasar a producción real (`firestore:databases:update
+  --point-in-time-recovery ENABLED`). Pendiente de Fase A: alerta de presupuesto
+  (confirmar monto, la cuenta factura en euros), Storage y Authentication (clics de consola).
 - ⚠️ **Hallazgo al prepararlo: no había forma de crear al primer Gerente/Supervisor de
   Área** (`crearPersonal` no la puede llamar ROOT y solo crea Operadores/Sup. de Campo; el
   panel bloquea Usuarios a ROOT; la guía decía lo contrario). Resuelto con
