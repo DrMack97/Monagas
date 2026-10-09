@@ -5,7 +5,7 @@
   "packageManager": "pnpm@8.15.0",
   "scripts": {
     "dev": "pnpm -r dev",
-    "build": "pnpm -r build",
+    "build": "pnpm --filter @monagas/core build && pnpm -r --filter \"!@monagas/core\" build",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "firebase:emulate": "cd firebase && cross-env FUNCTIONS_DISCOVERY_TIMEOUT=60 npx firebase emulators:start --project well-testing-dev"
