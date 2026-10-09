@@ -67,9 +67,11 @@ nada que romper, y las 10 funciones se crean directamente en 2.ª generación
    dueño operativo** para que lo pruebe; (b) **Google Play Store** como objetivo
    final, cuando la app "marche correctamente". La etapa (b) tiene sus propios
    pasos (Fase G5).
-6. **Recuperación a un punto en el tiempo (PITR):** ⏳ pendiente. **No fue un
-   pedido tuyo: lo incluí yo** en el checklist de producción como seguro extra.
-   Qué es y cuánto cuesta, en la Fase A3. Mi recomendación: dejarla activada.
+6. **Recuperación a un punto en el tiempo (PITR): ✅ DESACTIVADO por ahora**
+   (decisión del 2026-10-08). Mientras la app esté en fase de pruebas, perder datos
+   no es un problema. **Hay que activarlo cuando se entregue a producción real**
+   (ver Fase A3 y la puerta de salida, sección 6). No fue un pedido original: lo
+   propuse yo como seguro extra.
 
 ## 3. Puerta de entrada (antes de tocar producción)
 
@@ -103,27 +105,30 @@ Cloud Console → *Billing* → *Budgets & alerts* → *Create budget*, p. ej.
 US$5/mes con avisos al 50 / 90 / 100 %. Es una alerta, no un tope: no corta el
 servicio, solo te avisa.
 
-**A3. Crear Firestore** (🤖, **tras tu confirmación explícita de la región**,
-porque es permanente):
+**A3. Crear Firestore** — ✅ **HECHO el 2026-10-08** (🤖, con tu confirmación de la
+región). Hizo falta activar antes la API de Firestore en el proyecto (en producción
+estaba apagada; se activó con Service Usage y la creación funcionó tras propagarse).
 
 ```bash
 cd firebase
-npx firebase firestore:databases:create "(default)" --location southamerica-east1 --delete-protection ENABLED --point-in-time-recovery ENABLED --project well-testing-prod
+npx firebase firestore:databases:create "(default)" --location southamerica-east1 --delete-protection ENABLED --point-in-time-recovery DISABLED --project well-testing-prod
 ```
 
-- `--delete-protection ENABLED`: nadie puede borrar la base por accidente.
-- `--point-in-time-recovery ENABLED`: se puede volver a cualquier minuto de los
-  últimos 7 días (en staging no se activó a propósito). **Es una recomendación
-  mía, no un requisito:** protege contra un borrado o una escritura masiva
-  errónea (el único caso en que un dato se pierde de verdad). Costo: se factura
-  el almacenamiento de las versiones de esos 7 días, en proporción al tamaño de la
-  base (GB-mes; **no hay capa gratuita** y exige facturación activa). Con una base
-  pequeña es una fracción mínima del total, pero no pude confirmar la tarifa
-  exacta por GB: consultarla en la página de precios de Firestore antes de decidir.
-  Se puede activar o desactivar más adelante. La protección contra borrado
-  (`--delete-protection`) es independiente y no cuesta nada.
-- ✅ `npx firebase firestore:databases:list --project well-testing-prod` muestra
-  `southamerica-east1`, protección y PITR activos.
+- ✅ Verificado con `firestore:databases:get`: `southamerica-east1`, `STANDARD` /
+  `FIRESTORE_NATIVE`, **`DELETE_PROTECTION_ENABLED`** (nadie puede borrar la base por
+  accidente; es gratis y se quita con `--delete-protection DISABLED` si hiciera
+  falta rehacerla durante las pruebas) y **`POINT_IN_TIME_RECOVERY_DISABLED`**.
+- **PITR desactivado por decisión tuya** mientras dure la fase de pruebas. Qué es:
+  versiones de la base minuto a minuto durante 7 días, para volver a un instante
+  anterior a un borrado o una escritura errónea. Se factura el almacenamiento de
+  esas versiones (GB-mes, **sin capa gratuita**, exige facturación activa; tarifa
+  exacta no confirmada). **Para activarlo al pasar a producción real:**
+
+  ```bash
+  npx firebase firestore:databases:update "(default)" --point-in-time-recovery ENABLED --project well-testing-prod
+  ```
+
+  Y entonces hacer el ensayo de restauración de la sección 5.
 
 **A4. Backups programados** (🤖), además del PITR:
 
@@ -436,7 +441,8 @@ los usuarios reales. No se invita a nadie antes de la Fase E.
       corresponda.
 - [ ] APK firmado instalado y con push verificado; **keystore con 2 copias**.
 - [ ] Aceptación (#50) con personas reales superada.
-- [ ] Ensayo de restauración con PITR hecho (o riesgo aceptado por escrito).
+- [ ] **PITR activado** (está desactivado durante las pruebas, ver Fase A3) y ensayo
+      de restauración hecho; o riesgo aceptado por escrito.
 - [ ] Decisión sobre la revisión de seguridad externa tomada.
 
 ## 7. Qué NO hacer
