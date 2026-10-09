@@ -225,14 +225,22 @@ staging real y contra emuladores sin Functions).
 **Por qué lo ejecutas tú y no yo:** crea una cuenta con contraseña en producción.
 Prefiero que la clave del Gerente solo la conozcas tú.
 
-**Credenciales para correr el script** (este equipo no tiene `gcloud`). Elige una:
-- *Opción A (recomendada):* instalar Google Cloud CLI
-  (`winget install -e --id Google.CloudSDK`, en una terminal nueva) y ejecutar
-  `gcloud auth application-default login` (se abre el navegador; inicias sesión con
-  la cuenta de Google dueña del proyecto). Queda guardada en tu usuario de Windows,
-  fuera del repositorio. **Se puede ensayar ya contra staging** antes de que
-  producción esté lista: yo hago una lectura de solo lectura para confirmar que
-  funciona.
+**Credenciales para correr el script.** Elige una:
+- *Opción A (recomendada) — ✅ ya hecha y verificada el 2026-10-08:* Google Cloud
+  CLI 588.0.0 instalado con `winget install -e --id Google.CloudSDK`, y sesión
+  iniciada con `gcloud auth application-default login` (cuenta dueña del proyecto).
+  Las credenciales quedan en `%APPDATA%\gcloud\application_default_credentials.json`,
+  fuera del repositorio. Verificado con una lectura de solo lectura contra staging
+  (Auth y Firestore responden).
+  - **Usa PowerShell o CMD para `gcloud`**, no Git Bash: su script de arranque se
+    confunde con las rutas (`...\Monagas\Users\usuario\...: No such file`).
+  - **Hace falta un "proyecto de cuota"**: sin él, las llamadas de Auth fallan con
+    `auth/internal-error` (Firestore sí funciona, lo que despista). Se configura una
+    vez por proyecto con
+    `gcloud auth application-default set-quota-project <proyecto>`. Hoy está en
+    `well-testing-staging`; **antes de la Fase D hay que cambiarlo a
+    `well-testing-prod`** (solo se puede cuando la facturación y Authentication de
+    producción estén activos).
 - *Opción B:* consola → ⚙ → *Service accounts* → *Generate new private key*;
   `GOOGLE_APPLICATION_CREDENTIALS` apuntando al `.json`. **Bórralo al terminar**
   y nunca lo guardes dentro del repo.
