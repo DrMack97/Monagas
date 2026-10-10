@@ -275,7 +275,15 @@ variables `VITE_FIREBASE_*` que `.env.staging`). Vite lo carga solo con
 - ✅ Que `projectId` sea `well-testing-prod` en los tres archivos.
 - 🛑 Si sale `well-testing-dev` o `staging`: parar; se mezclaron ambientes.
 
-**C4. (🙋) Restringir las claves nuevas** — ⏳ pendiente. Google Cloud Console → *Credentials*
+**C4. (🙋) Restringir las claves nuevas** — 🟡 **clave web HECHA y verificada el 2026-10-10; clave Android
+pendiente** (necesita el SHA-1 del keystore, Fase G4). **Verificado para la web:** configuración
+leída de la API (exactamente los 3 referrers) y prueba activa con la clave desde 5 orígenes
+(`firebase/functions/scripts/probar-clave-web.cjs`, reutilizable): panel, dominio de Auth y `https://localhost/`
+**aceptados**; un sitio ajeno y una llamada sin Referer **bloqueados (403)**. Antes de la
+restricción los 5 se aceptaban. Al guardar, la consola descartó 2 APIs que la app no usa
+(`cloudconfig`, `play`); las críticas (identitytoolkit, securetoken, firestore, fcmregistrations,
+firebaseinstallations, firebasestorage) siguen. **No verificado:** la app móvil real en un
+teléfono (solo se probó el origen `https://localhost/` simulado). *Procedimiento original:* Google Cloud Console → *Credentials*
 (**comprobando antes el proyecto del selector y el valor de la clave**, ver C1):
 - Clave **web** ("Browser key", empieza por `AIzaSyDB6y`): *Application restrictions* → *HTTP
   referrers*. Hoy **no tiene ninguna restricción de aplicación** (comprobado por API: solo
