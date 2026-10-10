@@ -26,6 +26,7 @@ coverage/
 # de cada quien (dev/staging/prod), no se versiona. Descargar con:
 #   firebase apps:sdkconfig ANDROID <APP_ID> --project <PROJECT_ID>
 google-services.json
+google-services.*.json
 
 # Claves de firma del APK de release: NUNCA al repositorio (es público)
 *.jks

@@ -222,7 +222,10 @@ la clave activa del proyecto. Firebase reutiliza las claves automáticas del
 proyecto para las apps nuevas, así que si no se elimina primero, la app nueva
 nacería con una clave ya pública.
 
-**C1. (🙋) Eliminar la clave filtrada** — ⏳ **pendiente. Primer intento (2026-10-09): se eliminó
+**C1. (🙋) Eliminar la clave filtrada** — ✅ **HECHO el 2026-10-09 22:37 UTC y verificado por API**
+(activas en prod: solo la "Browser key"; staging conserva sus 2 claves; dev intacto). *Historia:* el
+primer intento (2026-10-09) eliminó
+la clave del proyecto equivocado
 la clave del proyecto equivocado** (`well-testing-staging`) y se restauró sin daño con la API de
 claves (`keys:undelete`; la restaurada coincide con la del `google-services.json` de staging,
 `AIzaSyDhaE…`). **Trampa:** las claves de TODOS los proyectos se llaman igual, "Android key (auto
@@ -235,7 +238,10 @@ por **`AIzaSyDo3_`** (llamada "Android key" o similar) → eliminar. Se puede
 recuperar durante 30 días si te equivocas. Nadie la usa: la app antigua no tiene
 código y la base de producción no tiene ni un dato.
 
-**C2. (🤖) Registrar las apps nuevas** (Firebase crea claves nuevas):
+**C2. (🤖) Registrar las apps nuevas** — ✅ **HECHO el 2026-10-10** (Firebase creó una clave
+Android nueva, `AIzaSyCcwe…`; la web usa la "Browser key" existente, `AIzaSyDB6y…`):
+- Web "Monagas Supervisor": `1:301184874401:web:abf2d5ae5d0e83c601fde0`
+- Android "Monagas Operator" (`com.monagas.operator`): `1:301184874401:android:a27a77dfa2ad768401fde0`
 
 ```bash
 npx firebase apps:create WEB "Monagas Supervisor" --project well-testing-prod
@@ -243,7 +249,19 @@ npx firebase apps:create ANDROID "Monagas Operator" --package-name com.monagas.o
 npx firebase apps:list --project well-testing-prod
 ```
 
-**C3. (🤖) Generar la configuración** (ninguno de estos archivos se versiona):
+**C3. (🤖) Generar la configuración** — ✅ **HECHO el 2026-10-10** (ninguno de estos archivos se versiona).
+Generados `apps/web-supervisor/.env.production`, `apps/mobile-operator/.env.production` y
+`apps/mobile-operator/android/app/google-services.production.json`. **Verificado:** ninguna usa
+la clave filtrada; `projectId` = `well-testing-prod` en todo; los builds de ambas apps con
+`--mode production` incrustan `well-testing-prod` y **cero** rastro de dev/staging; el service
+worker del panel sale con el `projectId` de producción. *Detalles:* (a) los `google-services` de
+cada ambiente ahora viven con nombre propio (`.staging.json`, `.production.json`; el `.gitignore`
+cubre `google-services.*.json`) y **hay que copiar el del ambiente a `google-services.json` antes de
+compilar el APK** (Gradle solo lee ese nombre); (b) el de producción trae **dos clientes** (la app
+antigua `Willy.Tank` y la nueva) mientras la antigua exista: funciona, se limpia al eliminarla;
+(c) el bucket de `.env.production` es el por defecto (`well-testing-prod.firebasestorage.app`),
+ver A5b.
+Comandos originales:
 
 ```bash
 npx firebase apps:sdkconfig WEB <appId-web> --project well-testing-prod      # → .env.production de AMBAS apps
@@ -257,10 +275,17 @@ variables `VITE_FIREBASE_*` que `.env.staging`). Vite lo carga solo con
 - ✅ Que `projectId` sea `well-testing-prod` en los tres archivos.
 - 🛑 Si sale `well-testing-dev` o `staging`: parar; se mezclaron ambientes.
 
-**C4. (🙋) Restringir las claves nuevas.** Google Cloud Console → *Credentials*:
-- Clave **web**: *Application restrictions* → *HTTP referrers* → el dominio final
-  del panel (p. ej. `https://well-testing-prod.web.app/*`). Sin restricción,
-  cualquiera puede usar la clave desde cualquier sitio.
+**C4. (🙋) Restringir las claves nuevas** — ⏳ pendiente. Google Cloud Console → *Credentials*
+(**comprobando antes el proyecto del selector y el valor de la clave**, ver C1):
+- Clave **web** ("Browser key", empieza por `AIzaSyDB6y`): *Application restrictions* → *HTTP
+  referrers*. Hoy **no tiene ninguna restricción de aplicación** (comprobado por API: solo
+  restringe qué APIs puede llamar). ⚠️ **Esta misma clave la usa también la app móvil**, cuyo
+  WebView de Capacitor corre con origen `https://localhost` (`androidScheme: 'https'`). Si se
+  restringe solo al dominio del panel, **la app del Operador deja de funcionar**. Referrers
+  necesarios: `https://well-testing-prod.web.app/*`, `https://well-testing-prod.firebaseapp.com/*`
+  y `https://localhost/*`. (Honestidad: una restricción por referrer frena el uso casual de la
+  clave, no a un atacante que falsee la cabecera; la protección real son las reglas de Firestore.)
+  Probar login en panel **y** en el APK justo después.
 - Clave **Android**: *Android apps* → paquete `com.monagas.operator` + la huella
   SHA-1 del keystore de **release** (se obtiene en la Fase G; este paso se puede
   completar entonces).
@@ -418,7 +443,10 @@ un `keystore.properties` local (no versionado), y `*.jks`, `*.keystore` y
 `keystore.properties` al `.gitignore` (ya hecho en este cambio: **antes no
 estaban**, un keystore dentro del repo público se habría subido).
 
-**G3. (🤖)**
+**G3. (🤖)** — antes, copiar la configuración de producción:
+`copy apps\mobile-operator\android\app\google-services.production.json apps\mobile-operator\android\app\google-services.json`
+(y a la inversa con `.staging.json` para un APK de staging). **Comprobar el `project_id` del archivo
+copiado antes de compilar.**
 
 ```bash
 cd apps/mobile-operator
