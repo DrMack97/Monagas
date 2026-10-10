@@ -63,6 +63,9 @@ con las reglas nuevas pasan 29/29.
 > estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
 > comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
 
+- ✅ **Clave web de producción restringida (2026-10-10)** a `web.app`, `firebaseapp.com` y
+  `https://localhost/*` (verificado: 3 orígenes legítimos aceptados, un sitio ajeno y una llamada sin
+  Referer bloqueados). Pendiente: clave Android (necesita SHA-1, Fase G) y probar la app móvil en teléfono.
 - ✅ **Producción, Fase C casi completa (2026-10-10):** clave filtrada eliminada (verificado por
   API); web y Android registradas; `.env.production` de ambas apps y `google-services.production.json`
   generados y validados con builds de producción. **Pendiente: C4** (restringir claves; ojo, la app
