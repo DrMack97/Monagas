@@ -63,7 +63,13 @@ con las reglas nuevas pasan 29/29.
 > estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
 > comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
 
-- ✅ **Producción, avance real (2026-10-08):** facturación vinculada (misma cuenta de
+- ✅ **Producción, Fase B completa (2026-10-09):** Storage y Authentication activados por el
+  dueño; reglas, índices, Storage y las **10 funciones desplegadas** (v2, Node 22, triggers en
+  `southamerica-east1`); política de limpieza de imágenes a 30 días. Detalle y tropiezos
+  (predeploy que dejó `node_modules` roto, error de propagación de Eventarc) en el runbook.
+  El bucket de Storage quedó en `US-EAST1` (igual que staging). **Siguiente: Fase C** (el dueño
+  elimina la clave de API filtrada; luego se registran las apps nuevas).
+- ✅ **Producción, avance previo (2026-10-08):** facturación vinculada (misma cuenta de
   staging, en EUR), API de Firestore activada y **base de datos creada** en
   `southamerica-east1` con protección contra borrado. **PITR desactivado a propósito**
   durante las pruebas; hay que activarlo al pasar a producción real (`firestore:databases:update
