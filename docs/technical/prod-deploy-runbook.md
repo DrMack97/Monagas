@@ -149,6 +149,20 @@ región. Solo añadiría algo de latencia si más adelante se suben fotos. Se de
 paridad con staging. (La recomendación original de este runbook, `southamerica-east1`,
 era más estricta de lo que hace falta.)
 
+**A5b. Segundo bucket en `southamerica-east1` — creado por ti el 2026-10-09.** El dueño añadió
+`well-testing-prod` (gs://well-testing-prod) en `SOUTHAMERICA-EAST1`, enlazado a Firebase, además del
+bucket por defecto `well-testing-prod.firebasestorage.app` (US-EAST1). **Estado verificado:**
+sus reglas son las que crea la consola, **"denegar todo"** (`allow read, write: if false`), o sea
+seguro; las reglas del repositorio (`storage.rules`) solo están desplegadas en el bucket por
+defecto, porque `firebase deploy --only storage` sin `target` solo apunta a ese. **Decisión
+pendiente, sin urgencia (la app no sube archivos todavía):** cuál usar. Si se usa el de
+`southamerica-east1`: (a) poner `VITE_FIREBASE_STORAGE_BUCKET=well-testing-prod` en el
+`.env.production` (el `apps:sdkconfig` devolverá el por defecto, hay que cambiarlo a mano);
+(b) desplegarle las reglas con un *target* de Storage (`firebase target:apply storage <alias>
+well-testing-prod --project well-testing-prod` + `"storage": [{"target": "<alias>", "rules":
+"storage.rules"}]` en `firebase.json`, y probarlo en staging antes: los nombres de bucket
+difieren entre ambientes).
+
 **A6. Activar Authentication** — ✅ **hecho por ti el 2026-10-09** (🙋). Consola →
 *Build* → *Authentication* → **Get started** → *Sign-in method* → **Email/Password**.
 - ✅ Verificado por API: proveedor de correo habilitado; dominios autorizados
@@ -208,7 +222,14 @@ la clave activa del proyecto. Firebase reutiliza las claves automáticas del
 proyecto para las apps nuevas, así que si no se elimina primero, la app nueva
 nacería con una clave ya pública.
 
-**C1. (🙋) Eliminar la clave filtrada.** Google Cloud Console (proyecto
+**C1. (🙋) Eliminar la clave filtrada** — ⏳ **pendiente. Primer intento (2026-10-09): se eliminó
+la clave del proyecto equivocado** (`well-testing-staging`) y se restauró sin daño con la API de
+claves (`keys:undelete`; la restaurada coincide con la del `google-services.json` de staging,
+`AIzaSyDhaE…`). **Trampa:** las claves de TODOS los proyectos se llaman igual, "Android key (auto
+created by Firebase)". Se distinguen por su valor: la filtrada de **producción** empieza por
+**`AIzaSyDo3_`**; la de staging por `AIzaSyDhaE`. Antes de eliminar: confirmar en el selector
+de proyecto (arriba a la izquierda) que dice `well-testing-prod`, y usar *Mostrar clave* para
+ver el valor. Comprobable después por API (`apikeys.googleapis.com`, `showDeleted=true`). Google Cloud Console (proyecto
 `well-testing-prod`) → *APIs & Services* → *Credentials* → la clave que empieza
 por **`AIzaSyDo3_`** (llamada "Android key" o similar) → eliminar. Se puede
 recuperar durante 30 días si te equivocas. Nadie la usa: la app antigua no tiene
