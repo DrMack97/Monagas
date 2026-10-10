@@ -149,19 +149,25 @@ región. Solo añadiría algo de latencia si más adelante se suben fotos. Se de
 paridad con staging. (La recomendación original de este runbook, `southamerica-east1`,
 era más estricta de lo que hace falta.)
 
-**A5b. Segundo bucket en `southamerica-east1` — creado por ti el 2026-10-09.** El dueño añadió
-`well-testing-prod` (gs://well-testing-prod) en `SOUTHAMERICA-EAST1`, enlazado a Firebase, además del
-bucket por defecto `well-testing-prod.firebasestorage.app` (US-EAST1). **Estado verificado:**
-sus reglas son las que crea la consola, **"denegar todo"** (`allow read, write: if false`), o sea
-seguro; las reglas del repositorio (`storage.rules`) solo están desplegadas en el bucket por
-defecto, porque `firebase deploy --only storage` sin `target` solo apunta a ese. **Decisión
-pendiente, sin urgencia (la app no sube archivos todavía):** cuál usar. Si se usa el de
-`southamerica-east1`: (a) poner `VITE_FIREBASE_STORAGE_BUCKET=well-testing-prod` en el
-`.env.production` (el `apps:sdkconfig` devolverá el por defecto, hay que cambiarlo a mano);
-(b) desplegarle las reglas con un *target* de Storage (`firebase target:apply storage <alias>
-well-testing-prod --project well-testing-prod` + `"storage": [{"target": "<alias>", "rules":
-"storage.rules"}]` en `firebase.json`, y probarlo en staging antes: los nombres de bucket
-difieren entre ambientes).
+**A5b. Bucket de la app en `southamerica-east1`** — ✅ **DECIDIDO y APLICADO el 2026-10-10.** El
+dueño creó `well-testing-prod` (gs://well-testing-prod) en `SOUTHAMERICA-EAST1`, y la consola le
+puso reglas "denegar todo". Se decidió **usarlo como el bucket de la app**:
+- **Reglas:** `firebase.json` ahora usa un *target* de Storage (`"storage": [{"target": "app",
+  "rules": "storage.rules"}]`) y `firebase/.firebaserc` mapea `app` a los buckets de cada ambiente
+  (`well-testing-prod` **y** `well-testing-prod.firebasestorage.app` en prod;
+  `well-testing-staging.firebasestorage.app` en staging; `well-testing-dev.firebasestorage.app` en
+  dev). `firebase deploy --only storage --project <proyecto>` deja las reglas del repositorio en
+  todos los buckets del ambiente. **Verificado** leyendo de Google el contenido de las reglas de
+  ambos buckets de producción: idénticas a `storage.rules`, ya sin "denegar todo". El bucket por
+  defecto (US-EAST1) queda con las mismas reglas, sin uso.
+- **Configuración:** `VITE_FIREBASE_STORAGE_BUCKET=well-testing-prod` en ambos `.env.production`
+  (el `apps:sdkconfig` devuelve el bucket por defecto, **hay que cambiarlo a mano cada vez que se
+  regeneren**); verificado que el build de producción incrusta `storageBucket:"well-testing-prod"`.
+- **Ensayado:** el despliegue con target en staging (sin cambios) y que el emulador de Storage sigue
+  arrancando con el nuevo `firebase.json` (el aviso de Java `NullPointerException … line is null`
+  al apagarlo es ruido preexistente: sale igual con la configuración original).
+- ⏳ **No verificado:** una subida real de archivo (la app todavía no sube nada) ni CORS desde el
+  dominio del panel; se prueba al implementar la primera subida.
 
 **A6. Activar Authentication** — ✅ **hecho por ti el 2026-10-09** (🙋). Consola →
 *Build* → *Authentication* → **Get started** → *Sign-in method* → **Email/Password**.
