@@ -63,6 +63,10 @@ con las reglas nuevas pasan 29/29.
 > estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
 > comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
 
+- ✅ **Storage de producción (2026-10-10):** la app usará el bucket de `southamerica-east1`
+  (`well-testing-prod`); sus reglas dejaron de ser "denegar todo" y son las del repositorio, igual
+  que en el bucket por defecto (verificado leyéndolas de Google). Reglas por *target*
+  (`firebase/.firebaserc`), no a mano. Sin subida real probada todavía.
 - ✅ **Clave web de producción restringida (2026-10-10)** a `web.app`, `firebaseapp.com` y
   `https://localhost/*` (verificado: 3 orígenes legítimos aceptados, un sitio ajeno y una llamada sin
   Referer bloqueados). Pendiente: clave Android (necesita SHA-1, Fase G) y probar la app móvil en teléfono.

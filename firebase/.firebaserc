@@ -1,0 +1,32 @@
+{
+  "projects": {
+    "dev": "well-testing-dev",
+    "staging": "well-testing-staging",
+    "prod": "well-testing-prod",
+    "default": "well-testing-dev"
+  },
+  "targets": {
+    "well-testing-prod": {
+      "storage": {
+        "app": [
+          "well-testing-prod",
+          "well-testing-prod.firebasestorage.app"
+        ]
+      }
+    },
+    "well-testing-staging": {
+      "storage": {
+        "app": [
+          "well-testing-staging.firebasestorage.app"
+        ]
+      }
+    },
+    "well-testing-dev": {
+      "storage": {
+        "app": [
+          "well-testing-dev.firebasestorage.app"
+        ]
+      }
+    }
+  }
+}
