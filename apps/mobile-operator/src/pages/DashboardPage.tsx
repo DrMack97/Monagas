@@ -30,7 +30,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-950">
       <div className="p-4 border-b border-slate-800 flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-white">Well Testing App</h1>
+          <h1 className="text-lg font-bold text-white">WillyTank</h1>
           <p className="text-xs text-slate-500">{user?.email}</p>
         </div>
         <div className="flex items-center gap-3">

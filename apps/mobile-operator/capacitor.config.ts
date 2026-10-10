@@ -8,7 +8,7 @@ import { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
   appId: 'com.monagas.operator',
-  appName: 'Monagas Operator',
+  appName: 'WillyTank',
   webDir: 'dist',
   server: {
     androidScheme: 'https'
