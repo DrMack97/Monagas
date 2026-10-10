@@ -130,7 +130,9 @@ npx firebase firestore:databases:create "(default)" --location southamerica-east
 
   Y entonces hacer el ensayo de restauración de la sección 5.
 
-**A4. Backups programados** (🤖), además del PITR:
+**A4. Backups programados** — ⏳ **diferido** (misma lógica que el PITR: durante las
+pruebas no hay datos que proteger; se hace al pasar a producción real). (🤖), además
+del PITR:
 
 ```bash
 npx firebase firestore:backups:schedules:create --recurrence DAILY --retention 14d --project well-testing-prod
@@ -138,16 +140,25 @@ npx firebase firestore:backups:schedules:create --recurrence DAILY --retention 1
 
 ✅ aparece al listarlos con `firestore:backups:schedules:list`.
 
-**A5. Activar Storage** (🙋). Consola → *Build* → *Storage* → **Get started** →
-modo producción → ubicación **`southamerica-east1`** (la misma región; también
-permanente). No se activa solo.
+**A5. Activar Storage** — ✅ **hecho por ti el 2026-10-09** (🙋). Consola → *Build* →
+*Storage* → **Get started** → modo producción. **Detalle verificado:** el bucket quedó
+en **`US-EAST1`**, no en `southamerica-east1`; **igual que el de staging** (que se probó
+completo), y es permanente. Impacto práctico: ninguno hoy, porque la app todavía no
+sube archivos (0 objetos) y las reglas de Storage leen Firestore sin importar la
+región. Solo añadiría algo de latencia si más adelante se suben fotos. Se deja así por
+paridad con staging. (La recomendación original de este runbook, `southamerica-east1`,
+era más estricta de lo que hace falta.)
 
-**A6. Activar Authentication** (🙋). Consola → *Build* → *Authentication* →
-**Get started** → *Sign-in method* → **Email/Password** → habilitar. En staging
-el deploy de Functions/Storage no avisa que falta hasta que se prueba un login.
-- ✅ 🤖 lo compruebo por API (proveedor de correo habilitado).
+**A6. Activar Authentication** — ✅ **hecho por ti el 2026-10-09** (🙋). Consola →
+*Build* → *Authentication* → **Get started** → *Sign-in method* → **Email/Password**.
+- ✅ Verificado por API: proveedor de correo habilitado; dominios autorizados
+  `localhost`, `well-testing-prod.firebaseapp.com` y `well-testing-prod.web.app`.
 
-### Fase B — Backend: reglas, índices, Storage y Functions (🤖)
+**Alerta de presupuesto (A2)** — ✅ creada por ti: **5 USD** (dato del dueño; no pude
+verificarla por API). La cuenta de facturación está en **EUR**: si Google la convirtió
+o la tomó en euros, el umbral real es 5 EUR. Conviene mirarla una vez en la consola.
+
+### Fase B — Backend: reglas, índices, Storage y Functions (🤖) — ✅ **HECHA el 2026-10-09**
 
 Orden obligatorio (cada uno depende del anterior):
 
@@ -160,18 +171,35 @@ npx firebase deploy --only functions --project well-testing-prod
 
 - Las reglas de Storage leen Firestore (`firestore.get()`), por eso Firestore
   va primero.
-- **Primer deploy de Functions 2.ª gen en un proyecto nuevo:** puede fallar una
-  vez con un error de permisos de *Eventarc* (la cuenta de servicio recién creada
-  tarda unos minutos en propagarse). **No es un fallo del código**: esperar
-  5–10 min y repetir el mismo comando.
+- ✅ **Resultado verificado:** reglas e índices de Firestore y reglas de Storage
+  desplegados a la primera. `functions:list`: **las 10 en `v2`, `nodejs22`**; los 7
+  triggers en `southamerica-east1` y los 3 callables en `us-central1`. Un re-despliegue
+  final dio `exit=0` con las 10 "Skipped (No changes detected)".
+- **Lo que pasó de verdad con las Functions (tres intentos, ~1 h en total):**
+  1. *Falló el predeploy* con errores de TypeScript. Causa: el `pnpm install` del
+     predeploy tardó **14 min** y dejó `node_modules` roto (faltaban las carpetas
+     `@google-cloud+firestore` y `@google-cloud+storage` del almacén de pnpm; avisó
+     "Failed to remove re2", un archivo bloqueado en Windows). Falló **antes de subir
+     nada**, así que no dejó producción a medias. Reparación:
+     `pnpm install --frozen-lockfile --force` desde la raíz (4 min 25 s). No pude
+     determinar qué lo provocó la primera vez; no se repitió. **Si el predeploy vuelve a
+     tardar minutos o a fallar con tipos, es esto.**
+  2. *Segundo intento:* creó las 3 funciones callable, y las 7 con disparador de
+     Firestore fallaron con *"Permission denied while using the Eventarc Service Agent …
+     Retry the deployment in a few minutes"* (y antes, "Failed to verify … IAM
+     bindings"). **Es el error de "primera vez con 2.ª gen" que este runbook anticipaba**;
+     no es del código. Tu cuenta es *Owner*, así que no era un tema de permisos: era
+     propagación. No hizo falta tocar ningún permiso a mano.
+  3. *Tercer intento* (≈ 25 min después): las 7 se crearon bien.
+- **Política de limpieza de imágenes:** la CLI exige una (si no, las imágenes de las
+  funciones se acumulan y cobran). Se fijó en **30 días** en `us-central1` y
+  `southamerica-east1`
+  (`firebase functions:artifacts:setpolicy --location <región> --days 30 --force`); el
+  valor por defecto de la CLI es 1 día, se eligió más margen para poder volver a
+  versiones anteriores. Es un comando para cambiarlo si se quisiera.
 - Los índices tardan unos minutos en construirse; la primera consulta compuesta
   puede dar *"The query requires an index"* hasta que terminen.
-- ✅ `npx firebase functions:list --project well-testing-prod`: **las 10 en
-  `v2`, `nodejs22`**; los 7 triggers en `southamerica-east1` y los 3 callables en
-  `us-central1`. ✅ Reglas: consola → Firestore → *Rules* muestra la fecha de
-  hoy.
-- 🛑 Si alguna función sale en `v1` o en `nodejs20`: parar (se desplegó otro
-  código).
+- 🛑 Si alguna función sale en `v1` o en `nodejs20`: parar (se desplegó otro código).
 
 ### Fase C — Claves de API y apps (🙋 + 🤖) — **el orden importa**
 
@@ -183,8 +211,8 @@ nacería con una clave ya pública.
 **C1. (🙋) Eliminar la clave filtrada.** Google Cloud Console (proyecto
 `well-testing-prod`) → *APIs & Services* → *Credentials* → la clave que empieza
 por **`AIzaSyDo3_`** (llamada "Android key" o similar) → eliminar. Se puede
-recuperar durante 30 días si te equivocas. Nadie la usa: producción no tiene
-ni base de datos.
+recuperar durante 30 días si te equivocas. Nadie la usa: la app antigua no tiene
+código y la base de producción no tiene ni un dato.
 
 **C2. (🤖) Registrar las apps nuevas** (Firebase crea claves nuevas):
 
