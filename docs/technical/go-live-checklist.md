@@ -63,6 +63,10 @@ con las reglas nuevas pasan 29/29.
 > estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
 > comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
 
+- ✅ **Producción, Fase C casi completa (2026-10-10):** clave filtrada eliminada (verificado por
+  API); web y Android registradas; `.env.production` de ambas apps y `google-services.production.json`
+  generados y validados con builds de producción. **Pendiente: C4** (restringir claves; ojo, la app
+  móvil comparte la clave web y necesita `https://localhost/*` como referrer) y **Fase D** (primer Gerente).
 - ✅ **Producción, Fase B completa (2026-10-09):** Storage y Authentication activados por el
   dueño; reglas, índices, Storage y las **10 funciones desplegadas** (v2, Node 22, triggers en
   `southamerica-east1`); política de limpieza de imágenes a 30 días. Detalle y tropiezos
