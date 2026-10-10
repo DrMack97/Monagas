@@ -79,7 +79,7 @@ export default function SettingsPage() {
         {soportado && habilitadas && permisoDenegado && (
           <p className="text-xs text-amber-400 mt-3">
             Android bloqueó las notificaciones de esta app. Actívalas en Ajustes del teléfono
-            → Aplicaciones → Monagas Operator → Notificaciones.
+            → Aplicaciones → WillyTank → Notificaciones.
           </p>
         )}
       </div>

@@ -4,8 +4,8 @@
   // Paso 2: Configurar theme_color, background_color
   // Passo 3: Display mode standalone
   // Entregable: PWA instalable desde browser
-  "name": "Monagas Operator",
-  "short_name": "Monagas",
+  "name": "WillyTank",
+  "short_name": "WillyTank",
   "description": "Sistema de evaluación de pozos petroleros - Monagas",
   "start_url": "/",
   "display": "standalone",
