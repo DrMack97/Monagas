@@ -63,6 +63,10 @@ con las reglas nuevas pasan 29/29.
 > estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
 > comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
 
+- ✅ **Producción (2026-10-10): Fase D y F hechas.** Primer Gerente creado y verificado (único usuario,
+  claims por `assignRole`); panel desplegado en https://well-testing-prod.web.app y verificado en vivo.
+  **Siguiente: Fase E** (prueba de humo), bloqueada solo por el rol *Token Creator* sobre
+  `firebase-adminsdk-fbsvc@well-testing-prod…`, que concede el dueño.
 - ✅ **Versión web de la app del Operador en staging (2026-10-10):** https://willytank-operador-staging.web.app
   (segundo sitio de Hosting, `apps/mobile-operator/firebase.staging.json`, `npm run deploy:web:staging`).
   Sirve para evaluar sin teléfono; verificado: carga, apunta solo a staging, sin errores de consola.
