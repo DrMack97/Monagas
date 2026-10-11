@@ -314,7 +314,14 @@ teléfono (solo se probó el origen `https://localhost/` simulado). *Procedimien
   completar entonces).
 - 🛑 Restringir mal rompe el login: probar login justo después de cada cambio.
 
-### Fase D — Primer usuario (🙋, yo te guío)
+### Fase D — Primer usuario (🙋, yo te guío) — ✅ **HECHA el 2026-10-10**
+
+**Resultado verificado por API en producción:** exactamente **1 usuario**, `willymotorsca@gmail.com` (Wily
+Vargas), creado por el dueño con `create-supervisor-user.js`; claims `{rol: GERENTE, pozoAsignado: null,
+zona: TODOS}` asignados por la Cloud Function `assignRole` (no por la rama de respaldo); perfil
+`/usuarios/{uid}` activo; cuenta no deshabilitada. Antes se apuntó el proyecto de cuota de `gcloud` a
+`well-testing-prod` y se verificó con lectura de Auth y Firestore. **Aviso:** esa contraseña no debe
+pegarse nunca en un chat (en staging se pegó una por error y se recomendó cambiarla).
 
 **Hallazgo al preparar esto:** no existía ninguna forma de crear al primer
 Gerente o Supervisor de Área. `crearPersonal` solo crea Operadores y Supervisores
@@ -373,7 +380,12 @@ node scripts/create-root-user.js --project well-testing-prod --email otro@ejempl
 `--rol SUP_AREA --zona MONAGAS` (o `FAJA`). A partir de ahí, Operadores y
 Supervisores de Campo se crean desde la pantalla *Usuarios* del panel.
 
-### Fase E — Prueba de humo en producción (🤖, con un permiso tuyo)
+### Fase E — Prueba de humo en producción (🤖, con un permiso tuyo) — ⏳ **BLOQUEADA SOLO POR EL ROL**
+
+**Comprobado el 2026-10-10:** la cuenta de servicio es
+`firebase-adminsdk-fbsvc@well-testing-prod.iam.gserviceaccount.com` y tu cuenta **no** tiene sobre ella el
+rol *Service Account Token Creator* (prueba real de `signBlob`: 403). Es lo único que falta; todo lo
+demás (credenciales, base, funciones, claves) está listo.
 
 Es la misma E2E de staging (`firebase/functions/scripts/e2e-cloud.cjs`, 22
 verificaciones: ciclo completo, rechazo, reglas y funciones). Crea datos de
@@ -394,7 +406,16 @@ GOOGLE_APPLICATION_CREDENTIALS=<adc.json> node scripts/e2e-cloud.cjs well-testin
   no quedó nada (pozos, evaluaciones, usuarios `e2e…`).
 - 🛑 Cualquier `FAIL`: parar. No se abre a usuarios.
 
-### Fase F — Panel web del Supervisor (🤖)
+### Fase F — Panel web del Supervisor (🤖) — ✅ **DESPLEGADO A PRODUCCIÓN el 2026-10-10**
+
+**Producción:** https://well-testing-prod.web.app. Verificado en vivo (HTTPS): `/` y `/aprobaciones`
+devuelven 200 (rewrite de SPA), título "WillyTank - Panel de Supervisión", `firebase-messaging-sw.js`
+200 con `Cache-Control: no-cache` y `projectId` = `well-testing-prod`; antes de desplegar, el build
+no tenía rastro de dev/staging. La clave web restringida sigue aceptando ese dominio (5/5 en la
+prueba activa). *Se desplegó antes de la Fase E* (no estaba prohibido: solo publica la pantalla de
+login); **no** se invita a usuarios hasta pasar la prueba de humo. ⏳ **No verificado:** iniciar
+sesión en el sitio de producción ni las notificaciones (requieren una persona / un Chrome con
+permiso).
 
 *(Firebase Hosting, decisión 1. **Ensayada y verificada en staging el 2026-10-07**:
 https://well-testing-staging.web.app.)*
