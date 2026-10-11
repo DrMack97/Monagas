@@ -63,6 +63,11 @@ con las reglas nuevas pasan 29/29.
 > estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
 > comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
 
+- ✅ **Marca y limpieza (2026-10-10):** la app y el panel se entregan como **WillyTank** (app móvil
+  y panel web; APK de staging recompilado y subido a App Distribution; invitación enviada al dueño
+  operativo; panel de staging redesplegado). App Android antigua `Willy.Tank` de producción
+  **eliminada** (recuperable hasta 2026-11-09). Identificador técnico sin cambios. La cuenta de
+  Gerente del dueño operativo existe en staging (rol GERENTE, zona TODOS, claims verificados).
 - ✅ **Storage de producción (2026-10-10):** la app usará el bucket de `southamerica-east1`
   (`well-testing-prod`); sus reglas dejaron de ser "denegar todo" y son las del repositorio, igual
   que en el bucket por defecto (verificado leyéndolas de Google). Reglas por *target*

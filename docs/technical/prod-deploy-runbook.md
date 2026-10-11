@@ -61,8 +61,10 @@ nada que romper, y las 10 funciones se crean directamente en 2.ª generación
 3. **Primer Gerente: el dueño operativo de la app.** ✅ Confirmado. Se crea con
    su correo en la Fase D (el tema de traspaso de propiedad del proyecto de
    Google se retoma aparte; mientras tanto tu cuenta sigue siendo *Owner*).
-4. **App Android antigua "WellTesting":** ⏳ pendiente. Qué es y qué tiene, en la
-   sección 1. Mi recomendación: eliminarla al final (no tiene nada que perder).
+4. **App Android antigua "WellTesting": ✅ ELIMINADA el 2026-10-10** (borrado *suave*: queda en
+   estado `DELETED` y **se puede recuperar hasta el 2026-11-09** con `androidApps:undelete`; después
+   desaparece sola). No servía para nada (ver sección 1). Con ella fuera, el
+   `google-services.production.json` quedó con un solo cliente (`com.monagas.operator`).
 5. **Distribución: dos etapas.** ✅ (a) APK firmado enviado **directamente al
    dueño operativo** para que lo pruebe; (b) **Google Play Store** como objetivo
    final, cuando la app "marche correctamente". La etapa (b) tiene sus propios
@@ -72,6 +74,13 @@ nada que romper, y las 10 funciones se crean directamente en 2.ª generación
    no es un problema. **Hay que activarlo cuando se entregue a producción real**
    (ver Fase A3 y la puerta de salida, sección 6). No fue un pedido original: lo
    propuse yo como seguro extra.
+
+7. **Nombre visible: ✅ "WillyTank"** (lo pidió el cliente; 2026-10-10). Aplicado en la app del
+   Operador (icono, pantallas, manifest), en el panel web (título, cabecera, login) y en el registro
+   de las apps Android de Firebase. Los reportes conservan el nombre oficial PDVSA "REPORTE DE
+   OPERACIONES DE WELL TESTING".
+8. **Identificador técnico: ✅ se queda `com.monagas.operator`** (decisión del dueño, 2026-10-10).
+   Recordatorio: es **permanente** una vez publicada la app en Play Store.
 
 ## 3. Puerta de entrada (antes de tocar producción)
 

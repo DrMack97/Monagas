@@ -32,7 +32,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <FiDroplet className="text-3xl mx-auto" aria-hidden="true" />
-          <h1 className="text-xl font-bold text-white mt-2">Well Testing</h1>
+          <h1 className="text-xl font-bold text-white mt-2">WillyTank</h1>
           <p className="text-sm text-slate-400">Panel de Supervisión</p>
         </div>
 
