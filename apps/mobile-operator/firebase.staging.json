@@ -1,0 +1,8 @@
+{
+  "hosting": {
+    "site": "willytank-operador-staging",
+    "public": "dist",
+    "ignore": ["firebase.json", "firebase.*.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+  }
+}

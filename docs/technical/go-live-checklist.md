@@ -63,6 +63,12 @@ con las reglas nuevas pasan 29/29.
 > estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
 > comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
 
+- ✅ **Versión web de la app del Operador en staging (2026-10-10):** https://willytank-operador-staging.web.app
+  (segundo sitio de Hosting, `apps/mobile-operator/firebase.staging.json`, `npm run deploy:web:staging`).
+  Sirve para evaluar sin teléfono; verificado: carga, apunta solo a staging, sin errores de consola.
+  **Limitaciones:** sin notificaciones push (son nativas del APK) y sin la experiencia real del
+  dispositivo. Para producción hará falta su propio sitio y añadir su dominio a la restricción de la clave
+  web (hoy solo `web.app` del panel, `firebaseapp.com` y `https://localhost/*`).
 - ✅ **Marca y limpieza (2026-10-10):** la app y el panel se entregan como **WillyTank** (app móvil
   y panel web; APK de staging recompilado y subido a App Distribution; invitación enviada al dueño
   operativo; panel de staging redesplegado). App Android antigua `Willy.Tank` de producción

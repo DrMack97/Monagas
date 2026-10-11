@@ -8,6 +8,7 @@
     "dev:staging": "vite --mode staging",
     "build": "vite build",
     "build:staging": "vite build --mode staging",
+    "deploy:web:staging": "vite build --mode staging && npx firebase deploy --only hosting --config firebase.staging.json --project well-testing-staging",
     "preview": "vite preview",
     "cap": "cap"
   },
