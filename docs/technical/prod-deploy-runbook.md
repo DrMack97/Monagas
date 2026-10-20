@@ -380,6 +380,9 @@ node scripts/create-root-user.js --project well-testing-prod --email otro@ejempl
 `--rol SUP_AREA --zona MONAGAS` (o `FAJA`). A partir de ahí, Operadores y
 Supervisores de Campo se crean desde la pantalla *Usuarios* del panel.
 
+**Prueba de login (añadida el 2026-10-20, ya hecha en producción):** `probar-login.cjs` — 5/5 en
+`well-testing-prod`. Repetirla dentro de la prueba de humo.
+
 ### Fase E — Prueba de humo en producción (🤖, con un permiso tuyo) — ⏳ **BLOQUEADA SOLO POR EL ROL**
 
 **Comprobado el 2026-10-10:** la cuenta de servicio es

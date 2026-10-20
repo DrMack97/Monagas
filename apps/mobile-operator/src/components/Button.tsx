@@ -11,7 +11,7 @@
 import React from 'react'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'acceso'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
   fullWidth?: boolean
@@ -33,7 +33,9 @@ export default function Button({
     primary: 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300',
     secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:bg-gray-50',
     danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300',
-    ghost: 'bg-transparent text-blue-600 hover:bg-blue-50 disabled:text-blue-300'
+    ghost: 'bg-transparent text-blue-600 hover:bg-blue-50 disabled:text-blue-300',
+    // Botón de la pantalla de login (ámbar del mockup original, texto oscuro)
+    acceso: 'bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 disabled:bg-amber-500/50'
   }
 
   const sizeClasses = {
