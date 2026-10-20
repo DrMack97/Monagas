@@ -3,21 +3,30 @@
 // Formulario de login real — llama a useAuth().login() con Firebase
 // Auth. El manejo de "no soy OPERADOR" queda en LoginPage, que es
 // quien conoce el rol resuelto después del login.
+//
+// Estilo oscuro (el mockup original): ya no usa el componente Input genérico, que es de
+// tema claro y desentonaba dentro de la tarjeta oscura del login.
 
-import { useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import Input from './Input'
 import Button from './Button'
 
 interface LoginFormProps {
   onSuccess?: () => void
 }
 
+const CLASE_ETIQUETA = 'block text-[10px] font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5'
+const CLASE_CAMPO =
+  'w-full bg-slate-800 border border-slate-700 rounded-[10px] px-3 py-2.5 text-sm text-amber-50 ' +
+  'placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-700 transition-shadow'
+
 export default function LoginForm({ onSuccess }: LoginFormProps) {
   const { login, loading, error } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [localError, setLocalError] = useState('')
+  const idCorreo = useId()
+  const idClave = useId()
 
   function validar(): boolean {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -49,30 +58,43 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     // corra si el valor no matchea el patrón del navegador — nuestro
     // mensaje de error estilizado nunca llegaría a mostrarse.
     <form onSubmit={handleSubmit} noValidate className="space-y-4">
-      <Input
-        label="Correo electrónico"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-        autoComplete="username"
-      />
-      <Input
-        label="Contraseña"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        autoComplete="current-password"
-      />
+      <div>
+        <label htmlFor={idCorreo} className={CLASE_ETIQUETA}>
+          Correo electrónico
+        </label>
+        <input
+          id={idCorreo}
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="username"
+          className={CLASE_CAMPO}
+        />
+      </div>
+      <div>
+        <label htmlFor={idClave} className={CLASE_ETIQUETA}>
+          Contraseña
+        </label>
+        <input
+          id={idClave}
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoComplete="current-password"
+          placeholder="••••••••"
+          className={CLASE_CAMPO}
+        />
+      </div>
 
       {(localError || error) && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+        <div role="alert" className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-lg px-3 py-2">
           {localError || error}
         </div>
       )}
 
-      <Button type="submit" fullWidth loading={loading}>
+      <Button type="submit" variant="acceso" fullWidth loading={loading} className="py-3">
         Iniciar Sesión
       </Button>
     </form>

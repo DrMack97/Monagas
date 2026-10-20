@@ -34,7 +34,10 @@ function RutaProtegida({ children }: { children: ReactNode }) {
   }
 
   if (!user) return <Navigate to="/login" replace />
-  if (rol === 'OPERADOR') return <Navigate to="/login" replace />
+  // OPERADOR no es de este panel; y una cuenta SIN rol (p. ej. creada a mano desde la consola, que no
+  // pasa por assignRole) no tiene permisos sobre nada: antes entraba a un panel vacío sin explicación.
+  // Se devuelve a /login, que le dice por qué.
+  if (rol === 'OPERADOR' || rol === null) return <Navigate to="/login" replace />
 
   return <>{children}</>
 }

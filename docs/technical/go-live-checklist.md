@@ -63,6 +63,22 @@ con las reglas nuevas pasan 29/29.
 > estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
 > comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
 
+- ✅ **Login real y marca (2026-10-20) — hallazgo importante.** El proveedor **Correo/Contraseña
+  NUNCA estuvo habilitado en staging** (la configuración ni existía): todo intento daba
+  `PASSWORD_LOGIN_DISABLED`, por eso ninguna cuenta había iniciado sesión jamás ("último login: nunca").
+  Se me pasó: el checklist dejaba el login real como "no probado" pero yo había dado Authentication de
+  staging por completo (solo se había comprobado crear cuentas con el Admin SDK y firmar con tokens
+  personalizados, no iniciar sesión como la app). **Habilitado el 2026-10-20** por la API de Identity
+  Toolkit. Nuevo `firebase/functions/scripts/probar-login.cjs` (cuentas desechables, inicio de sesión
+  real por REST, se borran solas): **5/5 en staging y 5/5 en producción**; desde ahora forma parte de la
+  prueba de humo. Producción ya lo tenía habilitado (lo hizo el dueño en la Fase A6).
+  **Segundo problema, de la app:** una cuenta que inicia sesión pero NO tiene rol (p. ej. creada a mano en
+  la consola, que no pasa por `assignRole`) volvía al login SIN mensaje (Operador) o entraba a un panel
+  vacío (panel). Ahora ambos muestran "tu cuenta no tiene un rol asignado…" y el panel ya no la deja
+  pasar (`RutaProtegida`). **Logo recuperado:** estaba incrustado en los mockups y nunca se extrajo
+  (`docs/design/logo/`); y **logins rediseñados** como en el mockup, cada uno con su paleta (Operador:
+  esmeralda/azul y botón ámbar; panel: violeta/índigo). Tests: Operador 38→43, panel 38→49.
+  APK 1.0.1 (versionCode 2) distribuido a los dos testers; panel actualizado en staging y producción.
 - ✅ **Producción (2026-10-10): Fase D y F hechas.** Primer Gerente creado y verificado (único usuario,
   claims por `assignRole`); panel desplegado en https://well-testing-prod.web.app y verificado en vivo.
   **Siguiente: Fase E** (prueba de humo), bloqueada solo por el rol *Token Creator* sobre

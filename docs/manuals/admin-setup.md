@@ -120,6 +120,26 @@ existen. A partir de ese primer supervisor, el personal restante (Operadores y
 Supervisores de Campo) se da de alta desde la pantalla *Usuarios* del panel.
 Pasos completos de producción: `docs/technical/prod-deploy-runbook.md`.
 
+## 4b. Crear usuarios: NUNCA desde la consola de Firebase
+
+Las cuentas se crean **desde la pantalla Usuarios del panel** (Operadores y Supervisores de Campo; la
+usa un Gerente o Supervisor de Área) o, para el **primer** Gerente/Supervisor de Área, con
+`firebase/functions/scripts/create-supervisor-user.js`. Ambos caminos escriben el perfil
+`/usuarios/{uid}`, y eso dispara `assignRole`, que asigna el **rol** (un permiso interno que las reglas y
+las apps leen).
+
+**Una cuenta creada a mano en la consola de Firebase** (Authentication → Agregar usuario) **sí puede
+iniciar sesión, pero no tiene rol**: las apps la rechazan con el aviso "tu cuenta no tiene un rol
+asignado" (antes volvía al login sin decir nada, y parecía que las credenciales no funcionaban). Para
+repararla basta crear su perfil: un documento `usuarios/{uid}` con `rol`, `zona`, `activo: true` y
+`pozoAsignado` (null salvo Operador/Supervisor de Campo), escrito con el Admin SDK; `assignRole` asigna
+el rol al instante. Después la persona debe **cerrar sesión y volver a entrar** para que su sesión lo
+recoja.
+
+**Antes de culpar a las credenciales:** `node scripts/probar-login.cjs <proyecto> <.env> <origen>` (en
+`firebase/functions`) inicia sesión de verdad con cuentas desechables; si responde
+`PASSWORD_LOGIN_DISABLED`, el proveedor Correo/Contraseña no está habilitado en ese proyecto.
+
 ## 5. Problemas conocidos
 
 - **Resuelto — el emulador de Functions podía no cargar ninguna
