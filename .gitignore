@@ -36,3 +36,6 @@ GoogleService-Info.plist
 
 # Caché local de firebase-tools (hosting)
 .firebase/
+
+# Contraseñas de cuentas de prueba generadas por los scripts (create-operator-user.js --generar-clave)
+.cuentas-locales/
