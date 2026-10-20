@@ -63,6 +63,12 @@ con las reglas nuevas pasan 29/29.
 > estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
 > comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
 
+- ✅ **Cuenta de Operador de prueba en staging (2026-10-20):** `delgadoantolinezdavidalejandro+operador@gmail.com`
+  (alias que llega a la bandeja del dueño, permite restablecer contraseña), asignada a "pozo prueba". Creada con el nuevo
+  `firebase/functions/scripts/create-operator-user.js --generar-clave` (misma lógica que `crearPersonal`); la contraseña
+  queda solo en `firebase/functions/.cuentas-locales/` (ignorada por git), nunca en el chat. Verificado de punta a punta:
+  claims `OPERADOR`+pozo por `assignRole`, inicio de sesión real, lectura de SU pozo permitida y listado de todo el
+  personal denegado por las reglas. Ese día los dos Gerentes ya habían iniciado sesión y Wily había creado el pozo desde el panel.
 - ✅ **Login real y marca (2026-10-20) — hallazgo importante.** El proveedor **Correo/Contraseña
   NUNCA estuvo habilitado en staging** (la configuración ni existía): todo intento daba
   `PASSWORD_LOGIN_DISABLED`, por eso ninguna cuenta había iniciado sesión jamás ("último login: nunca").
