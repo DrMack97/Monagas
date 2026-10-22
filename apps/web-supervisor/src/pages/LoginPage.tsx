@@ -17,6 +17,7 @@ import { useAuth } from '../hooks/useAuth'
 import Input from '../components/common/Input'
 import Button from '../components/common/Button'
 import MarcaLogin from '../components/common/MarcaLogin'
+import { URL_OPERADOR } from '../config/enlaces'
 
 const FONDO = 'linear-gradient(160deg, #060d1a 0%, #0a1528 50%, #060d14 100%)'
 
@@ -94,6 +95,13 @@ export default function LoginPage() {
               Iniciar Sesión
             </Button>
           </form>
+        )}
+
+        {/* Como en el mockup original: acceso a la app del Operador (versión web). Solo si el ambiente la tiene. */}
+        {URL_OPERADOR && (
+          <a href={URL_OPERADOR} className="mt-5 block text-center text-xs text-slate-500 hover:text-slate-300">
+            ← Acceso Operador de Campo
+          </a>
         )}
       </div>
     </div>

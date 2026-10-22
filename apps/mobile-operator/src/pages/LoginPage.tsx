@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import LoginForm from '../components/LoginForm'
 import MarcaLogin from '../components/MarcaLogin'
+import { URL_PANEL } from '../config/enlaces'
 
 const FONDO = 'linear-gradient(160deg, #060d1a 0%, #0a1528 50%, #060d14 100%)'
 
@@ -55,6 +56,17 @@ export default function LoginPage() {
           <div className="bg-slate-900 border border-emerald-900/40 rounded-2xl p-5 shadow-2xl">
             <LoginForm onSuccess={() => navigate('/dashboard')} />
           </div>
+        )}
+
+        {/* Como en el mockup original: acceso al panel de supervisión (Supervisores y Gerentes). En el APK el
+            sistema lo abre en el navegador del teléfono. */}
+        {URL_PANEL && (
+          <a
+            href={URL_PANEL}
+            className="mt-5 block text-center text-xs font-semibold text-violet-400 border border-violet-500/30 rounded-lg py-2 hover:bg-violet-500/10"
+          >
+            Acceso al Panel de Supervisión →
+          </a>
         )}
       </div>
     </div>

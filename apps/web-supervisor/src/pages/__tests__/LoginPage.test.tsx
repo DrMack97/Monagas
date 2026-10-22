@@ -12,6 +12,14 @@ import LoginPage from '../LoginPage'
 const useAuthMock = jest.fn()
 jest.mock('../../hooks/useAuth', () => ({ useAuth: () => useAuthMock() }))
 
+// URL de la app del Operador que ve esta prueba; el mock real (jest.config.cjs) la deja vacía.
+let mockUrlOperador = ''
+jest.mock('../../config/enlaces', () => ({
+  get URL_OPERADOR() {
+    return mockUrlOperador
+  },
+}))
+
 const logoutMock = jest.fn()
 const estado = (parcial: Record<string, unknown>) => ({
   user: null, rol: null, loading: false, error: null, login: jest.fn(), logout: logoutMock, ...parcial,
@@ -20,6 +28,7 @@ const montar = () => render(<MemoryRouter><LoginPage /></MemoryRouter>)
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockUrlOperador = ''
 })
 
 describe('LoginPage del panel de supervisión', () => {
@@ -52,6 +61,19 @@ describe('LoginPage del panel de supervisión', () => {
     useAuthMock.mockReturnValue(estado({ user: { uid: 'u1' }, rol: 'OPERADOR' }))
     montar()
     expect(screen.getByText(/usa la app móvil/i)).toBeInTheDocument()
+  })
+
+  it('con URL del Operador configurada (staging): muestra el acceso al Operador de Campo', () => {
+    mockUrlOperador = 'https://operador.ejemplo.test/'
+    useAuthMock.mockReturnValue(estado({}))
+    montar()
+    expect(screen.getByRole('link', { name: /operador de campo/i })).toHaveAttribute('href', 'https://operador.ejemplo.test/')
+  })
+
+  it('sin URL del Operador (producción): no muestra enlace', () => {
+    useAuthMock.mockReturnValue(estado({}))
+    montar()
+    expect(screen.queryByRole('link', { name: /operador de campo/i })).not.toBeInTheDocument()
   })
 
   it('muestra el error de Firebase cuando el login falla', () => {

@@ -53,7 +53,7 @@ export default function AnalyticsPage() {
   )
 
   return (
-    <div className="min-h-screen bg-slate-950 flex">
+    <div className="min-h-screen bg-slate-950 flex pb-16 md:pb-0">
       <Sidebar rol={rol} />
 
       <div className="flex-1 min-w-0">
