@@ -63,6 +63,16 @@ con las reglas nuevas pasan 29/29.
 > estado real de producción, las decisiones pendientes, el orden de cada paso, cómo
 > comprobarlo y el rollback. Esta sección es la lista de cosas; el runbook es el orden.
 
+- ✅ **Panel usable en el teléfono + enlaces entre las apps (2026-10-21).** Hallazgo: la barra lateral del panel es
+  `hidden md:flex`, así que **en un teléfono no había navegación** (solo un enlace a Usuarios en la cabecera): no se podía
+  llegar a Aprobaciones ni Analytics. Añadida una barra inferior solo móvil (`Sidebar.tsx`, con las mismas opciones por
+  rol) y espacio inferior en las 3 páginas que la usan. Además, como en el mockup original, el login del Operador enlaza al
+  panel y el del panel al Operador (web). Las URLs son variables de entorno por ambiente (`VITE_URL_PANEL` en la app del
+  Operador, `VITE_URL_OPERADOR` en el panel; sin variable no hay enlace: en producción el panel no enlaza al Operador porque
+  no hay versión web del Operador). Tests: Operador 43→45, panel 49→55. APK 1.0.2 (versionCode 3). *No verificado:* la barra
+  móvil en una página real autenticada (requiere sesión; solo se probó con tests) ni los enlaces dentro del APK en un teléfono.
+  Segunda cuenta de Operador de prueba: `willymotorsca+operador@gmail.com` (alias Gmail: el correo de Wily ya es su Gerente y
+  Firebase no admite dos cuentas con el mismo correo), mismo pozo "pozo prueba"; contraseña solo en `.cuentas-locales/`.
 - ✅ **Cuenta de Operador de prueba en staging (2026-10-20):** `delgadoantolinezdavidalejandro+operador@gmail.com`
   (alias que llega a la bandeja del dueño, permite restablecer contraseña), asignada a "pozo prueba". Creada con el nuevo
   `firebase/functions/scripts/create-operator-user.js --generar-clave` (misma lógica que `crearPersonal`); la contraseña

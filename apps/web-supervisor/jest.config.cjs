@@ -11,6 +11,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   moduleNameMapper: {
     '.*/services/firebase$': '<rootDir>/src/test/__mocks__/firebase.ts',
+    '.*/config/enlaces$': '<rootDir>/src/test/__mocks__/enlaces.ts',
     '^@core/(.*)$': '<rootDir>/../../packages/core/src/$1',
     '^@core$': '<rootDir>/../../packages/core/src/index.ts',
     '\\.(css|less|scss)$': 'identity-obj-proxy',

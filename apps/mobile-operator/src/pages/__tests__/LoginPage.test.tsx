@@ -19,6 +19,14 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => navigateMock,
 }))
 
+// URL del panel que ve esta prueba; el mock real (jest.config.cjs) la deja vacía.
+let mockUrlPanel = ''
+jest.mock('../../config/enlaces', () => ({
+  get URL_PANEL() {
+    return mockUrlPanel
+  },
+}))
+
 const logoutMock = jest.fn()
 const estado = (parcial: Record<string, unknown>) => ({
   user: null, rol: null, loading: false, error: null, login: jest.fn(), logout: logoutMock, ...parcial,
@@ -27,6 +35,7 @@ const montar = () => render(<MemoryRouter><LoginPage /></MemoryRouter>)
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockUrlPanel = ''
 })
 
 describe('LoginPage del Operador', () => {
@@ -59,6 +68,19 @@ describe('LoginPage del Operador', () => {
     useAuthMock.mockReturnValue(estado({ user: { uid: 'u1' }, rol: 'GERENTE' }))
     montar()
     expect(screen.getByRole('alert')).toHaveTextContent(/exclusiva del operador/i)
+  })
+
+  it('con URL del panel configurada: muestra el acceso al Panel de Supervisión (como el mockup)', () => {
+    mockUrlPanel = 'https://panel.ejemplo.test/'
+    useAuthMock.mockReturnValue(estado({}))
+    montar()
+    expect(screen.getByRole('link', { name: /panel de supervisión/i })).toHaveAttribute('href', 'https://panel.ejemplo.test/')
+  })
+
+  it('sin URL del panel (ambiente que no la define): no muestra enlace', () => {
+    useAuthMock.mockReturnValue(estado({}))
+    montar()
+    expect(screen.queryByRole('link', { name: /panel de supervisión/i })).not.toBeInTheDocument()
   })
 
   it('OPERADOR autenticado: pasa directo al dashboard', () => {

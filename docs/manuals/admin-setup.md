@@ -120,6 +120,13 @@ existen. A partir de ese primer supervisor, el personal restante (Operadores y
 Supervisores de Campo) se da de alta desde la pantalla *Usuarios* del panel.
 Pasos completos de producción: `docs/technical/prod-deploy-runbook.md`.
 
+## 2b. Variables opcionales de enlace entre apps
+
+Además de las `VITE_FIREBASE_*`, hay dos opcionales (un `.env.<ambiente>` por app, no versionados): en la app del
+**Operador** `VITE_URL_PANEL` (URL del panel del mismo ambiente) y en el **panel** `VITE_URL_OPERADOR` (URL de la app del
+Operador en versión web). Si faltan, el enlace del login simplemente no aparece. Staging define ambas; producción solo
+`VITE_URL_PANEL` (no hay versión web del Operador en producción).
+
 ## 4b. Crear usuarios: NUNCA desde la consola de Firebase
 
 Las cuentas se crean **desde la pantalla Usuarios del panel** (Operadores y Supervisores de Campo; la
