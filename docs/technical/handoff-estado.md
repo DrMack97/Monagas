@@ -16,6 +16,24 @@ Fases A, B, C (salvo clave Android), D (primer Gerente) y F (panel desplegado); 
 logins rediseñados; barra móvil en el panel; enlaces entre apps; APK 1.0.2 (versionCode 3) distribuido a los 2 testers.
 CI en verde en `4ec97f7`. Tests: Operador 45, panel 55, Functions 36 + 11 + 8 (validación de scripts).
 
+**BUG ABIERTO (reportado por Wily, 2026-11-02): asignar un Operador a un pozo desde el panel da error.** Diagnóstico
+(solo lectura, sin corregir): en **staging las 3 funciones callable** (`reassignPozo`, `crearPersonal`,
+`setPersonalActivo`, las de la pantalla Usuarios) **no tienen el permiso público de invocación** (`allUsers` →
+`roles/run.invoker` en su servicio de Cloud Run; lista de invocadores vacía). El navegador (y su petición previa CORS, que va
+sin Authorization) es rechazado por Google ANTES de llegar a la función: los registros de `reassignPozo` muestran 5 avisos
+*"The request was not authenticated… Empty Authorization header value"* el 2026-10-22 01:19–01:45 UTC, cuando Wily probaba. En
+**producción esas 3 SÍ son públicas** (allUsers) — se crearon limpias el 2026-10-09 —, aunque tampoco están probadas en vivo.
+Causa de que staging las perdiera: **no determinada** (se crearon el 2026-10-04/05 y luego se actualizaron). `assignRole` no
+es pública en ningún ambiente y está bien (es un trigger de Firestore, no se llama desde el navegador). Implicación: **la
+pantalla Usuarios de staging nunca ha podido funcionar**; las cuentas de prueba se crearon con scripts, no con ella.
+*Arreglo propuesto (es un cambio de permisos en la cuenta del dueño: pedirle OK antes):* para cada una, `gcloud run services
+add-iam-policy-binding <servicio-en-minúsculas> --region us-central1 --member=allUsers --role=roles/run.invoker --project
+well-testing-staging` (desde PowerShell). Es lo normal en callables: la autenticación real la hace la propia función con el
+token de Firebase. *Cómo comprobarlo sin sesión de Gerente:* POST a
+`https://us-central1-well-testing-staging.cloudfunctions.net/reassignPozo` con `Authorization: Bearer <idToken de un Operador de
+prueba>` y cuerpo `{"data":{}}`: hoy da 401/403 de Google; arreglado debe devolver el error `permission-denied` de la propia
+función (prueba de que llegó). Después, que Wily lo pruebe de verdad desde Usuarios.
+
 **Bloqueado:**
 - **Fase E** (prueba de humo en producción): la cuenta del dueño NO tiene el rol *Service Account Token Creator* sobre
   `firebase-adminsdk-fbsvc@well-testing-prod.iam.gserviceaccount.com` (prueba real de `signBlob`: 403, repetida el
@@ -41,7 +59,7 @@ CI en verde en `4ec97f7`. Tests: Operador 45, panel 55, Functions 36 + 11 + 8 (v
 **Preguntas abiertas (NO decididas):** tipo de cuenta de Google Play (personal exige prueba cerrada con 12 testers
 14 días, organización exige D-U-N-S; verificar reglas vigentes); revisión de seguridad externa; traspaso de propiedad
 del proyecto de Google (el dueño dijo "llegado el momento"); crear también una cuenta de Gerente del dueño (David)
-en producción; segundo pozo de prueba para que Wily y David no se pisen (hoy comparten "pozo prueba"); si borrar o no
+en producción; si borrar o no
 los 7 archivos de `Conceptos/` (ver sección 7).
 
 ## 4. Identificadores y accesos
@@ -93,12 +111,14 @@ los 7 archivos de `Conceptos/` (ver sección 7).
 - **Descartado:** `hosting.public` fuera de carpeta; `hosting:rollback` (no existe en la CLI).
 
 ## 6. Próximos pasos
+0. **Primero el BUG ABIERTO de arriba** (pedir OK, abrir las 3 callables de staging, comprobar, y que Wily reintente asignar un
+   Operador desde Usuarios). Verificar también las de producción con la misma comprobación antes de la Fase H.
 1. **Dueño:** conceder el rol de firma (sección 2). **Yo:** Fase E → `node scripts/e2e-cloud.cjs well-testing-prod <apiKeyWeb>
    firebase-adminsdk-fbsvc@well-testing-prod.iam.gserviceaccount.com` (con `GOOGLE_APPLICATION_CREDENTIALS` apuntando a un ADC;
    ver el encabezado del script) y `node scripts/probar-login.cjs well-testing-prod ../../apps/web-supervisor/.env.production
    https://well-testing-prod.web.app/`.
 2. **Dueño:** pruebas en staging (ciclo completo; **notificaciones reales** en el teléfono, nunca verificadas); reportar el
-   mensaje exacto de cualquier fallo. Hoy hay 1 evaluación `EN_CURSO` con 0 lecturas en staging.
+   mensaje exacto de cualquier fallo. Hoy hay 1 evaluación `EN_CURSO` con 0 lecturas en staging. (Segundo pozo de prueba para Wily: el dueño dijo que NO hace falta.)
 3. **Fase G:** el dueño genera el keystore (`keytool`, fuera del repo, 2 copias); yo configuro la firma en
    `android/app/build.gradle` leyendo `keystore.properties` (ya ignorado por git), compilo `assembleRelease`, saco el SHA-1 y
    restrinjo la clave Android (C4). Play Store (G5) después.
@@ -126,6 +146,7 @@ los 7 archivos de `Conceptos/` (ver sección 7).
 - **Pendiente del dueño, no mío:** 7 archivos de `Conceptos/` borrados de su disco y sin confirmar en git; yo no los toco.
 
 ## 8. Lo que NO está verificado (no darlo por hecho)
-Entrega real de notificaciones push (APK y navegador) · el enlace "Acceso al Panel de Supervisión" abierto dentro del APK en un
+Cualquier llamada real a `crearPersonal` / `reassignPozo` / `setPersonalActivo` desde el navegador (en staging está rota, ver BUG ABIERTO; en
+producción están públicas pero nunca se han llamado) · Entrega real de notificaciones push (APK y navegador) · el enlace "Acceso al Panel de Supervisión" abierto dentro del APK en un
 teléfono · la barra móvil del panel con sesión real · inicio de sesión en producción con una cuenta real · subida real de un
 archivo a Storage y CORS · restauración desde PITR/backup · `getMessaging().send()` real · captura visual del login del panel.
