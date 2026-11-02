@@ -16,23 +16,20 @@ Fases A, B, C (salvo clave Android), D (primer Gerente) y F (panel desplegado); 
 logins rediseñados; barra móvil en el panel; enlaces entre apps; APK 1.0.2 (versionCode 3) distribuido a los 2 testers.
 CI en verde en `4ec97f7`. Tests: Operador 45, panel 55, Functions 36 + 11 + 8 (validación de scripts).
 
-**BUG ABIERTO (reportado por Wily, 2026-11-02): asignar un Operador a un pozo desde el panel da error.** Diagnóstico
-(solo lectura, sin corregir): en **staging las 3 funciones callable** (`reassignPozo`, `crearPersonal`,
-`setPersonalActivo`, las de la pantalla Usuarios) **no tienen el permiso público de invocación** (`allUsers` →
-`roles/run.invoker` en su servicio de Cloud Run; lista de invocadores vacía). El navegador (y su petición previa CORS, que va
-sin Authorization) es rechazado por Google ANTES de llegar a la función: los registros de `reassignPozo` muestran 5 avisos
-*"The request was not authenticated… Empty Authorization header value"* el 2026-10-22 01:19–01:45 UTC, cuando Wily probaba. En
-**producción esas 3 SÍ son públicas** (allUsers) — se crearon limpias el 2026-10-09 —, aunque tampoco están probadas en vivo.
-Causa de que staging las perdiera: **no determinada** (se crearon el 2026-10-04/05 y luego se actualizaron). `assignRole` no
-es pública en ningún ambiente y está bien (es un trigger de Firestore, no se llama desde el navegador). Implicación: **la
-pantalla Usuarios de staging nunca ha podido funcionar**; las cuentas de prueba se crearon con scripts, no con ella.
-*Arreglo propuesto (es un cambio de permisos en la cuenta del dueño: pedirle OK antes):* para cada una, `gcloud run services
-add-iam-policy-binding <servicio-en-minúsculas> --region us-central1 --member=allUsers --role=roles/run.invoker --project
-well-testing-staging` (desde PowerShell). Es lo normal en callables: la autenticación real la hace la propia función con el
-token de Firebase. *Cómo comprobarlo sin sesión de Gerente:* POST a
-`https://us-central1-well-testing-staging.cloudfunctions.net/reassignPozo` con `Authorization: Bearer <idToken de un Operador de
-prueba>` y cuerpo `{"data":{}}`: hoy da 401/403 de Google; arreglado debe devolver el error `permission-denied` de la propia
-función (prueba de que llegó). Después, que Wily lo pruebe de verdad desde Usuarios.
+**BUG RESUELTO EN PERMISOS (2026-11-02), pendiente de la prueba real de Wily: asignar un Operador a un pozo desde el panel daba
+error.** Causa: en **staging las 3 funciones callable** (`reassignPozo`, `crearPersonal`, `setPersonalActivo`, las de la pantalla
+Usuarios) no tenían el permiso público de invocación (`allUsers` → `roles/run.invoker` en su servicio de Cloud Run; lista vacía), así
+que Google rechazaba al navegador (y su petición previa CORS, sin Authorization) ANTES de llegar a la función; los registros de
+`reassignPozo` mostraban 5 avisos *"The request was not authenticated… Empty Authorization header value"* el 2026-10-22. Por qué
+staging perdió el permiso: **no determinado** (se crearon el 2026-10-04/05 y luego se actualizaron); si se vuelve a desplegar `functions`
+allí, repetir la comprobación de abajo. `assignRole` no es pública en ningún ambiente y está bien (trigger de Firestore).
+*Arreglo aplicado (OK del dueño, 2026-11-02):* `allUsers` → `roles/run.invoker` en `reassignpozo`, `crearpersonal` y
+`setpersonalactivo` de `well-testing-staging` (`us-central1`), por la API REST de Cloud Run v2 (`setIamPolicy`; `gcloud` no tiene cuenta
+activa, solo ADC: `gcloud auth application-default print-access-token`). **No hubo cambio de código ni hace falta un APK nuevo**: es
+permisos de la nube. *Comprobado:* POST sin token a `https://us-central1-<proyecto>.cloudfunctions.net/<función>` con `{"data":{}}` ya
+devuelve el `PERMISSION_DENIED` propio de la función (*"Solo Supervisor de Área o Gerente pueden…"*) en **staging y en producción**, y
+el OPTIONS (CORS) da 204 con `Access-Control-Allow-Origin` del panel. **NO verificado:** una llamada real con sesión de Gerente. Falta que Wily
+asigne un Operador a un pozo desde Usuarios en staging y reporte el mensaje exacto si falla.
 
 **Bloqueado:**
 - **Fase E** (prueba de humo en producción): la cuenta del dueño NO tiene el rol *Service Account Token Creator* sobre
@@ -111,8 +108,7 @@ los 7 archivos de `Conceptos/` (ver sección 7).
 - **Descartado:** `hosting.public` fuera de carpeta; `hosting:rollback` (no existe en la CLI).
 
 ## 6. Próximos pasos
-0. **Primero el BUG ABIERTO de arriba** (pedir OK, abrir las 3 callables de staging, comprobar, y que Wily reintente asignar un
-   Operador desde Usuarios). Verificar también las de producción con la misma comprobación antes de la Fase H.
+0. **Wily:** probar en staging la pantalla Usuarios (asignar un Operador a un pozo, dar de alta, desactivar); es lo único que falta del bug de las callables (ver sección 2). Producción ya responde igual, pero tampoco se ha probado con sesión real.
 1. **Dueño:** conceder el rol de firma (sección 2). **Yo:** Fase E → `node scripts/e2e-cloud.cjs well-testing-prod <apiKeyWeb>
    firebase-adminsdk-fbsvc@well-testing-prod.iam.gserviceaccount.com` (con `GOOGLE_APPLICATION_CREDENTIALS` apuntando a un ADC;
    ver el encabezado del script) y `node scripts/probar-login.cjs well-testing-prod ../../apps/web-supervisor/.env.production
@@ -146,7 +142,7 @@ los 7 archivos de `Conceptos/` (ver sección 7).
 - **Pendiente del dueño, no mío:** 7 archivos de `Conceptos/` borrados de su disco y sin confirmar en git; yo no los toco.
 
 ## 8. Lo que NO está verificado (no darlo por hecho)
-Cualquier llamada real a `crearPersonal` / `reassignPozo` / `setPersonalActivo` desde el navegador (en staging está rota, ver BUG ABIERTO; en
-producción están públicas pero nunca se han llamado) · Entrega real de notificaciones push (APK y navegador) · el enlace "Acceso al Panel de Supervisión" abierto dentro del APK en un
+Cualquier llamada real a `crearPersonal` / `reassignPozo` / `setPersonalActivo` desde el navegador (en staging el permiso se restauró el 2026-11-02, ver sección 2; en
+producción están públicas; ninguna se ha llamado con sesión real) · Entrega real de notificaciones push (APK y navegador) · el enlace "Acceso al Panel de Supervisión" abierto dentro del APK en un
 teléfono · la barra móvil del panel con sesión real · inicio de sesión en producción con una cuenta real · subida real de un
 archivo a Storage y CORS · restauración desde PITR/backup · `getMessaging().send()` real · captura visual del login del panel.
