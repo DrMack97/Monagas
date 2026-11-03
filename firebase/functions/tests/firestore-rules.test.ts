@@ -32,6 +32,7 @@ const OPERADOR_OTRO_POZO = { rol: 'OPERADOR', pozoAsignado: 'pozo2', zona: 'MONA
 const SUP_MONAGAS = { rol: 'SUP_AREA', pozoAsignado: null, zona: 'MONAGAS' }
 const SUP_FAJA = { rol: 'SUP_AREA', pozoAsignado: null, zona: 'FAJA' }
 const GERENTE = { rol: 'GERENTE', pozoAsignado: null, zona: null }
+const SUP_CAMPO = { rol: 'SUP_CAMPO', pozoAsignado: 'pozo1', zona: 'MONAGAS' }
 
 const as = (uid: string, claims: Record<string, unknown>) =>
   env.authenticatedContext(uid, claims).firestore()
@@ -175,6 +176,23 @@ describe('/evaluaciones/{id}/lecturas — create', () => {
     await assertFails(
       addDoc(collection(as('op2', OPERADOR_OTRO_POZO), 'evaluaciones/evEnCurso/lecturas'), { hora: 2, tanques: [], operativos: {} })
     )
+  })
+})
+
+describe('/pozos — update por el Supervisor de Campo', () => {
+  it('permite fijar el Reductor (pulg) de SU pozo junto con tanques y límites (WellDetailPage)', async () => {
+    await assertSucceeds(updateDoc(doc(as('sc1', SUP_CAMPO), 'pozos/pozo1'), {
+      tanques: [], limResorte: 300, limGamma: 60, reductorPulgadas: '1/2"',
+    }))
+  })
+  it('DENIEGA editar el Reductor de un pozo que no es el suyo', async () => {
+    await assertFails(updateDoc(doc(as('sc1', SUP_CAMPO), 'pozos/pozo2'), { reductorPulgadas: '1/2"' }))
+  })
+  it('DENIEGA que el Operador cambie el Reductor (solo lo consulta)', async () => {
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), 'pozos/pozo1'), { reductorPulgadas: '1/2"' }))
+  })
+  it('sigue DENEGANDO campos fuera de la lista (nombre) aunque vaya con el Reductor', async () => {
+    await assertFails(updateDoc(doc(as('sc1', SUP_CAMPO), 'pozos/pozo1'), { reductorPulgadas: '1/2"', nombre: 'otro' }))
   })
 })
 

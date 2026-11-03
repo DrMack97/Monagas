@@ -50,6 +50,13 @@ export interface IPozo {
   limGamma: number    // inH₂O
   meterRun?: number   // pulg — Meter Run D
   diamOrif?: number   // pulg — Diámetro Placa d
+  /**
+   * Medida de la tubería (reductor) en pulgadas, texto libre (ej. "1/2\""). La fija
+   * quien crea el pozo y la edita el Supervisor de Campo; es permanente en el pozo.
+   * El Operador no la escribe: RegistroPage la muestra de solo lectura y la copia a
+   * ILecturaOp.reductorPulgadas. No participa en ningún cálculo de barriles.
+   */
+  reductorPulgadas?: string
   empresa?: string    // Empresa contratista que ejecuta el servicio (encabezado de reporte)
   equipo?: string     // Identificador del equipo de medición (ej. "WT-DSI-01") — encabezado del reporte PDVSA, dato estable del pozo igual que `empresa`
   legal?: IPozoLegal  // Información legal — ver IPozoLegal. Opcional: pozos existentes no lo tienen todavía.
@@ -203,6 +210,9 @@ export interface ILecturaOp {
    * Tamaño del estrangulador/reductor en el cabezal — campo "Red."
    * del reporte PDVSA (ej. "1/2""). Es un STRING, no un número: se
    * expresa como fracción de pulgada, no como cantidad continua.
+   * Es una copia de IPozo.reductorPulgadas al momento de guardar la
+   * lectura (el Operador ya no lo escribe). Lecturas anteriores a este
+   * cambio pueden traer el valor que el Operador tecleó a mano.
    *
    * OJO — no confundir con ILecturaTanque.reductor: ese es un valor
    * en Bls usado en calcTanque() para corregir el cálculo de volumen

@@ -69,6 +69,32 @@ describe('NewWellPage', () => {
     expect(payload.zona).toBe('FAJA')
   })
 
+  it('guarda el Reductor (pulg) en el pozo nuevo', async () => {
+    useAuthMock.mockReturnValue({ rol: 'SUP_AREA', zona: 'MONAGAS', user: { uid: 'uid-area' } })
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText(/nombre del pozo/i), 'MFB-1')
+    await user.type(screen.getByLabelText(/^campo$/i), 'Bare')
+    await user.type(screen.getByLabelText('Reductor (pulg)'), '1/2"')
+    await user.click(screen.getByRole('button', { name: /crear pozo/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
+    expect(addDocMock.mock.calls[0][1].reductorPulgadas).toBe('1/2"')
+
+  })
+
+  it('no manda reductorPulgadas si se deja vacío (pozo sin reductor: el Operador verá "-")', async () => {
+    useAuthMock.mockReturnValue({ rol: 'SUP_AREA', zona: 'MONAGAS', user: { uid: 'uid-area' } })
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText(/nombre del pozo/i), 'MFB-2')
+    await user.type(screen.getByLabelText(/^campo$/i), 'Bare')
+    await user.click(screen.getByRole('button', { name: /crear pozo/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
+    expect(addDocMock.mock.calls[0][1]).not.toHaveProperty('reductorPulgadas')
+  })
+
   it('muestra un mensaje amigable si Firestore rechaza la creación', async () => {
     useAuthMock.mockReturnValue({ rol: 'SUP_AREA', zona: 'MONAGAS', user: { uid: 'uid-area' } })
     addDocMock.mockRejectedValueOnce({ code: 'permission-denied' })

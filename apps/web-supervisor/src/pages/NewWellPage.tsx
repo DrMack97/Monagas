@@ -34,6 +34,7 @@ export default function NewWellPage() {
   const [campo, setCampo] = useState('')
   const [empresa, setEmpresa] = useState('')
   const [equipo, setEquipo] = useState('')
+  const [reductorPulgadas, setReductorPulgadas] = useState('')
   const [zonaSeleccionada, setZonaSeleccionada] = useState(zona ?? 'FAJA')
   const [horasEval, setHorasEval] = useState('5')
   const [limResorte, setLimResorte] = useState('300')
@@ -78,6 +79,7 @@ export default function NewWellPage() {
         campo,
         ...(empresa.trim() && { empresa: empresa.trim() }),
         ...(equipo.trim() && { equipo: equipo.trim() }),
+        ...(reductorPulgadas.trim() && { reductorPulgadas: reductorPulgadas.trim() }),
         zona: zonaFinal,
         ft: tanquesFinales[0]?.ft.toString() ?? '2.40',
         limResorte: parseFloat(limResorte) || 0,
@@ -117,6 +119,7 @@ export default function NewWellPage() {
             <Input label="Campo" value={campo} onChange={(e) => setCampo(e.target.value)} required placeholder="ej: Bare" />
             <Input label="Empresa" value={empresa} onChange={(e) => setEmpresa(e.target.value)} placeholder="ej: Del Sur International, S.A." />
             <Input label="Equipo" value={equipo} onChange={(e) => setEquipo(e.target.value)} placeholder="ej: WT-DSI-01" />
+            <Input label="Reductor (pulg)" value={reductorPulgadas} onChange={(e) => setReductorPulgadas(e.target.value)} placeholder={'ej: 1/2"'} />
           </div>
 
           <div>

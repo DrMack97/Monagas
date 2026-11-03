@@ -34,7 +34,8 @@ service cloud.firestore {
 
     // SUP_CAMPO puede editar SU propio pozo, pero únicamente los campos
     // técnicos de operación diaria: tanques (mi/ft) y límites de alerta
-    // (limResorte/limGamma). No puede tocar nombre, zona, asignados[],
+    // (limResorte/limGamma) y el Reductor (reductorPulgadas, medida de tubería
+    // que ven los Operadores). No puede tocar nombre, zona, asignados[],
     // ni crear pozos nuevos — eso sigue siendo exclusivo de canManagePozoEnZona().
     // Tampoco tiene ninguna autoridad sobre creación o reasignación de
     // personal — eso vive exclusivamente en las Cloud Functions
@@ -42,7 +43,7 @@ service cloud.firestore {
     function canEditOwnTanquesYLimites(pozoId) {
       return isSupCampo() && isAssignedToPozo(pozoId) &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['tanques', 'limResorte', 'limGamma']);
+          .hasOnly(['tanques', 'limResorte', 'limGamma', 'reductorPulgadas']);
     }
 
     // Candado de ciclo EN_CURSO (useEvaluacionActual.ts, mobile-operator).
