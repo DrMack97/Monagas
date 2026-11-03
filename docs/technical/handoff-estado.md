@@ -13,7 +13,7 @@ aceptación (#50) con personas reales, APK de release firmado entregado al dueñ
 **Hecho y verificado:** Fases 0–5; Fase 6 salvo lo indicado; Functions en Node 22 / 2.ª gen (7 triggers en
 `southamerica-east1`, 3 callables en `us-central1`); staging completo (login habilitado el 2026-10-20); producción
 Fases A, B, C (salvo clave Android), D (primer Gerente) y F (panel desplegado); nombre WillyTank; logo recuperado;
-logins rediseñados; barra móvil en el panel; enlaces entre apps; APK 1.0.2 (versionCode 3) distribuido a los 2 testers.
+logins rediseñados; barra móvil en el panel; enlaces entre apps; APK **1.0.4 (versionCode 4)** distribuido a los 2 testers de staging (2026-11-03).
 CI en verde en `4ec97f7`. Tests: Operador 45, panel 55, Functions 36 + 11 + 8 (validación de scripts).
 
 **BUG RESUELTO EN PERMISOS (2026-11-02), pendiente de la prueba real de Wily: asignar un Operador a un pozo desde el panel daba
@@ -30,6 +30,16 @@ permisos de la nube. *Comprobado:* POST sin token a `https://us-central1-<proyec
 devuelve el `PERMISSION_DENIED` propio de la función (*"Solo Supervisor de Área o Gerente pueden…"*) en **staging y en producción**, y
 el OPTIONS (CORS) da 204 con `Access-Control-Allow-Origin` del panel. **NO verificado:** una llamada real con sesión de Gerente. Falta que Wily
 asigne un Operador a un pozo desde Usuarios en staging y reporte el mensaje exacto si falla.
+
+**Cambio de la ronda 1.0.4 (2026-11-03, desplegado SOLO en staging; en producción NO):** se quitan de la app del Operador los campos
+Diluyente y Reductor (Bls) (en el estado van en 0: `calcTanque` y los datos no cambian; el código de Diluyente se conserva por si la Faja
+lo vuelve a usar). El **Reductor (pulg)** pasó a ser una medida de tubería del POZO (`IPozo.reductorPulgadas`, texto libre, ej. `1/2"`):
+se pide en `NewWellPage` (solo SUP_AREA/GERENTE crean pozos, sin cambios), la edita SUP_CAMPO/SUP_AREA/GERENTE en `WellDetailPage`, y el
+Operador la ve de solo lectura ("-" si el pozo no la tiene) y se copia a `operativos.reductorPulgadas` de cada lectura. **Cambio de
+permisos:** `firestore.rules` añade `reductorPulgadas` al `hasOnly` de SUP_CAMPO (solo eso). Desplegado en staging (reglas, panel,
+Operador web y APK); **antes de producción hay que desplegar reglas + panel allí y compilar el APK con el google-services de prod.**
+Tests: Operador 50, panel 58, reglas 33 (emulador). El pozo de prueba aún no tiene reductor (el Operador ve "-") y NO se ha
+probado en un teléfono ni con sesión real de SUP_CAMPO.
 
 **Bloqueado:**
 - **Fase E** (prueba de humo en producción): la cuenta del dueño NO tiene el rol *Service Account Token Creator* sobre
@@ -142,7 +152,7 @@ los 7 archivos de `Conceptos/` (ver sección 7).
 - **Pendiente del dueño, no mío:** 7 archivos de `Conceptos/` borrados de su disco y sin confirmar en git; yo no los toco.
 
 ## 8. Lo que NO está verificado (no darlo por hecho)
-Cualquier llamada real a `crearPersonal` / `reassignPozo` / `setPersonalActivo` desde el navegador (en staging el permiso se restauró el 2026-11-02, ver sección 2; en
+El Reductor (pulg) de la 1.0.4 en pantalla real (Operador, SUP_CAMPO editando) · Cualquier llamada real a `crearPersonal` / `reassignPozo` / `setPersonalActivo` desde el navegador (en staging el permiso se restauró el 2026-11-02, ver sección 2; en
 producción están públicas; ninguna se ha llamado con sesión real) · Entrega real de notificaciones push (APK y navegador) · el enlace "Acceso al Panel de Supervisión" abierto dentro del APK en un
 teléfono · la barra móvil del panel con sesión real · inicio de sesión en producción con una cuenta real · subida real de un
 archivo a Storage y CORS · restauración desde PITR/backup · `getMessaging().send()` real · captura visual del login del panel.
