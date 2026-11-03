@@ -2,7 +2,7 @@
 //
 // Protege el payload EXACTO que guardarTanquesYLimites() envía a
 // Firestore para SUP_CAMPO — debe ser siempre {tanques, limResorte,
-// limGamma} y nada más, para coincidir con hasOnly([...]) de
+// limGamma, reductorPulgadas} y nada más, para coincidir con hasOnly([...]) de
 // canEditOwnTanquesYLimites() en firestore.rules. Agregar un campo
 // aquí sin actualizar la regla (o viceversa) rompe el guardado de
 // SUP_CAMPO en producción sin que tsc lo detecte.
@@ -74,7 +74,7 @@ describe('WellDetailPage', () => {
     usePozoMock.mockReturnValue({ pozo: POZO_BASE, loading: false, error: null })
   })
 
-  it('SUP_CAMPO guarda con el payload restringido exacto (tanques, limResorte, limGamma)', async () => {
+  it('SUP_CAMPO guarda con el payload restringido exacto (tanques, limResorte, limGamma, reductorPulgadas)', async () => {
     useAuthMock.mockReturnValue({ rol: 'SUP_CAMPO' })
     renderPage()
     const user = userEvent.setup()
@@ -83,7 +83,19 @@ describe('WellDetailPage', () => {
 
     await waitFor(() => expect(updateDocMock).toHaveBeenCalled())
     const payload = updateDocMock.mock.calls[0][1]
-    expect(Object.keys(payload).sort()).toEqual(['limGamma', 'limResorte', 'tanques'])
+    expect(Object.keys(payload).sort()).toEqual(['limGamma', 'limResorte', 'reductorPulgadas', 'tanques'])
+  })
+
+  it('SUP_CAMPO edita el Reductor (pulg) y se guarda tal cual, sin espacios sobrantes', async () => {
+    useAuthMock.mockReturnValue({ rol: 'SUP_CAMPO' })
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText('Reductor (pulg)'), ' 1/2" ')
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+
+    await waitFor(() => expect(updateDocMock).toHaveBeenCalled())
+    expect(updateDocMock.mock.calls[0][1].reductorPulgadas).toBe('1/2"')
   })
 
   it('SUP_AREA/GERENTE además mandan empresa/equipo (permitido, sin hasOnly restringiéndolos)', async () => {
@@ -95,7 +107,7 @@ describe('WellDetailPage', () => {
 
     await waitFor(() => expect(updateDocMock).toHaveBeenCalled())
     const payload = updateDocMock.mock.calls[0][1]
-    expect(Object.keys(payload).sort()).toEqual(['empresa', 'equipo', 'limGamma', 'limResorte', 'tanques'])
+    expect(Object.keys(payload).sort()).toEqual(['empresa', 'equipo', 'limGamma', 'limResorte', 'reductorPulgadas', 'tanques'])
   })
 
   it('muestra "solo lectura" y oculta Guardar cuando el rol no tiene permiso de edición', () => {

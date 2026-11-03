@@ -26,6 +26,10 @@ import { calcTanque, calcAGA3 } from '@monagas/core/calculos'
 import LoadingSpinner from '../components/LoadingSpinner'
 import type { ILecturaTanque, ILecturaGas } from '@core/types'
 
+// reductor y dilDia ya no tienen campo en pantalla: el Reductor es una medida de
+// tubería (pulgadas) fijada en el pozo y no afecta los barriles, y el Diluyente no se
+// usa en Monagas. Siguen en el estado en 0 para no tocar calcTanque ni los datos
+// guardados; si Diluyente vuelve a usarse en otra zona, basta restaurar su campo.
 interface TankFormState {
   mf: string
   reductor: string
@@ -59,7 +63,6 @@ export default function RegistroPage() {
   const [pCab, setPCab] = useState('0')
   const [pSep, setPSep] = useState('0')
   const [pCsg, setPCsg] = useState('0')
-  const [reductorPulgadas, setReductorPulgadas] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [guardadoOk, setGuardadoOk] = useState(false)
@@ -193,7 +196,7 @@ export default function RegistroPage() {
             pCab: parseFloat(pCab) || 0,
             pSep: parseFloat(pSep) || 0,
             pCsg: parseFloat(pCsg) || 0,
-            ...(reductorPulgadas.trim() && { reductorPulgadas: reductorPulgadas.trim() }),
+            ...(pozo.reductorPulgadas?.trim() && { reductorPulgadas: pozo.reductorPulgadas.trim() }),
           },
           alertas,
         }),
@@ -295,22 +298,6 @@ export default function RegistroPage() {
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs text-slate-500 mb-1">Reductor (Bls)</label>
-                  <input
-                    type="number" step="0.01" value={form.reductor}
-                    onChange={(e) => actualizarTank(tank.id, 'reductor', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-500 mb-1">Diluyente (Bls/D)</label>
-                  <input
-                    type="number" step="0.01" value={form.dilDia}
-                    onChange={(e) => actualizarTank(tank.id, 'dilDia', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
               </div>
 
               {resultado && (
@@ -367,12 +354,12 @@ export default function RegistroPage() {
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Reductor (pulg)</label>
-              <input
-                value={reductorPulgadas}
-                onChange={(e) => setReductorPulgadas(e.target.value)}
-                placeholder={'ej: 1/2"'}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
-              />
+              <div
+                aria-label="Reductor (pulg)"
+                className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-300"
+              >
+                {pozo?.reductorPulgadas?.trim() || '-'}
+              </div>
             </div>
           </div>
         </section>

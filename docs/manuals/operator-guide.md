@@ -29,8 +29,10 @@ Dos botones:
 ## 3. Registrar una lectura
 
 Desde "Registrar Lectura" cargas los valores medidos en ese momento:
-presión de cabezal, casing, separador, línea/reductor, el reductor en
-pulgadas, los datos de tanques, y los parámetros de gas cuando aplique.
+presión de cabezal, casing, separador, línea, los datos de tanques, y los parámetros de gas cuando aplique.
+El **Reductor (pulg)** (la medida de la tubería) lo fija el Supervisor de Campo en el
+pozo: tú solo lo ves, sin poder cambiarlo, y se guarda con cada lectura. Si ves
+"-", el pozo todavía no lo tiene: avisa a tu Supervisor de Campo.
 Guarda con el botón correspondiente — la lectura queda agregada al ciclo
 de evaluación que está actualmente EN_CURSO para tu pozo.
 

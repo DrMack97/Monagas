@@ -1,14 +1,14 @@
 // src/pages/WellDetailPage.tsx
 //
 // Detalle y edición de un pozo. El alcance de edición depende del rol:
-//   SUP_CAMPO (solo en SU propio pozo) — únicamente tanques y límites.
+//   SUP_CAMPO (solo en SU propio pozo) — únicamente tanques, límites y Reductor (pulg).
 //   SUP_AREA/GERENTE — tanques, límites, y además Empresa/Equipo
 //     (encabezado del reporte PDVSA — ver checklist Fase 4). Nombre/
 //     campo/zona siguen sin ser editables desde acá (se fijan una vez
 //     al crear el pozo en NewWellPage.tsx).
 //
 // El update de SUP_CAMPO envía EXCLUSIVAMENTE {tanques, limResorte,
-// limGamma} — nada más — para coincidir exacto con hasOnly([...]) de
+// limGamma, reductorPulgadas} — nada más — para coincidir exacto con hasOnly([...]) de
 // canEditOwnTanquesYLimites() en firestore.rules. Enviar cualquier
 // otro campo, aunque no cambie de valor, arriesga que Firestore
 // rechace el write completo. SUP_AREA/GERENTE (canManagePozoEnZona, sin
@@ -98,6 +98,7 @@ export default function WellDetailPage() {
   const [limGamma, setLimGamma] = useState('')
   const [empresa, setEmpresa] = useState('')
   const [equipo, setEquipo] = useState('')
+  const [reductorPulgadas, setReductorPulgadas] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null)
@@ -109,6 +110,7 @@ export default function WellDetailPage() {
       setLimGamma(String(pozo.limGamma))
       setEmpresa(pozo.empresa ?? '')
       setEquipo(pozo.equipo ?? '')
+      setReductorPulgadas(pozo.reductorPulgadas ?? '')
     }
   }, [pozo])
 
@@ -124,7 +126,7 @@ export default function WellDetailPage() {
     setGuardando(true)
     setErrorGuardar(null)
     try {
-      // Payload EXACTO para SUP_CAMPO — solo estos 3 campos, para que
+      // Payload EXACTO para SUP_CAMPO — solo estos 4 campos, para que
       // coincida con hasOnly([...]) de canEditOwnTanquesYLimites() en
       // firestore.rules. SUP_AREA/GERENTE (canManagePozoEnZona, sin
       // restricción de campos) sí pueden mandar empresa/equipo además
@@ -133,6 +135,7 @@ export default function WellDetailPage() {
         tanques,
         limResorte: parseFloat(limResorte) || 0,
         limGamma: parseFloat(limGamma) || 0,
+        reductorPulgadas: reductorPulgadas.trim(),
         ...(puedeEditarTodo && { empresa, equipo }),
       })
       setGuardadoOk(true)
@@ -203,6 +206,20 @@ export default function WellDetailPage() {
               </div>
             </div>
           ))}
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold text-slate-300">Tubería</h2>
+          <Input
+            label="Reductor (pulg)"
+            value={reductorPulgadas}
+            onChange={(e) => { setReductorPulgadas(e.target.value); setGuardadoOk(false) }}
+            placeholder={'ej: 1/2"'}
+            disabled={!puedeEditarTanquesYLimites}
+          />
+          <p className="text-xs text-slate-500">
+            Medida de la tubería. Los Operadores la ven en sus lecturas sin poder cambiarla; no afecta los barriles.
+          </p>
         </section>
 
         <section className="space-y-4">
