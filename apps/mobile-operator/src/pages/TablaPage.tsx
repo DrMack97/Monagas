@@ -50,7 +50,7 @@ export default function TablaPage() {
                   <tr className="text-left text-slate-500 border-b border-slate-800">
                     <th className="py-2 pr-3">Hora</th>
                     <th className="py-2 pr-3">Netos (Bls)</th>
-                    <th className="py-2 pr-3">Qg (MPCGD)</th>
+                    <th className="py-2 pr-3">Qg (MMSCFD)</th>
                     <th className="py-2">Alertas</th>
                   </tr>
                 </thead>

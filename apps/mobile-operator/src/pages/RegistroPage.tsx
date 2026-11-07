@@ -165,6 +165,10 @@ export default function RegistroPage() {
             Fb: gasResult.Fb,
             Fg: gasResult.Fg,
             Ftf: gasResult.Ftf,
+            Fpv: gasResult.Fpv,
+            Y: gasResult.Y,
+            Cd: gasResult.Cd,
+            Z: gasResult.Z,
             qg: gasResult.qg,
           }
         : undefined
@@ -332,7 +336,7 @@ export default function RegistroPage() {
           </div>
           {gasResult && (
             <p className="text-xs text-slate-400 pt-2 border-t border-slate-800">
-              Qg: <span className="text-white font-mono">{gasResult.qg.toFixed(2)} MPCGD</span>
+              Qg: <span className="text-white font-mono">{gasResult.qg.toFixed(2)} MMSCFD</span>
             </p>
           )}
         </section>

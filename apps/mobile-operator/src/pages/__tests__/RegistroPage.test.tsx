@@ -28,7 +28,7 @@ const calcTanqueMock = jest.fn((input: Record<string, number>) => ({
 }))
 jest.mock('@monagas/core/calculos', () => ({
   calcTanque: (input: Record<string, number>) => calcTanqueMock(input),
-  calcAGA3: () => ({ qg: 0 }),
+  calcAGA3: () => ({ beta: 0.5, Fc: 1.03, Fb: 800, Fg: 1.2, Ftf: 0.99, Fpv: 1.03, Y: 0.995, Cd: 0.6, Z: 0.94, qg: 1.234 }),
 }))
 
 jest.mock('react-router-dom', () => ({
@@ -99,6 +99,16 @@ describe('RegistroPage — Reductor (pulg) y campos retirados', () => {
     expect(lectura.operativos.reductorPulgadas).toBe('1/2"')
     expect(lectura.tanques[0].reductor).toBe(0)
     expect(calcTanqueMock).toHaveBeenCalledWith(expect.objectContaining({ reductor: 0, dilDia: 0 }))
+  })
+
+  it('muestra el caudal de gas en MMSCFD (no MPCGD) y guarda los factores del motor completo', async () => {
+    renderPage({})
+    expect(screen.getByText(/1\.23 MMSCFD/)).toBeInTheDocument()
+    expect(screen.queryByText(/MPCGD/)).not.toBeInTheDocument()
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalled())
+    expect(addDocMock.mock.calls[0][1].gas).toMatchObject({ qg: 1.234, Fpv: 1.03, Y: 0.995, Cd: 0.6, Z: 0.94 })
   })
 
   it('no escribe reductorPulgadas en la lectura si el pozo no lo tiene', async () => {

@@ -194,6 +194,19 @@ export interface ILecturaGas {
   Fb: number
   Fg: number
   Ftf: number
+  /**
+   * Fpv, Y, Cd y Z son opcionales: las lecturas guardadas antes del motor completo de Qg
+   * (ronda de ajustes del Informe Técnico, nov-2026) no los tienen.
+   */
+  Fpv?: number   // supercompresibilidad 1/√Z
+  Y?: number     // factor de expansión
+  Cd?: number    // coeficiente de descarga (Reader-Harris/Gallagher)
+  Z?: number     // compresibilidad del gas a condiciones de flujo
+  /**
+   * Caudal de gas en MMSCFD (millones de pies cúbicos estándar por día).
+   * Las lecturas anteriores a ese cambio guardaron un caudal horario en Mscf/h (con otra
+   * fórmula y en presión manométrica): no son comparables con las nuevas.
+   */
   qg: number
 }
 
