@@ -172,7 +172,7 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
       setError(
         resultados.tipoCalculo === 'FINAL_24H'
           ? 'No se pudo enviar a supervisión. Intenta de nuevo.'
-          : 'No se pudo guardar el snapshot. Intenta de nuevo.'
+          : 'No se pudo guardar el avance. Intenta de nuevo.'
       )
     } finally {
       setEnviando(false)
@@ -416,9 +416,10 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
           {enviado ? (
             <div className="flex items-center justify-center gap-1.5 text-sm text-emerald-400 bg-emerald-950/40 border border-emerald-900 rounded-lg py-2.5">
               <FiCheckCircle aria-hidden="true" />
-              {resultados.tipoCalculo === 'FINAL_24H' ? 'Enviado a supervisión.' : 'Snapshot guardado.'}
+              {resultados.tipoCalculo === 'FINAL_24H' ? 'Enviado a supervisión.' : 'Avance guardado.'}
             </div>
           ) : (
+            <div className="space-y-1.5">
             <button
               onClick={handleEnviar}
               disabled={enviando}
@@ -429,9 +430,13 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
               ) : resultados.tipoCalculo === 'FINAL_24H' ? (
                 <><FiSend aria-hidden="true" /> Enviar a Supervisor</>
               ) : (
-                <><FiSave aria-hidden="true" /> Guardar Snapshot</>
+                <><FiSave aria-hidden="true" /> Guardar avance</>
               )}
             </button>
+            {resultados.tipoCalculo !== 'FINAL_24H' && (
+              <p className="text-xs text-slate-500 text-center">Si no hay señal se envía sola al volver la red.</p>
+            )}
+            </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">

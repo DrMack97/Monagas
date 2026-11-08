@@ -7,6 +7,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ReportePage from '../ReportePage'
+import { updateDoc } from 'firebase/firestore'
 import { exportarInformeExcel } from '../../utils/exportExcel'
 
 jest.mock('firebase/firestore', () => ({
@@ -127,6 +128,29 @@ describe('ReportePage — reporte estándar', () => {
       const raiz = container.firstElementChild as HTMLElement
       expect(raiz.className).toMatch(/bg-slate-950/)
       expect(raiz.className).not.toMatch(/max-w-/)
+    })
+  })
+
+  describe('botón de avance preliminar', () => {
+    it('se llama "Guardar avance" (no "Snapshot") y aclara qué pasa sin señal', async () => {
+      const { container } = render(<ReportePage pozoId="p1" evalId="e1" />)
+      await userEvent.setup().click(screen.getByRole('button', { name: /^calcular promedio$/i }))
+      expect(screen.getByRole('button', { name: /guardar avance/i })).toBeInTheDocument()
+      expect(screen.getByText('Si no hay señal se envía sola al volver la red.')).toBeInTheDocument()
+      expect(container.textContent).not.toMatch(/snapshot/i)
+    })
+
+    it('al pulsarlo guarda en la evaluación (base de datos, no un archivo) y confirma "Avance guardado."', async () => {
+      ;(updateDoc as jest.Mock).mockClear()
+      render(<ReportePage pozoId="p1" evalId="e1" />)
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: /^calcular promedio$/i }))
+      await user.click(screen.getByRole('button', { name: /guardar avance/i }))
+      expect(updateDoc).toHaveBeenCalledTimes(1)
+      const datos = (updateDoc as jest.Mock).mock.calls[0][1]
+      expect(datos.resultados).toBeDefined()
+      expect(datos).not.toHaveProperty('estado') // el avance NO cierra la evaluación ni la envía a supervisión
+      expect(await screen.findByText('Avance guardado.')).toBeInTheDocument()
     })
   })
 })

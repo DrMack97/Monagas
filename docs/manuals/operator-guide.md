@@ -72,6 +72,11 @@ de Reporte para:
 4. Si tu Supervisor **rechaza** la evaluación, vuelve a tu pantalla
    principal como EN_CURSO — puedes corregir y volver a cerrarla.
 
+Si todavía no se completan las horas del ciclo, en lugar de "Enviar a Supervisor" aparece **Guardar avance**: guarda el
+cálculo preliminar y tus datos del reporte en el sistema (en la base de datos, **no es un archivo en el teléfono**). La
+evaluación sigue en curso y no se envía al Supervisor. Si no hay señal, se envía sola al volver la red. Para tener un
+archivo en el teléfono usa el botón **Excel** (genera un .xlsx y abre el menú de compartir para elegir dónde guardarlo).
+
 Desde la misma pantalla puedes generar el texto para compartir el reporte
 por WhatsApp, con el mismo formato que se usa en el reporte impreso.
 
