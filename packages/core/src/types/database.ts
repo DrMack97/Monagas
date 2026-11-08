@@ -133,10 +133,29 @@ export interface IAprobacion {
  * Sedimentos) que ya existe por tanque en cada lectura, solo con otro
  * nombre. No se duplica.
  */
+/** Un viaje de camión vacuum — línea del bloque "Control de Vacuum y Disposición" del reporte estándar. */
+export interface IViajeVacuum {
+  fechaHora: Date
+  chofer: string
+  volumen: number   // Bls
+  destino: string   // ej. "E/F Santa Bárbara"
+}
+
 export interface IReporteOperativo {
+  /** Supervisor de Producción PDVSA del turno DIURNO (nombre histórico del campo, antes único). */
   supervisorPDVSA?: string
+  /** Supervisor de Producción PDVSA del turno nocturno. */
+  supervisorPDVSANocturno?: string
+  /** Supervisores de Well Testing (DSI): turno diurno / nocturno. */
   cuadrillaDiurno?: string
   cuadrillaNocturno?: string
+  /** Fecha de culminación del Well Testing; sin valor el reporte dice "En progreso". */
+  fechaCulminacion?: Date
+  /** Asunto y Plan del reporte estándar (texto libre). */
+  asunto?: string
+  plan?: string
+  /** Viajes de vacuum de las últimas 24 h; el "Total trasegado (24 Hrs)" se suma de aquí. */
+  viajesVacuum24h?: IViajeVacuum[]
   fechaAlineacion?: Date // Cuándo se alineó el pozo al skid de well testing — distinta de fechaInicio (cuándo arrancó ESTE ciclo de medición)
   estadoActual?: string  // Texto libre, ej. "Pozo alineado a través del SWT DSI con retorno de fluidos a tanques y quema de gas en sitio"
   notas?: string

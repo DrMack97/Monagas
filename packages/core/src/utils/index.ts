@@ -5,3 +5,4 @@
 export * from './formatters.js'
 export * from './validators.js'
 export * from './hora.js'
+export * from './reporteEstandar.js'

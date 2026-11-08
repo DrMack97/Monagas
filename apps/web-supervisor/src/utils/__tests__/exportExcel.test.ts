@@ -40,7 +40,7 @@ const LECTURAS = [lectura(1, new Date(2026, 10, 4, 8, 52)), lectura(2, new Date(
 
 function exportar(zona: string) {
   exportarInformeOficialExcel({
-    pozo: { id: 'p1', nombre: 'SBC-61', campo: 'Bare', zona } as any,
+    pozo: { id: 'p1', nombre: 'SBC-61', campo: 'Bare', zona, tanques: [{ id: 't1', nombre: 'Tanque 1', mi: 0, ft: 2.4 }] } as any,
     evaluacion: evaluacion as any,
     lecturas: LECTURAS as any,
   })
@@ -70,6 +70,6 @@ describe('exportarInformeOficialExcel (panel)', () => {
     const faja = exportar('FAJA')
     expect(faja.filas[0]['Netos (Bls)']).toBe(12.5)
     expect(faja.filas[0]['P. Casing (psi)']).toBe(12)
-    expect(faja.resumen.map((r) => r[0])).toContain('P.Csg')
+    expect(faja.resumen.map((r) => r[0])).not.toContain('P.Csg') // el reporte estándar no lleva Casing
   })
 })

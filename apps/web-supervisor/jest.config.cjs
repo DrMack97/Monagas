@@ -14,6 +14,9 @@ module.exports = {
     '.*/config/enlaces$': '<rootDir>/src/test/__mocks__/enlaces.ts',
     '^@core/(.*)$': '<rootDir>/../../packages/core/src/$1',
     '^@core$': '<rootDir>/../../packages/core/src/index.ts',
+    // Los fuentes del núcleo se importan entre sí con extensión ".js" (ESM/NodeNext); Jest no la
+    // resuelve sola. Se quita para que encuentre el .ts y los tests no necesiten mockear el núcleo.
+    '^(\\.{1,2}/.*)\\.js$': '$1',
     '\\.(css|less|scss)$': 'identity-obj-proxy',
   },
   transform: {

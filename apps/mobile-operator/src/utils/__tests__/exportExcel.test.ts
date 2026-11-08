@@ -41,13 +41,25 @@ const LECTURAS = [
 
 function exportar(zona: string) {
   exportarInformeExcel({
-    pozo: { id: 'p1', nombre: 'SBC-61', campo: 'Bare', zona, meterRun: 3.826, diamOrif: 3.25 } as any,
+    pozo: { id: 'p1', nombre: 'SBC-61', campo: 'Bare', zona, meterRun: 3.826, diamOrif: 3.25, tanques: [{ id: 't1', nombre: 'Tanque 1', mi: 0, ft: 2.4 }] } as any,
     resultados: resultados as any,
     lecturas: LECTURAS as any,
     supervisorArea: 'Fulano',
   })
   return { filas: hojas['Lecturas'].rows as Record<string, unknown>[], resumen: hojas['Resumen'].aoa as unknown[][] }
 }
+
+describe('hoja Resumen = reporte estándar', () => {
+  it('lleva el encabezado y los bloques del reporte estándar, con Qg en MMSCFD', () => {
+    const { resumen } = exportar('MONAGAS')
+    const etiquetas = resumen.map((r) => r[0])
+    expect(etiquetas[0]).toBe('GERENCIA DE PRODUCCIÓN DIV PDM')
+    expect(etiquetas).toContain('MEDICIÓN Y CAUDAL DE GAS')
+    expect(etiquetas).toContain('CONTROL DE VACUUM Y DISPOSICIÓN')
+    expect(resumen).toContainEqual(['Caudal de Gas (Qg)', '9.65 MMSCFD'])
+    expect(resumen).toContainEqual(['Supervisor de Área', 'Fulano'])
+  })
+})
 
 describe('exportarInformeExcel (Operador)', () => {
   it('NO exporta las alertas operativas (ni en Lecturas ni en Resumen)', () => {
@@ -73,11 +85,11 @@ describe('exportarInformeExcel (Operador)', () => {
     expect(filas[0]['Qg (MMSCFD)']).toBe(9.65)
   })
 
-  it('Faja: conserva Netos y Casing', () => {
+  it('Faja: conserva Netos y Casing en la hoja Lecturas', () => {
     const { filas, resumen } = exportar('FAJA')
     expect(filas[0]['Netos (Bls)']).toBe(12.5)
     expect(filas[0]['P. Casing (psi)']).toBe(12)
-    expect(resumen.map((r) => r[0])).toContain('P.Csg')
+    expect(resumen.map((r) => r[0])).not.toContain('P.Csg') // el reporte estándar no lleva Casing
     expect(Object.keys(filas[0])).not.toContain('Alertas') // las alertas fuera en TODAS las zonas
   })
 })

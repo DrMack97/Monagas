@@ -23,16 +23,25 @@
 // de escritura sobre /pozos/{pozoId} en firestore.rules, así que esa
 // sincronización no puede hacerse desde este cliente.
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { FiSend, FiAlertTriangle, FiCheckCircle, FiSave, FiFileText, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
 import { usePozoInfo } from '../hooks/usePozoInfo'
 import { calcularPromedioEvaluacion } from '@core/calculos'
-import { fmt, dateFormat, dateTimeFormat } from '../utils/formatters'
+import { construirReporteEstandar, reporteAWhatsApp } from '@core/utils/reporteEstandar'
+import { horaEnteraTexto } from '@core/utils/hora'
+import { fmt, dateFormat } from '../utils/formatters'
 import { exportarInformeExcel } from '../utils/exportExcel'
-import type { IResultadosEval, IReporteOperativo } from '@core/types'
+import type { IResultadosEval, IReporteOperativo, IViajeVacuum } from '@core/types'
+
+interface ViajeForm {
+  fechaHora: string // datetime-local
+  chofer: string
+  volumen: string
+  destino: string
+}
 
 interface ReportePageProps {
   pozoId: string
@@ -50,39 +59,54 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
   const [supervisorArea, setSupervisorArea] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  // Campos de cierre del formato "REPORTE DE OPERACIONES DE WELL
-  // TESTING" (Gerencia de Producción, División Punta de Mata) — se
-  // llenan una sola vez al cerrar el ciclo, no por lectura horaria
-  // (ver IReporteOperativo en @monagas/core, checklist Fase 4 #36/37).
-  const [supervisorPDVSA, setSupervisorPDVSA] = useState('')
-  const [cuadrillaDiurno, setCuadrillaDiurno] = useState('')
+  // Campos de cierre del "REPORTE OPERACIONES DE WT" estándar (Gerencia de
+  // Producción, División Punta de Mata; Informe Técnico Willytank 04/11/2026,
+  // sección 2) — se llenan una sola vez, no por lectura horaria (ver
+  // IReporteOperativo en @monagas/core). El texto lo arma construirReporteEstandar.
+  const [supervisorPDVSA, setSupervisorPDVSA] = useState('')            // Supv. Producción PDVSA — diurno
+  const [supervisorPDVSANocturno, setSupervisorPDVSANocturno] = useState('')
+  const [cuadrillaDiurno, setCuadrillaDiurno] = useState('')            // Supv. Well Testing (DSI)
   const [cuadrillaNocturno, setCuadrillaNocturno] = useState('')
-  const [fechaAlineacion, setFechaAlineacion] = useState('')
+  const [fechaAlineacion, setFechaAlineacion] = useState('')            // Fecha Inicio Well Testing
+  const [fechaCulminacion, setFechaCulminacion] = useState('')
   const [estadoActual, setEstadoActual] = useState('')
-  const [notas, setNotas] = useState('')
+  const [asunto, setAsunto] = useState('')
+  const [plan, setPlan] = useState('')
   const [api, setApi] = useState('')
-  const [h2s, setH2s] = useState('')
   const [existencia, setExistencia] = useState('')
   const [trasegable, setTrasegable] = useState('')
   const [totalTrasegado, setTotalTrasegado] = useState('')
   const [nivelCellar, setNivelCellar] = useState('')
   const [viajesVacuum, setViajesVacuum] = useState('')
+  const [viajes24h, setViajes24h] = useState<ViajeForm[]>([])
   const [mostrarDatosPDVSA, setMostrarDatosPDVSA] = useState(false)
 
+  function actualizarViaje(idx: number, campo: keyof ViajeForm, valor: string) {
+    setViajes24h((prev) => prev.map((v, i) => (i === idx ? { ...v, [campo]: valor } : v)))
+  }
+
   function construirReporteOperativo(): IReporteOperativo {
+    // Un viaje sin fecha y hora no se puede ubicar en las últimas 24 h: se descarta.
+    const viajes: IViajeVacuum[] = viajes24h
+      .filter((v) => v.fechaHora)
+      .map((v) => ({
+        fechaHora: new Date(v.fechaHora),
+        chofer: v.chofer.trim(),
+        volumen: parseFloat(v.volumen) || 0,
+        destino: v.destino.trim(),
+      }))
     return {
       ...(supervisorPDVSA.trim() && { supervisorPDVSA: supervisorPDVSA.trim() }),
+      ...(supervisorPDVSANocturno.trim() && { supervisorPDVSANocturno: supervisorPDVSANocturno.trim() }),
       ...(cuadrillaDiurno.trim() && { cuadrillaDiurno: cuadrillaDiurno.trim() }),
       ...(cuadrillaNocturno.trim() && { cuadrillaNocturno: cuadrillaNocturno.trim() }),
       ...(fechaAlineacion && { fechaAlineacion: new Date(fechaAlineacion) }),
+      ...(fechaCulminacion && { fechaCulminacion: new Date(fechaCulminacion) }),
       ...(estadoActual.trim() && { estadoActual: estadoActual.trim() }),
-      ...(notas.trim() && { notas: notas.trim() }),
-      ...((api || h2s) && {
-        tipoFluido: {
-          api: parseFloat(api) || 0,
-          ...(h2s.trim() && { h2s: h2s.trim() }),
-        },
-      }),
+      ...(asunto.trim() && { asunto: asunto.trim() }),
+      ...(plan.trim() && { plan: plan.trim() }),
+      ...(viajes.length > 0 && { viajesVacuum24h: viajes }),
+      ...(api && { tipoFluido: { api: parseFloat(api) || 0 } }),
       ...((existencia || trasegable || totalTrasegado) && {
         resumenTanques: {
           existencia: parseFloat(existencia) || 0,
@@ -157,86 +181,25 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
     exportarInformeExcel({ pozo, resultados, lecturas, supervisorArea, reporteOperativo: construirReporteOperativo() })
   }
 
-  // Calca el formato real "REPORTE DE OPERACIONES DE WELL TESTING"
-  // (Gerencia de Producción, División Punta de Mata) provisto por el
-  // usuario — ver checklist Fase 4 #38. Los valores puntuales
-  // (presiones, gas, reductor) se toman de la ÚLTIMA lectura, igual
-  // que en el papel: el reporte refleja el estado en el momento del
-  // cierre, no un promedio de esos campos — a diferencia de Bpd/
-  // Netos/Qg, que sí son promedios (ver IResultadosEval).
+  // Reporte operacional estándar (Informe Técnico Willytank, 04/11/2026, sección 2): la estructura
+  // vive en el núcleo (construirReporteEstandar) y es la MISMA del Excel. Los valores puntuales
+  // (presiones, gas) salen de la ÚLTIMA lectura; BPH/BPD/BSW de los promedios de la evaluación.
+  // Las alertas operativas no forman parte del reporte (control interno).
+  function datosReporte() {
+    if (!resultados || !pozo) return null
+    return {
+      pozo,
+      reporte: construirReporteOperativo(),
+      resultados,
+      lecturas,
+      ahora: new Date(),
+      fechaInicioFallback: lecturas[0] ? new Date(lecturas[0].timestamp) : undefined,
+    }
+  }
+
   function generarTextoWhatsApp(): string {
-    if (!resultados || !pozo) return ''
-    const ultima = lecturas[lecturas.length - 1]
-    const reporte = construirReporteOperativo()
-    const bphPromedio = resultados.proyeccion24H / 24
-    const aysBswPct = fmt((resultados.aysBls / (resultados.bpdPromedio || 1)) * 100, 1)
-    const tanquesTexto = ultima
-      ? ultima.tanques.map((t, i) => `Tanque#${i + 1}: ${fmt(t.netos)} Bls`).join('\n')
-      : '—'
-
-    return `GERENCIA DE PRODUCCION
-DIVISIÓN PUNTA DE MATA
-
-*REPORTE DE OPERACIONES DE WELL TESTING*
-
-Empresa: ${pozo.empresa ?? '—'}
-Equipo: ${pozo.equipo ?? '—'}
-Fecha: ${dateFormat(new Date())}
-Hora: ${new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })} Hrs.
-
-Supv. PDVSA: ${reporte.supervisorPDVSA ?? '—'}
-
-Well Testing ${pozo.empresa ?? '—'}:
-Diurno: ${reporte.cuadrillaDiurno ?? '—'}
-Nocturno: ${reporte.cuadrillaNocturno ?? '—'}
-
-Fecha Inicio de operaciones: ${lecturas[0] ? dateFormat(lecturas[0].timestamp) : '—'}
-Fecha de Alineación Well Testing: ${reporte.fechaAlineacion ? dateTimeFormat(reporte.fechaAlineacion) : '—'}
-
-Pozo: ${pozo.nombre}
-
-Actual: ${reporte.estadoActual ?? '—'}
-
-Nota: ${reporte.notas ?? '—'}
-
-*Parámetros*
-P.Cab: ${ultima ? fmt(ultima.operativos.pCab, 1) : '—'} Psi
-P.Csg: ${ultima?.operativos.pCsg !== undefined ? fmt(ultima.operativos.pCsg, 1) : '—'}
-P.sep: ${ultima ? fmt(ultima.operativos.pSep, 1) : '—'} Psi
-P.Línea: Red.: ${ultima?.operativos.reductorPulgadas ?? '—'}
-Bph: ${fmt(bphPromedio)} bls
-Bpd: ${fmt(resultados.bpdPromedio)} bls
-Total Desplazado: ${fmt(resultados.netosPromedio)} Bls
-Volumen Total desplazado: ${fmt(resultados.netosPromedio)} bls
-Total Desp 24H: ${fmt(resultados.proyeccion24H)} bls
-
-*Tipo de fluido retornado*
-API: ${reporte.tipoFluido?.api !== undefined ? `${fmt(reporte.tipoFluido.api, 1)}°` : '—'}
-BSW: ${aysBswPct}%
-H2S: ${reporte.tipoFluido?.h2s ?? '—'}
-
-*Caudal De Gas Parámetros*
-Meter Run: ${pozo.meterRun ?? '—'}
-Placa Orificio: ${pozo.diamOrif ? `${pozo.diamOrif} P.` : '—'}
-Estática (Pf): ${ultima?.gas ? `${fmt(ultima.gas.pf, 1)} Psi` : '—'}
-Presión Diferencial (Hw): ${ultima?.gas ? `${fmt(ultima.gas.hw, 2)} InH2O` : '—'}
-GE Gas: ${ultima?.gas ? fmt(ultima.gas.gg, 2) : '—'}
-Tgas: ${ultima?.gas ? `${fmt(ultima.gas.tGas, 0)}°F` : '—'}
-QG: ${fmt(resultados.qgPromedio, 2)} MMSCFD
-
-*Tanques Parámetro*
-${tanquesTexto}
-Existencia/Tanques: ${reporte.resumenTanques ? `${fmt(reporte.resumenTanques.existencia)} Bls` : '—'}
-Trasegable: ${reporte.resumenTanques ? `${fmt(reporte.resumenTanques.trasegable)} bls` : '—'}
-Total trasegado: ${reporte.resumenTanques ? fmt(reporte.resumenTanques.totalTrasegado) : '—'}
-Nivel De Cellar: ${reporte.nivelCellar !== undefined ? `${fmt(reporte.nivelCellar, 0)} %` : '—'}
-Total Viajes de Vacuum: ${reporte.viajesVacuum ?? '—'}
-
-${resultados.tipoCalculo === 'PRELIMINAR_FORZADO'
-  ? '⚠️ *CÁLCULO PRELIMINAR — no representa el cierre oficial de 24H*'
-  : enviado
-  ? '📤 *Enviado a Supervisión — pendiente de aprobación*'
-  : '👁️ *VISTA PREVIA — todavía no enviado a supervisión*'}`
+    const datos = datosReporte()
+    return datos ? reporteAWhatsApp(construirReporteEstandar(datos)) : ''
   }
 
   if (loading) return <div className="p-6 text-slate-400">Cargando...</div>
@@ -254,7 +217,7 @@ ${resultados.tipoCalculo === 'PRELIMINAR_FORZADO'
           <span className="text-white text-right">{pozo?.nombre}</span>
           <span className="text-slate-500">Hora</span>
           <span className="text-white text-right">
-            {new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })} Hrs.
+            {horaEnteraTexto(new Date())} Hrs.
           </span>
         </div>
 
@@ -282,51 +245,86 @@ ${resultados.tipoCalculo === 'PRELIMINAR_FORZADO'
 
         {mostrarDatosPDVSA && (
           <div className="mt-3 space-y-3">
+            <p className="text-xs text-slate-500">Supv. Producción PDVSA</p>
             <div className="grid grid-cols-2 gap-3">
-              <CampoTexto label="Supv. PDVSA" value={supervisorPDVSA} onChange={setSupervisorPDVSA} />
-              <CampoTexto label="Fecha Alineación" value={fechaAlineacion} onChange={setFechaAlineacion} type="datetime-local" />
-              <CampoTexto label="Cuadrilla Diurno" value={cuadrillaDiurno} onChange={setCuadrillaDiurno} />
-              <CampoTexto label="Cuadrilla Nocturno" value={cuadrillaNocturno} onChange={setCuadrillaNocturno} />
+              <CampoTexto label="Diurno" value={supervisorPDVSA} onChange={setSupervisorPDVSA} />
+              <CampoTexto label="Nocturno" value={supervisorPDVSANocturno} onChange={setSupervisorPDVSANocturno} />
             </div>
 
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">Actual (estado del pozo)</label>
-              <textarea
-                value={estadoActual}
-                onChange={(e) => setEstadoActual(e.target.value)}
-                rows={2}
-                placeholder="ej: Pozo alineado a través del SWT DSI con retorno de fluidos a tanques y quema de gas en sitio"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm"
-              />
+            <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Supv. Well Testing</p>
+            <div className="grid grid-cols-2 gap-3">
+              <CampoTexto label="Diurno" value={cuadrillaDiurno} onChange={setCuadrillaDiurno} />
+              <CampoTexto label="Nocturno" value={cuadrillaNocturno} onChange={setCuadrillaNocturno} />
             </div>
 
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">Nota</label>
-              <textarea
-                value={notas}
-                onChange={(e) => setNotas(e.target.value)}
-                rows={2}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm"
-              />
+            <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-800">
+              <CampoTexto label="Fecha Inicio Well Testing" value={fechaAlineacion} onChange={setFechaAlineacion} type="datetime-local" />
+              <CampoTexto label="Fecha Culminación" value={fechaCulminacion} onChange={setFechaCulminacion} type="datetime-local" />
             </div>
+            <p className="text-xs text-slate-500">Sin fecha de culminación el reporte dice "En progreso".</p>
 
-            <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Tipo de fluido retornado</p>
+            <CampoArea label="Estatus actual" value={estadoActual} onChange={setEstadoActual}
+              placeholder="ej: Pozo fluyendo a través del SWT en superficie y quema de gas en sitio" />
+            <CampoArea label="Asunto" value={asunto} onChange={setAsunto}
+              placeholder="ej: Inicia prueba de producción a las 09:00 am por orden del representante del cliente" />
+            <CampoArea label="Plan" value={plan} onChange={setPlan}
+              placeholder="ej: Evaluar comportamiento operacional de pozo con unidad WT" />
+
+            <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Calidad del fluido</p>
             <div className="grid grid-cols-2 gap-3">
               <CampoTexto label="API (°)" value={api} onChange={setApi} type="number" />
-              <CampoTexto label="H2S" value={h2s} onChange={setH2s} />
             </div>
             <p className="text-xs text-slate-500">
               BSW: se toma del AyS% ya registrado en las lecturas — no se repite acá.
             </p>
 
-            <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Tanques</p>
+            <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Tanques de almacenamiento</p>
             <div className="grid grid-cols-2 gap-3">
               <CampoTexto label="Existencia (Bls)" value={existencia} onChange={setExistencia} type="number" />
               <CampoTexto label="Trasegable (Bls)" value={trasegable} onChange={setTrasegable} type="number" />
-              <CampoTexto label="Total Trasegado (Bls)" value={totalTrasegado} onChange={setTotalTrasegado} type="number" />
-              <CampoTexto label="Nivel Cellar (%)" value={nivelCellar} onChange={setNivelCellar} type="number" />
-              <CampoTexto label="Viajes de Vacuum" value={viajesVacuum} onChange={setViajesVacuum} type="number" />
+              <CampoTexto label="Total Trasegado Acumulado (Bls)" value={totalTrasegado} onChange={setTotalTrasegado} type="number" />
             </div>
+            <p className="text-xs text-slate-500">
+              Si no digitas la existencia, se suma de los tanques (medida final × factor del tanque).
+            </p>
+
+            <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Control de vacuum y disposición</p>
+            <div className="grid grid-cols-2 gap-3">
+              <CampoTexto label="Nivel de Celler (%)" value={nivelCellar} onChange={setNivelCellar} type="number" />
+              <CampoTexto label="Total Viajes Vacuum Acumulados" value={viajesVacuum} onChange={setViajesVacuum} type="number" />
+            </div>
+
+            <p className="text-xs text-slate-500">Viajes de vacuum — últimas 24 Hrs</p>
+            {viajes24h.map((v, idx) => (
+              <div key={idx} className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Viaje #{idx + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => setViajes24h((prev) => prev.filter((_, i) => i !== idx))}
+                    className="text-xs text-red-400"
+                  >
+                    Quitar
+                  </button>
+                </div>
+                <CampoTexto label={`Fecha y hora (viaje #${idx + 1})`} value={v.fechaHora} onChange={(x) => actualizarViaje(idx, 'fechaHora', x)} type="datetime-local" />
+                <div className="grid grid-cols-2 gap-3">
+                  <CampoTexto label={`Chófer (viaje #${idx + 1})`} value={v.chofer} onChange={(x) => actualizarViaje(idx, 'chofer', x)} />
+                  <CampoTexto label={`Volumen en Bls (viaje #${idx + 1})`} value={v.volumen} onChange={(x) => actualizarViaje(idx, 'volumen', x)} type="number" />
+                </div>
+                <CampoTexto label={`Destino (viaje #${idx + 1})`} value={v.destino} onChange={(x) => actualizarViaje(idx, 'destino', x)} />
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setViajes24h((prev) => [...prev, { fechaHora: '', chofer: '', volumen: '', destino: '' }])}
+              className="text-sm text-amber-400"
+            >
+              + Agregar viaje
+            </button>
+            <p className="text-xs text-slate-500">
+              El total trasegado de 24 Hrs se suma de los viajes. Un viaje sin fecha y hora no se incluye.
+            </p>
           </div>
         )}
       </div>
@@ -431,6 +429,33 @@ function Dato({ label, valor }: { label: string; valor: string }) {
   )
 }
 
+function CampoArea({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+}) {
+  const id = useId()
+  return (
+    <div>
+      <label htmlFor={id} className="block text-xs text-slate-500 mb-1">{label}</label>
+      <textarea
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={2}
+        placeholder={placeholder}
+        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm"
+      />
+    </div>
+  )
+}
+
 function CampoTexto({
   label,
   value,
@@ -442,10 +467,12 @@ function CampoTexto({
   onChange: (v: string) => void
   type?: string
 }) {
+  const id = useId()
   return (
     <div>
-      <label className="block text-xs text-slate-500 mb-1">{label}</label>
+      <label htmlFor={id} className="block text-xs text-slate-500 mb-1">{label}</label>
       <input
+        id={id}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
