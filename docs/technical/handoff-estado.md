@@ -41,6 +41,38 @@ Operador web y APK); **antes de producción hay que desplegar reglas + panel all
 Tests: Operador 50, panel 58, reglas 33 (emulador). El pozo de prueba aún no tiene reductor (el Operador ve "-") y NO se ha
 probado en un teléfono ni con sesión real de SUP_CAMPO.
 
+**Ronda de ajustes del Informe Técnico Willytank (04/11/2026), 2026-11-08 — EN LA RAMA `feat-ajustes-informe-tecnico`, NO desplegada, sin
+APK nuevo.** Puntos hechos (con pruebas): **(1)** hora entera más cercana (min 00–29 → esa hora, 30–59 → la siguiente; `redondearAHoraEntera`,
+el timestamp real no se toca) y fecha una sola vez por día en la tabla y el Excel; **(2)** columna Netos y **(3)** P. Casing solo en la Faja
+(`capacidadesZona(zona)`: MONAGAS oculta, FAJA conserva; zona desconocida = MONAGAS; se oculta, no se borra código; `pCsg` no se guarda en
+Monagas); **(4)** las alertas (`lectura.alertas`) siguen en la pantalla del Operador y en la cola de aprobación del panel, pero ya NO salen en
+ningún Excel ni en el texto de WhatsApp; **(5) Qg** reescrito: `calcAGA3` devuelve **MMSCFD por día** (antes Mscf/hora con la etiqueta
+MPCGD, 24× menor), con Cd Reader-Harris/Gallagher (tomas en brida, iterado con Re), Y (ISO 5167, κ=1.3), Z Hall-Yarborough (pseudocríticas
+de Standing, sin corrección CO₂/H₂S/N₂), viscosidad Lee, y **presión estática psig + 14.73 → absoluta, toma aguas arriba**; sin recorte de β a
+0.75. Validación: hoja Halliburton **−0.43 %** (objetivo ±0.5 %), ejemplo del informe (9.80 MMSCFD, β=0.849 fuera de rango ISO) **−1.65 %**
+(solo indicativo; no se sabe con qué herramienta lo calcularon). Si la toma fuese aguas abajo los resultados suben ~0.4–0.8 % (decisión
+abierta, ver abajo). La lectura guarda además `Fpv, Y, Cd, Z`. **Las lecturas viejas de staging (Mscf/h, otra fórmula) no son comparables
+con las nuevas; producción aún no tiene datos reales.** **Placa (`diamOrif`) y Meter Run (`meterRun`) por pozo:** se piden en `NewWellPage`,
+los edita SUP_CAMPO/SUP_AREA/GERENTE en `WellDetailPage` (0 = sin configurar), el Operador los ve de solo lectura y **si faltan NO se calcula
+Qg** (antes se usaba 2"/4" en silencio) → **los pozos de staging ya existentes no darán Qg hasta que se les cargue Placa y Meter Run.**
+**Cambio de permisos:** `firestore.rules` añade `diamOrif` y `meterRun` al `hasOnly` de SUP_CAMPO (reglas 36/36 en el emulador; NO desplegadas).
+**(7) Reporte estándar de WhatsApp:** `construirReporteEstandar` (núcleo) es la única fuente del texto de WhatsApp y de la hoja Resumen de los
+dos Excel; reproduce línea a línea el ejemplo del informe (prueba de oro). Campos nuevos en `IReporteOperativo`: `supervisorPDVSANocturno`
+(`supervisorPDVSA` = diurno), `fechaCulminacion` (vacío = "En progreso"), `asunto`, `plan`, `viajesVacuum24h[]` (fecha/hora, chófer, volumen,
+destino; "Total trasegado 24 h" se suma). Derivados: existencia por tanque = medida final × kk; Total Despachado General = Total Trasegado
+Acumulado + Existencia (así cuadra el ejemplo: 2,542.92 + 117 = 2,659.92 — **inferido de la aritmética del ejemplo, confirmar con PDVSA**);
+el Qg del reporte es el de la ÚLTIMA lectura. Se quitaron del formulario H2S y "Nota" (el estándar no los lleva; los tipos siguen).
+**(6) Excel igual a la planilla física: PENDIENTE a propósito** (el usuario lo dejó para cuando haya mejor imagen y los cálculos que
+faltan). Lo leído de la foto del anexo (512×384 px, `Informe Técnico…pdf` pág. 3), en orden: HORA, P.CAB, [3ª col. sin leer — vacía en la
+foto, probablemente Casing], RED, P.ESTÁTICA, T.GAS, P.DIF, ORIF, Q.GAS(MMSCFD), por tanque MEDIDA y VOLUMEN, BPH, BPD, TOTAL DESPLAZADO,
+EXIST. NETA, TRASEGABLE, VIAJES VACUUM, TOTAL TRASEGADO, BSW %, [última col. sin leer, BBL]; las horas de la planilla ya vienen redondeadas.
+Hoy no se capturan por hora: total desplazado, trasegable, viajes y total trasegado. Las hojas "Lecturas" siguen con el formato anterior
+(sin alertas/Casing/Netos en Monagas). Tests: núcleo 62, Operador 68, panel 65.
+**Decisiones abiertas del usuario:** (a) toma de presión estática aguas arriba (supuesto) o abajo; (b) confirmar fórmula de "Total Despachado
+General"; (c) la planilla (6). Jest de ambas apps ahora resuelve los imports `.js` del núcleo (`moduleNameMapper`), ya no hace falta mockearlo.
+**NO verificado:** nada de esto en un teléfono, ni con sesión real, ni desplegado; el Qg no se comparó con una medición real de campo
+(solo con la hoja Halliburton y el ejemplo del informe).
+
 **Bloqueado:**
 - **Fase E** (prueba de humo en producción): la cuenta del dueño NO tiene el rol *Service Account Token Creator* sobre
   `firebase-adminsdk-fbsvc@well-testing-prod.iam.gserviceaccount.com` (prueba real de `signBlob`: 403, repetida el
@@ -118,6 +150,9 @@ los 7 archivos de `Conceptos/` (ver sección 7).
 - **Descartado:** `hosting.public` fuera de carpeta; `hosting:rollback` (no existe en la CLI).
 
 ## 6. Próximos pasos
+00. **Ronda de ajustes del Informe Técnico:** revisar/mergear la rama `feat-ajustes-informe-tecnico`; antes de probarla en staging: desplegar reglas (nuevo `hasOnly`),
+   panel y Operador web, compilar APK 1.0.5 (versionCode 5) y cargar Placa y Meter Run en los pozos de prueba; luego producción (reglas + panel + APK con google-services de prod).
+   Pendiente: punto (6) la planilla, cuando haya mejor imagen.
 0. **Wily:** probar en staging la pantalla Usuarios (asignar un Operador a un pozo, dar de alta, desactivar); es lo único que falta del bug de las callables (ver sección 2). Producción ya responde igual, pero tampoco se ha probado con sesión real.
 1. **Dueño:** conceder el rol de firma (sección 2). **Yo:** Fase E → `node scripts/e2e-cloud.cjs well-testing-prod <apiKeyWeb>
    firebase-adminsdk-fbsvc@well-testing-prod.iam.gserviceaccount.com` (con `GOOGLE_APPLICATION_CREDENTIALS` apuntando a un ADC;
@@ -152,6 +187,7 @@ los 7 archivos de `Conceptos/` (ver sección 7).
 - **Pendiente del dueño, no mío:** 7 archivos de `Conceptos/` borrados de su disco y sin confirmar en git; yo no los toco.
 
 ## 8. Lo que NO está verificado (no darlo por hecho)
+La ronda de ajustes del Informe Técnico completa (Qg, hora entera, Netos/Casing por zona, reporte estándar, Placa/Meter Run) en pantalla real y contra una medición real · 
 El Reductor (pulg) de la 1.0.4 en pantalla real (Operador, SUP_CAMPO editando) · Cualquier llamada real a `crearPersonal` / `reassignPozo` / `setPersonalActivo` desde el navegador (en staging el permiso se restauró el 2026-11-02, ver sección 2; en
 producción están públicas; ninguna se ha llamado con sesión real) · Entrega real de notificaciones push (APK y navegador) · el enlace "Acceso al Panel de Supervisión" abierto dentro del APK en un
 teléfono · la barra móvil del panel con sesión real · inicio de sesión en producción con una cuenta real · subida real de un

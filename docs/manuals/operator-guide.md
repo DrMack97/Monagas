@@ -29,7 +29,10 @@ Dos botones:
 ## 3. Registrar una lectura
 
 Desde "Registrar Lectura" cargas los valores medidos en ese momento:
-presión de cabezal, casing, separador, línea, los datos de tanques, y los parámetros de gas cuando aplique.
+presión de cabezal, separador, los datos de tanques, y los parámetros de gas (presión estática en psig, diferencial,
+temperatura y gravedad específica). La presión de casing solo se pide en zonas que la usan (no en Norte de Monagas).
+El **caudal de gas (Qg)** sale en **MMSCFD** y se calcula con la **Placa de orificio** y el **Meter Run** del pozo, que
+fija el Supervisor de Campo y tú ves de solo lectura: si faltan, la app te avisa y no calcula Qg (avisa a tu Supervisor de Campo).
 El **Reductor (pulg)** (la medida de la tubería) lo fija el Supervisor de Campo en el
 pozo: tú solo lo ves, sin poder cambiarlo, y se guarda con cada lectura. Si ves
 "-", el pozo todavía no lo tiene: avisa a tu Supervisor de Campo.
@@ -41,7 +44,9 @@ de evaluación que está actualmente EN_CURSO para tu pozo.
 ## 4. Ver la tabla de lecturas
 
 Muestra, en orden, todas las lecturas que llevas cargadas en el ciclo
-actual: hora, netos en barriles, caudal de gas, y si alguna lectura
+actual: la hora (redondeada a la hora entera más cercana: 8:52 → 09:00, 9:07 → 09:00; la fecha aparece una sola
+vez por día), los netos en barriles (solo en zonas que los muestran, no en Norte de Monagas), el caudal de gas
+en MMSCFD, y si alguna lectura
 disparó una alerta (por ejemplo, un valor fuera del límite configurado por
 el Supervisor para ese pozo). Desde aquí puedes pasar a "Ver Reporte".
 
