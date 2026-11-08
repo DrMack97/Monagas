@@ -135,6 +135,29 @@ describe('RegistroPage — Reductor (pulg) y campos retirados', () => {
     expect(addDocMock.mock.calls[0][1]).not.toHaveProperty('gas')
   })
 
+  it('Norte de Monagas: sin P. Casing ni Netos en pantalla, y no guarda pCsg', async () => {
+    renderPage({ zona: 'MONAGAS' })
+    expect(screen.queryByText(/p\. casing/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/netos/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/bpd/i)).toBeInTheDocument() // lo demás sigue
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalled())
+    expect(addDocMock.mock.calls[0][1].operativos).not.toHaveProperty('pCsg')
+    // el cálculo de barriles no cambia: los netos se siguen calculando y guardando
+    expect(addDocMock.mock.calls[0][1].tanques[0].netos).toBe(24)
+  })
+
+  it('Faja: conserva P. Casing y Netos y guarda pCsg', async () => {
+    renderPage({ zona: 'FAJA' })
+    expect(screen.getByText(/p\. casing/i)).toBeInTheDocument()
+    expect(screen.getByText(/netos/i)).toBeInTheDocument()
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalled())
+    expect(addDocMock.mock.calls[0][1].operativos).toHaveProperty('pCsg', 0)
+  })
+
   it('no escribe reductorPulgadas en la lectura si el pozo no lo tiene', async () => {
     renderPage({})
     await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))

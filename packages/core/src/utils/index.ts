@@ -4,3 +4,4 @@
 // Entregable: helpers reutilizables disponibles en apps
 export * from './formatters.js'
 export * from './validators.js'
+export * from './hora.js'

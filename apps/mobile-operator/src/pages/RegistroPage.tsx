@@ -23,6 +23,7 @@ import { useEvaluacionActual } from '../hooks/useEvaluacionActual'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
 import { useConnectivity } from '../hooks/useConnectivity'
 import { calcTanque, calcAGA3 } from '@monagas/core/calculos'
+import { capacidadesZona } from '@core/constants/zonas'
 import LoadingSpinner from '../components/LoadingSpinner'
 import type { ILecturaTanque, ILecturaGas } from '@core/types'
 
@@ -53,6 +54,9 @@ export default function RegistroPage() {
   )
   const { lecturas } = useLecturasEvaluacion(evalId ?? undefined)
   const { isOnline } = useConnectivity()
+
+  // Qué se captura/muestra según la zona del pozo (Casing y Netos solo en la Faja).
+  const zonaCaps = capacidadesZona(pozo?.zona)
 
   const [th, setTh] = useState('1')
   const [tankForms, setTankForms] = useState<Record<string, TankFormState>>({})
@@ -206,7 +210,8 @@ export default function RegistroPage() {
           operativos: {
             pCab: parseFloat(pCab) || 0,
             pSep: parseFloat(pSep) || 0,
-            pCsg: parseFloat(pCsg) || 0,
+            // Casing solo en zonas que lo usan (Faja); en Norte de Monagas no se opera con Casing Gas.
+            ...(zonaCaps.casing && { pCsg: parseFloat(pCsg) || 0 }),
             ...(pozo.reductorPulgadas?.trim() && { reductorPulgadas: pozo.reductorPulgadas.trim() }),
           },
           alertas,
@@ -314,7 +319,9 @@ export default function RegistroPage() {
               {resultado && (
                 <div className="grid grid-cols-2 gap-2 text-xs text-slate-400 pt-2 border-t border-slate-800">
                   <span>BPD: <span className="text-white font-mono">{resultado.bpd.toFixed(2)}</span></span>
-                  <span>Netos: <span className="text-white font-mono">{resultado.netos.toFixed(2)}</span></span>
+                  {zonaCaps.netosEnLecturas && (
+                    <span>Netos: <span className="text-white font-mono">{resultado.netos.toFixed(2)}</span></span>
+                  )}
                 </div>
               )}
             </section>
@@ -369,10 +376,12 @@ export default function RegistroPage() {
               <label className="block text-xs text-slate-500 mb-1">P. Separador (psig)</label>
               <input type="number" value={pSep} onChange={(e) => setPSep(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">P. Casing (psig)</label>
-              <input type="number" value={pCsg} onChange={(e) => setPCsg(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
-            </div>
+            {zonaCaps.casing && (
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">P. Casing (psig)</label>
+                <input type="number" value={pCsg} onChange={(e) => setPCsg(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              </div>
+            )}
             <div>
               <label className="block text-xs text-slate-500 mb-1">Reductor (pulg)</label>
               <div
