@@ -67,6 +67,14 @@ foto, probablemente Casing], RED, P.ESTÁTICA, T.GAS, P.DIF, ORIF, Q.GAS(MMSCFD)
 EXIST. NETA, TRASEGABLE, VIAJES VACUUM, TOTAL TRASEGADO, BSW %, [última col. sin leer, BBL]; las horas de la planilla ya vienen redondeadas.
 Hoy no se capturan por hora: total desplazado, trasegable, viajes y total trasegado. Las hojas "Lecturas" siguen con el formato anterior
 (sin alertas/Casing/Netos en Monagas). Tests: núcleo 64, Operador 68, panel 65. Una prueba con 20 000 entradas aleatorias halló y corrigió un fallo: con gas pesado/frío/casi crítico la Z de Hall-Yarborough tomaba la raíz líquida (ahora toma la primera raíz). Con un diferencial > 40 % de la presión absoluta (p. ej. 250 inH₂O a 5 psig) el Qg deja de ser monótono: es fuera de la validez de la norma y no se avisa en pantalla.
+**CORRECCIÓN 1.0.6 (2026-11-08, APK versionCode 6 en staging): el botón Excel no hacía nada dentro del APK.** Causa (probable; no se pudo reproducir en
+un teléfono, no hay emulador ni dispositivo en el equipo): `XLSX.writeFile` "descarga" con un enlace temporal `download`, y el WebView de Capacitor NO tiene
+`DownloadListener` (verificado: ningún código del proyecto ni de `@capacitor/android` lo define), así que en el APK el clic no hace nada y sin error. El código de
+datos sí funciona (probado con la librería real y el flujo completo de la pantalla). Arreglo: `src/utils/guardarArchivo.ts` — en nativo escribe el .xlsx en caché
+(`@capacitor/filesystem`) y abre el menú de compartir (`@capacitor/share`, FileProvider ya configurado); en navegador mantiene la descarga. Un fallo ahora se muestra
+("No se pudo exportar el Excel"). También: el reporte estándar tolera un pozo sin `tanques` (antes lanzaba excepción). Contra recaída: pruebas de la ruta nativa y web, del
+error visible, y una **guardia que falla si cualquier archivo de la app llama `XLSX.writeFile` fuera de `guardarArchivo.ts`**. El panel web (navegador) no cambia.
+**NO verificado:** el menú de compartir en un teléfono real (hay que probar: Reporte → Calcular → Excel → elegir Drive/WhatsApp/Archivos y abrir el .xlsx).
 **Decisiones abiertas del usuario:** (a) toma de presión estática aguas arriba (supuesto) o abajo; (b) confirmar fórmula de "Total Despachado
 General"; (c) la planilla (6). Jest de ambas apps ahora resuelve los imports `.js` del núcleo (`moduleNameMapper`), ya no hace falta mockearlo.
 **NO verificado:** nada de esto en un teléfono (APK 1.0.5 subido y verificado con aapt2: paquete, versión, proyecto staging; sin instalar), ni con sesión real, ni desplegado; el Qg no se comparó con una medición real de campo
