@@ -41,8 +41,7 @@ Operador web y APK); **antes de producción hay que desplegar reglas + panel all
 Tests: Operador 50, panel 58, reglas 33 (emulador). El pozo de prueba aún no tiene reductor (el Operador ve "-") y NO se ha
 probado en un teléfono ni con sesión real de SUP_CAMPO.
 
-**Ronda de ajustes del Informe Técnico Willytank (04/11/2026), 2026-11-08 — EN LA RAMA `feat-ajustes-informe-tecnico`, NO desplegada, sin
-APK nuevo.** Puntos hechos (con pruebas): **(1)** hora entera más cercana (min 00–29 → esa hora, 30–59 → la siguiente; `redondearAHoraEntera`,
+**Ronda de ajustes del Informe Técnico Willytank (04/11/2026), 2026-11-08 — rama `feat-ajustes-informe-tecnico` (sin mergear a `main` al escribir esto). DESPLEGADA SOLO EN STAGING el 2026-11-08: reglas, panel, Operador web y APK 1.0.5 (versionCode 5) distribuido a los 2 testers. En producción NO.** Puntos hechos (con pruebas): **(1)** hora entera más cercana (min 00–29 → esa hora, 30–59 → la siguiente; `redondearAHoraEntera`,
 el timestamp real no se toca) y fecha una sola vez por día en la tabla y el Excel; **(2)** columna Netos y **(3)** P. Casing solo en la Faja
 (`capacidadesZona(zona)`: MONAGAS oculta, FAJA conserva; zona desconocida = MONAGAS; se oculta, no se borra código; `pCsg` no se guarda en
 Monagas); **(4)** las alertas (`lectura.alertas`) siguen en la pantalla del Operador y en la cola de aprobación del panel, pero ya NO salen en
@@ -55,7 +54,7 @@ abierta, ver abajo). La lectura guarda además `Fpv, Y, Cd, Z`. **Las lecturas v
 con las nuevas; producción aún no tiene datos reales.** **Placa (`diamOrif`) y Meter Run (`meterRun`) por pozo:** se piden en `NewWellPage`,
 los edita SUP_CAMPO/SUP_AREA/GERENTE en `WellDetailPage` (0 = sin configurar), el Operador los ve de solo lectura y **si faltan NO se calcula
 Qg** (antes se usaba 2"/4" en silencio) → **los pozos de staging ya existentes no darán Qg hasta que se les cargue Placa y Meter Run.**
-**Cambio de permisos:** `firestore.rules` añade `diamOrif` y `meterRun` al `hasOnly` de SUP_CAMPO (reglas 36/36 en el emulador; NO desplegadas).
+**Cambio de permisos:** `firestore.rules` añade `diamOrif` y `meterRun` al `hasOnly` de SUP_CAMPO (reglas 36/36 en el emulador; desplegadas en staging).
 **(7) Reporte estándar de WhatsApp:** `construirReporteEstandar` (núcleo) es la única fuente del texto de WhatsApp y de la hoja Resumen de los
 dos Excel; reproduce línea a línea el ejemplo del informe (prueba de oro). Campos nuevos en `IReporteOperativo`: `supervisorPDVSANocturno`
 (`supervisorPDVSA` = diurno), `fechaCulminacion` (vacío = "En progreso"), `asunto`, `plan`, `viajesVacuum24h[]` (fecha/hora, chófer, volumen,
@@ -67,10 +66,10 @@ faltan). Lo leído de la foto del anexo (512×384 px, `Informe Técnico…pdf` p
 foto, probablemente Casing], RED, P.ESTÁTICA, T.GAS, P.DIF, ORIF, Q.GAS(MMSCFD), por tanque MEDIDA y VOLUMEN, BPH, BPD, TOTAL DESPLAZADO,
 EXIST. NETA, TRASEGABLE, VIAJES VACUUM, TOTAL TRASEGADO, BSW %, [última col. sin leer, BBL]; las horas de la planilla ya vienen redondeadas.
 Hoy no se capturan por hora: total desplazado, trasegable, viajes y total trasegado. Las hojas "Lecturas" siguen con el formato anterior
-(sin alertas/Casing/Netos en Monagas). Tests: núcleo 62, Operador 68, panel 65.
+(sin alertas/Casing/Netos en Monagas). Tests: núcleo 64, Operador 68, panel 65. Una prueba con 20 000 entradas aleatorias halló y corrigió un fallo: con gas pesado/frío/casi crítico la Z de Hall-Yarborough tomaba la raíz líquida (ahora toma la primera raíz). Con un diferencial > 40 % de la presión absoluta (p. ej. 250 inH₂O a 5 psig) el Qg deja de ser monótono: es fuera de la validez de la norma y no se avisa en pantalla.
 **Decisiones abiertas del usuario:** (a) toma de presión estática aguas arriba (supuesto) o abajo; (b) confirmar fórmula de "Total Despachado
 General"; (c) la planilla (6). Jest de ambas apps ahora resuelve los imports `.js` del núcleo (`moduleNameMapper`), ya no hace falta mockearlo.
-**NO verificado:** nada de esto en un teléfono, ni con sesión real, ni desplegado; el Qg no se comparó con una medición real de campo
+**NO verificado:** nada de esto en un teléfono (APK 1.0.5 subido y verificado con aapt2: paquete, versión, proyecto staging; sin instalar), ni con sesión real, ni desplegado; el Qg no se comparó con una medición real de campo
 (solo con la hoja Halliburton y el ejemplo del informe).
 
 **Bloqueado:**
@@ -150,8 +149,7 @@ los 7 archivos de `Conceptos/` (ver sección 7).
 - **Descartado:** `hosting.public` fuera de carpeta; `hosting:rollback` (no existe en la CLI).
 
 ## 6. Próximos pasos
-00. **Ronda de ajustes del Informe Técnico:** revisar/mergear la rama `feat-ajustes-informe-tecnico`; antes de probarla en staging: desplegar reglas (nuevo `hasOnly`),
-   panel y Operador web, compilar APK 1.0.5 (versionCode 5) y cargar Placa y Meter Run en los pozos de prueba; luego producción (reglas + panel + APK con google-services de prod).
+00. **Ronda de ajustes del Informe Técnico:** ya en staging (APK 1.0.5). Falta: **cargar Placa y Meter Run en el pozo de prueba** (panel → detalle del pozo; sin ellos el Operador no ve Qg), que los testers prueben, mergear la rama a `main`; luego producción (reglas + panel + APK con google-services de prod).
    Pendiente: punto (6) la planilla, cuando haya mejor imagen.
 0. **Wily:** probar en staging la pantalla Usuarios (asignar un Operador a un pozo, dar de alta, desactivar); es lo único que falta del bug de las callables (ver sección 2). Producción ya responde igual, pero tampoco se ha probado con sesión real.
 1. **Dueño:** conceder el rol de firma (sección 2). **Yo:** Fase E → `node scripts/e2e-cloud.cjs well-testing-prod <apiKeyWeb>
