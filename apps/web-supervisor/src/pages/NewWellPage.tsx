@@ -26,6 +26,16 @@ function nuevoTankDraft(n: number): TankDraft {
   return { id: `t${n}`, nombre: `Tanque ${n}`, mi: '0', ft: '2.40' }
 }
 
+// El id de un tanque identifica sus datos en cada lectura (Registro lo usa como llave del estado):
+// debe ser ÚNICO. Antes el siguiente tanque se numeraba "cantidad + 1", y al quitar uno del medio y
+// agregar otro quedaban dos con el mismo id y compartían medidas. Ahora toma el primer número libre.
+function siguienteTankDraft(existentes: TankDraft[]): TankDraft {
+  const usados = new Set(existentes.map((t) => t.id))
+  let n = 1
+  while (usados.has(`t${n}`)) n++
+  return nuevoTankDraft(n)
+}
+
 export default function NewWellPage() {
   const navigate = useNavigate()
   const { rol, zona, user } = useAuth()
@@ -55,7 +65,7 @@ export default function NewWellPage() {
 
   function agregarTank() {
     if (tanques.length >= 5) return
-    setTanques((prev) => [...prev, nuevoTankDraft(prev.length + 1)])
+    setTanques((prev) => [...prev, siguienteTankDraft(prev)])
   }
 
   function quitarTank(idx: number) {

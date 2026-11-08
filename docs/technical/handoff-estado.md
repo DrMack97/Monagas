@@ -81,8 +81,7 @@ cortaba el cambio de nivel a 0 → BPD 0.00 sin explicación y esa lectura (guar
 su medida inicial es 0 y nunca baja. **No era un fallo de la calculadora sino un caso no modelado.** Decisión del dueño: campo opcional **Trasegado (Bls)** por tanque;
 producción del intervalo = (mf − mi) × kk + trasegado (sin recortar el cambio de nivel; sin trasegado todo calcula igual que antes, los tests de oro no cambian).
 `ILecturaTanque.trasegado?` se guarda solo si > 0; la pantalla avisa cuando la medida baja sin trasegado. **La lectura 14 de SBC-61L en staging sigue con BPD 0** (dato de
-prueba; no se tocó). **Duplicado de id de tanque (hallazgo, SIN arreglar):** `NewWellPage` genera el id como `t${n}`; quitar y volver a agregar un tanque puede dejar dos
-con el mismo id, y entonces comparten estado en Registro. **NO verificado:** en un teléfono real.
+prueba; no se tocó). **Id de tanque duplicado (hallazgo, ARREGLADO en rama `fix-tanque-id-duplicado`, panel NO desplegado aún):** `NewWellPage` numeraba el tanque nuevo como "cantidad + 1"; quitar uno del medio y agregar otro dejaba dos con el mismo id y compartían medidas en Registro. Ahora toma el primer número libre (`siguienteTankDraft`). Revisados staging (2 pozos) y producción (0): ningún pozo existente tiene ids repetidos. **NO verificado:** en un teléfono real.
 **Decisiones abiertas del usuario:** (a) toma de presión estática aguas arriba (supuesto) o abajo; (b) confirmar fórmula de "Total Despachado
 General"; (c) la planilla (6). Jest de ambas apps ahora resuelve los imports `.js` del núcleo (`moduleNameMapper`), ya no hace falta mockearlo.
 **NO verificado:** nada de esto en un teléfono (APK 1.0.5 subido y verificado con aapt2: paquete, versión, proyecto staging; sin instalar), ni con sesión real, ni desplegado; el Qg no se comparó con una medición real de campo

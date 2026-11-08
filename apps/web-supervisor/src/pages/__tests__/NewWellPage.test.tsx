@@ -122,6 +122,42 @@ describe('NewWellPage', () => {
     expect(addDocMock.mock.calls[0][1]).not.toHaveProperty('meterRun')
   })
 
+  describe('identificadores de tanque únicos', () => {
+    async function crearConTanques(acciones: (user: ReturnType<typeof userEvent.setup>) => Promise<void>) {
+      useAuthMock.mockReturnValue({ rol: 'SUP_AREA', zona: 'MONAGAS', user: { uid: 'uid-area' } })
+      renderPage()
+      const user = userEvent.setup()
+      await user.type(screen.getByLabelText(/nombre del pozo/i), 'MFB-7')
+      await user.type(screen.getByLabelText(/^campo$/i), 'Bare')
+      await acciones(user)
+      await user.click(screen.getByRole('button', { name: /crear pozo/i }))
+      await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
+      return addDocMock.mock.calls[0][1].tanques as { id: string; nombre: string }[]
+    }
+    const agregar = (u: ReturnType<typeof userEvent.setup>) => u.click(screen.getByRole('button', { name: /agregar tanque/i }))
+    const quitarPrimero = (u: ReturnType<typeof userEvent.setup>) => u.click(screen.getAllByLabelText('Quitar tanque')[0])
+
+    it('quitar el primer tanque y agregar otro NO repite el id (antes quedaban dos "t2" que compartían datos en Registro)', async () => {
+      const tanques = await crearConTanques(async (u) => { await agregar(u); await quitarPrimero(u); await agregar(u) })
+      const ids = tanques.map((t) => t.id)
+      expect(ids).toHaveLength(2)
+      expect(new Set(ids).size).toBe(2)
+      expect(new Set(tanques.map((t) => t.nombre)).size).toBe(2)
+    })
+
+    it('quitar y agregar varias veces sigue sin repetir ids', async () => {
+      const tanques = await crearConTanques(async (u) => {
+        await agregar(u); await agregar(u); await quitarPrimero(u); await agregar(u); await quitarPrimero(u); await agregar(u)
+      })
+      expect(new Set(tanques.map((t) => t.id)).size).toBe(tanques.length)
+    })
+
+    it('sin quitar nada, los ids siguen siendo t1, t2, t3 (formato que ya usan los pozos existentes)', async () => {
+      const tanques = await crearConTanques(async (u) => { await agregar(u); await agregar(u) })
+      expect(tanques.map((t) => t.id)).toEqual(['t1', 't2', 't3'])
+    })
+  })
+
   it('muestra un mensaje amigable si Firestore rechaza la creación', async () => {
     useAuthMock.mockReturnValue({ rol: 'SUP_AREA', zona: 'MONAGAS', user: { uid: 'uid-area' } })
     addDocMock.mockRejectedValueOnce({ code: 'permission-denied' })
