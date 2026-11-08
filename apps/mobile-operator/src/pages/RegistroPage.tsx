@@ -36,10 +36,12 @@ interface TankFormState {
   reductor: string
   aysPct: string
   dilDia: string
+  /** Bls que se llevó un viaje de vacuum desde la lectura anterior (tanque vaciado). */
+  trasegado: string
 }
 
 function tankFormInicial(): TankFormState {
-  return { mf: '0', reductor: '0', aysPct: '0', dilDia: '0' }
+  return { mf: '0', reductor: '0', aysPct: '0', dilDia: '0', trasegado: '0' }
 }
 
 export default function RegistroPage() {
@@ -98,6 +100,16 @@ export default function RegistroPage() {
     setGuardadoOk(false)
   }
 
+  // Medida final por debajo de la inicial sin trasegado: el cálculo da 0 y conviene avisarlo (antes
+  // salía "0.00" sin explicación y esa lectura entraba al promedio como producción cero).
+  function bajoMedida(tankId: string): boolean {
+    const f = tankForms[tankId]
+    if (!f || f.mf.trim() === '') return false
+    const tank = pozo?.tanques.find((t) => t.id === tankId)
+    const mi = miPorTanque[tankId] ?? tank?.mi ?? 0
+    return (parseFloat(f.mf) || 0) < mi && (parseFloat(f.trasegado) || 0) === 0
+  }
+
   const resultadosPorTank = useMemo(() => {
     if (!pozo) return []
     return pozo.tanques.map((tank) => {
@@ -111,6 +123,7 @@ export default function RegistroPage() {
         reductor: parseFloat(form.reductor) || 0,
         aysPct: parseFloat(form.aysPct) || 0,
         dilDia: parseFloat(form.dilDia) || 0,
+        trasegado: parseFloat(form.trasegado) || 0,
       }
       try {
         return { tank, resultado: calcTanque(input) }
@@ -161,6 +174,7 @@ export default function RegistroPage() {
           bpd: resultado!.bpd,
           aysBls: resultado!.aysBls,
           netos: resultado!.netos,
+          ...((parseFloat(formDeTank(tank.id).trasegado) || 0) > 0 && { trasegado: parseFloat(formDeTank(tank.id).trasegado) }),
         }))
 
       const gas: ILecturaGas | undefined = gasResult
@@ -315,6 +329,25 @@ export default function RegistroPage() {
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Trasegado (Bls)</label>
+                <input
+                  type="number" step="0.01" min="0" value={form.trasegado}
+                  onChange={(e) => actualizarTank(tank.id, 'trasegado', e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Solo si un viaje de vacuum retiró fluido de este tanque desde la lectura anterior.
+                </p>
+              </div>
+
+              {bajoMedida(tank.id) && (
+                <p role="status" className="text-xs text-amber-400">
+                  La medida final es menor que la inicial ({miPorTanque[tank.id] ?? tank.mi}): el BPD de este tanque sale 0.
+                  Si el tanque se vació por un viaje de vacuum, anota los barriles en "Trasegado (Bls)".
+                </p>
+              )}
 
               {resultado && (
                 <div className="grid grid-cols-2 gap-2 text-xs text-slate-400 pt-2 border-t border-slate-800">

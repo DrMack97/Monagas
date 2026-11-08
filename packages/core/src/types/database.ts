@@ -195,6 +195,8 @@ export interface ILecturaTanque {
   dif: number
   th: number
   reductor: number
+  /** Bls retirados por vacuum en este intervalo; solo se guarda si fue mayor que 0 (ver calcTanque). */
+  trasegado?: number
   bph: number
   bpd: number
   aysBls: number

@@ -75,6 +75,14 @@ datos sí funciona (probado con la librería real y el flujo completo de la pant
 ("No se pudo exportar el Excel"). También: el reporte estándar tolera un pozo sin `tanques` (antes lanzaba excepción). Contra recaída: pruebas de la ruta nativa y web, del
 error visible, y una **guardia que falla si cualquier archivo de la app llama `XLSX.writeFile` fuera de `guardarArchivo.ts`**. El panel web (navegador) no cambia.
 **NO verificado:** el menú de compartir en un teléfono real (hay que probar: Reporte → Calcular → Excel → elegir Drive/WhatsApp/Archivos y abrir el .xlsx).
+**CORRECCIÓN 1.0.7 (2026-11-08, APK versionCode 7 en staging): calculadora del tanque 2 "no funcionaba".** Diagnóstico con datos reales de staging
+(pozo SBC-61L, lecturas 1–14): el tanque 2 calculó bien 13 lecturas (nivel 1"→14"); en la 14 el nivel cayó a 1" (tanque vaciado por vacuum) y `calcTanque`
+cortaba el cambio de nivel a 0 → BPD 0.00 sin explicación y esa lectura (guardada con bpd 0) entra al promedio como producción cero. El tanque 1 "funcionaba" porque
+su medida inicial es 0 y nunca baja. **No era un fallo de la calculadora sino un caso no modelado.** Decisión del dueño: campo opcional **Trasegado (Bls)** por tanque;
+producción del intervalo = (mf − mi) × kk + trasegado (sin recortar el cambio de nivel; sin trasegado todo calcula igual que antes, los tests de oro no cambian).
+`ILecturaTanque.trasegado?` se guarda solo si > 0; la pantalla avisa cuando la medida baja sin trasegado. **La lectura 14 de SBC-61L en staging sigue con BPD 0** (dato de
+prueba; no se tocó). **Duplicado de id de tanque (hallazgo, SIN arreglar):** `NewWellPage` genera el id como `t${n}`; quitar y volver a agregar un tanque puede dejar dos
+con el mismo id, y entonces comparten estado en Registro. **NO verificado:** en un teléfono real.
 **Decisiones abiertas del usuario:** (a) toma de presión estática aguas arriba (supuesto) o abajo; (b) confirmar fórmula de "Total Despachado
 General"; (c) la planilla (6). Jest de ambas apps ahora resuelve los imports `.js` del núcleo (`moduleNameMapper`), ya no hace falta mockearlo.
 **NO verificado:** nada de esto en un teléfono (APK 1.0.5 subido y verificado con aapt2: paquete, versión, proyecto staging; sin instalar), ni con sesión real, ni desplegado; el Qg no se comparó con una medición real de campo

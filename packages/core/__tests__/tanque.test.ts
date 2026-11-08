@@ -90,3 +90,50 @@ describe('calcTanque', () => {
   expect(result.netos).toBe(571); // 576 - 5
 });
 });
+
+// Tanque que se vacía por un viaje de vacuum (caso real: pozo SBC-61L, tanque 2, lectura 14: nivel 14" → 1")
+describe('calcTanque — trasegado (vacuum)', () => {
+  const base = { mi: 14, mf: 1, ft: 5.2, th: 1, reductor: 0, aysPct: 0 }
+
+  it('SIN trasegado, si la medida baja el resultado sigue siendo 0 (comportamiento anterior)', () => {
+    const r = calcTanque(base)
+    expect(r.bph).toBe(0)
+    expect(r.bpd).toBe(0)
+    expect(r.dif).toBe(0)
+  })
+
+  it('CON trasegado: producción = cambio de nivel × kk + trasegado', () => {
+    // (1 − 14) × 5.2 = −67.6 Bls de cambio; el vacuum se llevó 70 Bls → 2.4 Bls en la hora
+    const r = calcTanque({ ...base, trasegado: 70 })
+    expect(r.bph).toBeCloseTo(2.4, 6)
+    expect(r.bpd).toBeCloseTo(57.6, 6)
+    expect(r.netos).toBeCloseTo(57.6, 6)
+  })
+
+  it('el trasegado también suma cuando el nivel sigue subiendo', () => {
+    const r = calcTanque({ mi: 2, mf: 3, ft: 5.2, th: 1, reductor: 0, aysPct: 0, trasegado: 10 })
+    expect(r.bph).toBeCloseTo(15.2, 6) // 5.2 + 10
+  })
+
+  it('divide entre las horas del intervalo', () => {
+    expect(calcTanque({ ...base, trasegado: 70, th: 2 }).bph).toBeCloseTo(1.2, 6)
+  })
+
+  it('un trasegado menor que lo que bajó el nivel no da producción negativa: se corta en 0', () => {
+    expect(calcTanque({ ...base, trasegado: 20 }).bph).toBe(0)
+  })
+
+  it('trasegado 0 explícito = sin trasegado', () => {
+    expect(calcTanque({ ...base, trasegado: 0 })).toEqual(calcTanque(base))
+  })
+
+  it('trasegado negativo es un error', () => {
+    expect(() => calcTanque({ ...base, trasegado: -5 })).toThrow()
+  })
+
+  it('el AyS se aplica sobre la producción con trasegado', () => {
+    const r = calcTanque({ ...base, trasegado: 70, aysPct: 10 })
+    expect(r.aysBls).toBeCloseTo(5.76, 6) // 10 % de 57.6 Bls/día
+    expect(r.netos).toBeCloseTo(51.84, 6)
+  })
+})

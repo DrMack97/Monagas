@@ -31,6 +31,10 @@ Dos botones:
 Desde "Registrar Lectura" cargas los valores medidos en ese momento:
 presión de cabezal, separador, los datos de tanques, y los parámetros de gas (presión estática en psig, diferencial,
 temperatura y gravedad específica). La presión de casing solo se pide en zonas que la usan (no en Norte de Monagas).
+Cada tanque tiene su **Medida Final** y, debajo, **Trasegado (Bls)**: úsalo solo cuando un viaje de vacuum retiró fluido
+de ese tanque desde la lectura anterior (el volumen está en el ticket del viaje). Si el tanque se vació y la medida bajó, sin
+trasegado el BPD de ese tanque sale 0 y la pantalla te avisa; con el trasegado el cálculo es: cambio de nivel × factor del
+tanque + barriles trasegados.
 El **caudal de gas (Qg)** sale en **MMSCFD** y se calcula con la **Placa de orificio** y el **Meter Run** del pozo, que
 fija el Supervisor de Campo y tú ves de solo lectura: si faltan, la app te avisa y no calcula Qg (avisa a tu Supervisor de Campo).
 El **Reductor (pulg)** (la medida de la tubería) lo fija el Supervisor de Campo en el
