@@ -78,6 +78,18 @@ describe('calcAGA3 — comportamiento físico', () => {
     expect(calcAGA3({ ...HALLIBURTON, diam: 2 }).qg).toBeGreaterThan(calcAGA3({ ...HALLIBURTON, diam: 1.5 }).qg)
   })
 
+  it('gas pesado, frío y casi crítico: Z de la primera raíz (≈0.5), no la líquida (≈0.17)', () => {
+    // Tpr≈0.98, Ppr≈0.89. Antes la bisección caía en la raíz de y grande (Z=0.168) e inflaba el Qg ~1.5×.
+    const r = calcAGA3({ pf: 560, hw: 247, tGas: 50, gg: 1.13, diam: 4.757, meterRun: 6.065 })
+    expect(r.Z).toBeGreaterThan(0.4)
+    expect(r.Z).toBeLessThan(0.7)
+  })
+
+  it('más diferencial, más caudal (monotonía) también en gas pesado y frío', () => {
+    const base = { pf: 560, tGas: 50, gg: 1.13, diam: 4.757, meterRun: 6.065 }
+    expect(calcAGA3({ ...base, hw: 200 }).qg).toBeGreaterThan(calcAGA3({ ...base, hw: 100 }).qg)
+  })
+
   it('hw = 0 → Qg = 0', () => {
     expect(calcAGA3({ ...HALLIBURTON, hw: 0 }).qg).toBe(0)
   })

@@ -59,7 +59,9 @@ const T_BASE_K = T_BASE_R / 1.8      // K
 const KAPPA = 1.3                    // exponente isentrópico del gas natural
 const SCF_POR_M3 = 35.3146667        // pies cúbicos por m³
 
-// Z de Hall-Yarborough (por bisección: la función es monótona en y ∈ (0, 1)).
+// Z de Hall-Yarborough. F(y) NO es monótona cerca del punto crítico (gas pesado, frío y a presión
+// alta): puede tener varias raíces y la de y grande es la "líquida" (Z ≈ 0.2). Se toma siempre la
+// PRIMERA raíz (la de gas): se barre y desde 0 hasta el primer cambio de signo y ahí se biseca.
 function zHallYarborough(tpr: number, ppr: number): number {
   const t = 1 / tpr
   const A = 0.06125 * t * Math.exp(-1.2 * (1 - t) ** 2)
@@ -70,6 +72,15 @@ function zHallYarborough(tpr: number, ppr: number): number {
     -A * ppr + (y + y * y + y ** 3 - y ** 4) / (1 - y) ** 3 - B * y * y + C * y ** E
   let lo = 1e-9
   let hi = 0.99
+  const PASO = 0.0005
+  for (let y = PASO; y < 0.99; y += PASO) {
+    if (F(y) > 0) {
+      hi = y
+      lo = Math.max(1e-9, y - PASO)
+      break
+    }
+    lo = y
+  }
   for (let i = 0; i < 200; i++) {
     const mid = (lo + hi) / 2
     if (F(mid) > 0) hi = mid
