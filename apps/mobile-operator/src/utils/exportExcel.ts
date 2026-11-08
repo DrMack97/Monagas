@@ -17,6 +17,8 @@
 import * as XLSX from 'xlsx'
 import type { IPozo, ILectura, IResultadosEval, IReporteOperativo } from '@core/types'
 import { dateFormat, dateTimeFormat } from './formatters'
+import { redondearAHoraEntera, horaEnteraTexto } from '@core/utils/hora'
+import { capacidadesZona } from '@core/constants/zonas'
 
 interface ExportarInformeParams {
   pozo: IPozo
@@ -32,6 +34,7 @@ export function exportarInformeExcel({ pozo, resultados, lecturas, supervisorAre
   const bphPromedio = resultados.proyeccion24H / 24
   const aysBswPct = (resultados.aysBls / (resultados.bpdPromedio || 1)) * 100
   const reporte = reporteOperativo ?? {}
+  const zonaCaps = capacidadesZona(pozo.zona)
 
   const resumenSheet = XLSX.utils.aoa_to_sheet([
     ['GERENCIA DE PRODUCCION'],
@@ -59,7 +62,9 @@ export function exportarInformeExcel({ pozo, resultados, lecturas, supervisorAre
     [],
     ['Parámetros', ''],
     ['P.Cab (Psi)', ultima ? Number(ultima.operativos.pCab.toFixed(1)) : '—'],
-    ['P.Csg', ultima?.operativos.pCsg !== undefined ? Number(ultima.operativos.pCsg.toFixed(1)) : '—'],
+    ...(zonaCaps.casing
+      ? [['P.Csg', ultima?.operativos.pCsg !== undefined ? Number(ultima.operativos.pCsg.toFixed(1)) : '—']]
+      : []),
     ['P.sep (Psi)', ultima ? Number(ultima.operativos.pSep.toFixed(1)) : '—'],
     ['P.Línea Red.', ultima?.operativos.reductorPulgadas ?? '—'],
     ['Bph (Bls)', Number(bphPromedio.toFixed(2))],
@@ -92,29 +97,32 @@ export function exportarInformeExcel({ pozo, resultados, lecturas, supervisorAre
   ])
   resumenSheet['!cols'] = [{ wch: 32 }, { wch: 24 }]
 
+  // Este archivo sale hacia el cliente: las alertas operativas (l.alertas) son solo de control
+  // interno y NO se exportan. La hora va a la hora entera más cercana (el timestamp real no se
+  // exporta) y la fecha solo en la primera fila de cada día. Casing y Netos solo en zonas que los usan.
+  let diaAnterior = ''
   const lecturasRows = lecturas.map((l) => {
     const bph = l.tanques.reduce((acc, t) => acc + t.bph, 0)
     const bpd = l.tanques.reduce((acc, t) => acc + t.bpd, 0)
     const netos = l.tanques.reduce((acc, t) => acc + t.netos, 0)
+    const dia = dateFormat(redondearAHoraEntera(new Date(l.timestamp)))
+    const fecha = dia !== diaAnterior ? dia : ''
+    diaAnterior = dia
     return {
-      Hora: l.hora,
-      'Fecha/Hora': dateTimeFormat(l.timestamp),
+      Fecha: fecha,
+      Hora: horaEnteraTexto(new Date(l.timestamp)),
       'Bph (Bls)': Number(bph.toFixed(2)),
       'Bpd (Bls)': Number(bpd.toFixed(2)),
-      'Netos (Bls)': Number(netos.toFixed(2)),
+      ...(zonaCaps.netosEnLecturas && { 'Netos (Bls)': Number(netos.toFixed(2)) }),
       'Qg (MMSCFD)': l.gas ? Number(l.gas.qg.toFixed(2)) : '',
       'P. Cabezal (psi)': l.operativos.pCab,
       'P. Separador (psi)': l.operativos.pSep,
-      'P. Casing (psi)': l.operativos.pCsg ?? '',
+      ...(zonaCaps.casing && { 'P. Casing (psi)': l.operativos.pCsg ?? '' }),
       'Reductor (pulg)': l.operativos.reductorPulgadas ?? '',
-      Alertas: l.alertas && l.alertas.length > 0 ? l.alertas.join(', ') : '',
     }
   })
   const lecturasSheet = XLSX.utils.json_to_sheet(lecturasRows)
-  lecturasSheet['!cols'] = [
-    { wch: 6 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
-    { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 30 },
-  ]
+  lecturasSheet['!cols'] = Object.keys(lecturasRows[0] ?? {}).map((k) => ({ wch: Math.max(10, k.length + 2) }))
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, resumenSheet, 'Resumen')
