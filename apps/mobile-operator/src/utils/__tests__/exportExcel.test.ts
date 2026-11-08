@@ -39,8 +39,8 @@ const LECTURAS = [
   lectura(3, new Date(2026, 10, 5, 0, 5)),
 ]
 
-function exportar(zona: string) {
-  exportarInformeExcel({
+async function exportar(zona: string) {
+  await exportarInformeExcel({
     pozo: { id: 'p1', nombre: 'SBC-61', campo: 'Bare', zona, meterRun: 3.826, diamOrif: 3.25, tanques: [{ id: 't1', nombre: 'Tanque 1', mi: 0, ft: 2.4 }] } as any,
     resultados: resultados as any,
     lecturas: LECTURAS as any,
@@ -50,8 +50,8 @@ function exportar(zona: string) {
 }
 
 describe('hoja Resumen = reporte estándar', () => {
-  it('lleva el encabezado y los bloques del reporte estándar, con Qg en MMSCFD', () => {
-    const { resumen } = exportar('MONAGAS')
+  it('lleva el encabezado y los bloques del reporte estándar, con Qg en MMSCFD', async () => {
+    const { resumen } = await exportar('MONAGAS')
     const etiquetas = resumen.map((r) => r[0])
     expect(etiquetas[0]).toBe('GERENCIA DE PRODUCCIÓN DIV PDM')
     expect(etiquetas).toContain('MEDICIÓN Y CAUDAL DE GAS')
@@ -62,21 +62,21 @@ describe('hoja Resumen = reporte estándar', () => {
 })
 
 describe('exportarInformeExcel (Operador)', () => {
-  it('NO exporta las alertas operativas (ni en Lecturas ni en Resumen)', () => {
-    const { filas, resumen } = exportar('MONAGAS')
+  it('NO exporta las alertas operativas (ni en Lecturas ni en Resumen)', async () => {
+    const { filas, resumen } = await exportar('MONAGAS')
     for (const f of filas) expect(Object.keys(f)).not.toContain('Alertas')
     expect(JSON.stringify(filas)).not.toMatch(/excede el resorte/i)
     expect(JSON.stringify(resumen)).not.toMatch(/alerta|excede el resorte/i)
   })
 
-  it('hora entera más cercana y fecha solo al comenzar cada día', () => {
-    const { filas } = exportar('MONAGAS')
+  it('hora entera más cercana y fecha solo al comenzar cada día', async () => {
+    const { filas } = await exportar('MONAGAS')
     expect(filas.map((f) => f.Hora)).toEqual(['09:00', '23:00', '00:00'])
     expect(filas.map((f) => f.Fecha)).toEqual(['04/11/2026', '', '05/11/2026'])
   })
 
-  it('Norte de Monagas: sin columna Netos ni Casing, ni P.Csg en el resumen', () => {
-    const { filas, resumen } = exportar('MONAGAS')
+  it('Norte de Monagas: sin columna Netos ni Casing, ni P.Csg en el resumen', async () => {
+    const { filas, resumen } = await exportar('MONAGAS')
     for (const f of filas) {
       expect(Object.keys(f)).not.toContain('Netos (Bls)')
       expect(Object.keys(f)).not.toContain('P. Casing (psi)')
@@ -85,8 +85,8 @@ describe('exportarInformeExcel (Operador)', () => {
     expect(filas[0]['Qg (MMSCFD)']).toBe(9.65)
   })
 
-  it('Faja: conserva Netos y Casing en la hoja Lecturas', () => {
-    const { filas, resumen } = exportar('FAJA')
+  it('Faja: conserva Netos y Casing en la hoja Lecturas', async () => {
+    const { filas, resumen } = await exportar('FAJA')
     expect(filas[0]['Netos (Bls)']).toBe(12.5)
     expect(filas[0]['P. Casing (psi)']).toBe(12)
     expect(resumen.map((r) => r[0])).not.toContain('P.Csg') // el reporte estándar no lleva Casing

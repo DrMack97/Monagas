@@ -94,7 +94,8 @@ export function construirReporteEstandar(datos: DatosReporteEstandar): ReporteEs
   const bsw = bpd > 0 ? (resultados.aysBls / bpd) * 100 : 0
 
   // --- tanques: existencia = mf × kk del último registro ---
-  const volumenTanques = pozo.tanques.map((t) => {
+  const tanquesPozo = pozo.tanques ?? []
+  const volumenTanques = tanquesPozo.map((t) => {
     const lt = ultima?.tanques.find((x) => x.tanqueId === t.id)
     return lt ? lt.mf * t.ft : undefined
   })
@@ -188,7 +189,7 @@ export function construirReporteEstandar(datos: DatosReporteEstandar): ReporteEs
     {
       titulo: 'ESTATUS DE TANQUES DE ALMACENAMIENTO',
       filas: [
-        f(...pozo.tanques.map((t, i): [string, string] => [
+        f(...tanquesPozo.map((t, i): [string, string] => [
           `Tanque #${i + 1}`,
           volumenTanques[i] !== undefined ? `${trim(volumenTanques[i] as number)} Bls` : NA,
         ])),

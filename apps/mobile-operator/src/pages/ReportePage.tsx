@@ -56,6 +56,7 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
   const [calculando, setCalculando] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
+  const [exportando, setExportando] = useState(false)
   const [supervisorArea, setSupervisorArea] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -176,9 +177,20 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
     }
   }
 
-  function handleExportarExcel() {
+  // La exportación puede fallar (guardar el archivo, abrir el menú de compartir): se avisa en pantalla;
+  // antes un fallo quedaba en silencio y el botón parecía roto sin explicación.
+  async function handleExportarExcel() {
     if (!resultados || !pozo) return
-    exportarInformeExcel({ pozo, resultados, lecturas, supervisorArea, reporteOperativo: construirReporteOperativo() })
+    setExportando(true)
+    setError(null)
+    try {
+      await exportarInformeExcel({ pozo, resultados, lecturas, supervisorArea, reporteOperativo: construirReporteOperativo() })
+    } catch (err) {
+      console.error('Exportar Excel', err)
+      setError('No se pudo exportar el Excel. Intenta de nuevo.')
+    } finally {
+      setExportando(false)
+    }
   }
 
   // Reporte operacional estándar (Informe Técnico Willytank, 04/11/2026, sección 2): la estructura
@@ -409,9 +421,10 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
             </a>
             <button
               onClick={handleExportarExcel}
+              disabled={exportando}
               className="flex items-center justify-center gap-1.5 bg-slate-800 border border-slate-700 text-white font-medium rounded-lg py-3"
             >
-              <FiFileText aria-hidden="true" /> Excel
+              <FiFileText aria-hidden="true" /> {exportando ? 'Exportando...' : 'Excel'}
             </button>
           </div>
         </>

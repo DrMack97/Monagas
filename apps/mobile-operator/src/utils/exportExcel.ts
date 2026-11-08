@@ -17,6 +17,7 @@
 import * as XLSX from 'xlsx'
 import type { IPozo, ILectura, IResultadosEval, IReporteOperativo } from '@core/types'
 import { dateFormat, dateTimeFormat } from './formatters'
+import { entregarLibroExcel } from './guardarArchivo'
 import { redondearAHoraEntera, horaEnteraTexto } from '@core/utils/hora'
 import { construirReporteEstandar, reporteAFilasExcel } from '@core/utils/reporteEstandar'
 import { capacidadesZona } from '@core/constants/zonas'
@@ -29,7 +30,7 @@ interface ExportarInformeParams {
   reporteOperativo?: IReporteOperativo
 }
 
-export function exportarInformeExcel({ pozo, resultados, lecturas, supervisorArea, reporteOperativo }: ExportarInformeParams) {
+export async function exportarInformeExcel({ pozo, resultados, lecturas, supervisorArea, reporteOperativo }: ExportarInformeParams): Promise<void> {
   const esPreliminar = resultados.tipoCalculo === 'PRELIMINAR_FORZADO'
   const ultima = lecturas[lecturas.length - 1]
   const bphPromedio = resultados.proyeccion24H / 24
@@ -87,5 +88,6 @@ export function exportarInformeExcel({ pozo, resultados, lecturas, supervisorAre
   XLSX.utils.book_append_sheet(wb, lecturasSheet, 'Lecturas')
 
   const fechaArchivo = dateFormat(new Date()).replace(/\//g, '-')
-  XLSX.writeFile(wb, `Informe_${pozo.nombre}_${fechaArchivo}.xlsx`)
+  // En el APK no hay descargas por enlace: se guarda en caché y se abre el menú de compartir (ver guardarArchivo.ts).
+  await entregarLibroExcel(wb, `Informe_${pozo.nombre}_${fechaArchivo}.xlsx`)
 }

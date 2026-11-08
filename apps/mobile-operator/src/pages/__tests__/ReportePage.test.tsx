@@ -7,6 +7,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ReportePage from '../ReportePage'
+import { exportarInformeExcel } from '../../utils/exportExcel'
 
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(),
@@ -32,6 +33,9 @@ jest.mock('../../hooks/useLecturasEvaluacion', () => ({
     }],
   }),
 }))
+
+jest.mock('../../utils/exportExcel', () => ({ exportarInformeExcel: jest.fn() }))
+const exportarMock = exportarInformeExcel as jest.Mock
 
 function textoWhatsApp(): string {
   const href = (screen.getByRole('link', { name: /whatsapp/i }) as HTMLAnchorElement).href
@@ -76,5 +80,27 @@ describe('ReportePage — reporte estándar', () => {
     const t = textoWhatsApp()
     expect(t).toContain('• Viajes Vacuum (Últimas 24 Hrs): 00')
     expect(t).not.toContain('Sin fecha')
+  })
+
+  it('botón Excel: entrega el informe y no muestra error', async () => {
+    exportarMock.mockReset().mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(<ReportePage pozoId="p1" evalId="e1" />)
+    await user.click(screen.getByRole('button', { name: /calcular promedio/i }))
+    await user.click(screen.getByRole('button', { name: /^excel$/i }))
+    expect(exportarMock).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/no se pudo exportar/i)).not.toBeInTheDocument()
+  })
+
+  it('botón Excel: si la exportación falla, SE AVISA en pantalla (antes fallaba en silencio)', async () => {
+    exportarMock.mockReset().mockRejectedValue(new Error('sin espacio'))
+    jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    const user = userEvent.setup()
+    render(<ReportePage pozoId="p1" evalId="e1" />)
+    await user.click(screen.getByRole('button', { name: /calcular promedio/i }))
+    await user.click(screen.getByRole('button', { name: /^excel$/i }))
+    expect(await screen.findByText(/no se pudo exportar el excel/i)).toBeInTheDocument()
+    // y el botón vuelve a estar disponible para reintentar
+    expect(screen.getByRole('button', { name: /^excel$/i })).toBeEnabled()
   })
 })

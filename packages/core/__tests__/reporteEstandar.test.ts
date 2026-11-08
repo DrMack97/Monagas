@@ -182,6 +182,14 @@ describe('reporte estándar — datos faltantes y variantes', () => {
   })
 })
 
+describe('reporte estándar — robustez', () => {
+  it('un pozo sin lista de tanques NO rompe el reporte (rompía el botón de Excel)', () => {
+    const d = datosEjemplo()
+    ;(d.pozo as any).tanques = undefined
+    expect(() => reporteAWhatsApp(construirReporteEstandar(d))).not.toThrow()
+  })
+})
+
 describe('reporteAFilasExcel — mismo contenido que WhatsApp', () => {
   it('cada par etiqueta/valor es una fila y los viajes quedan como detalle', () => {
     const filas = reporteAFilasExcel(construirReporteEstandar(datosEjemplo()))
