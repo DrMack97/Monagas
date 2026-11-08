@@ -8,7 +8,6 @@
 // Sidebar está oculto.
 
 import { Link } from 'react-router-dom'
-import { FiDroplet } from 'react-icons/fi'
 import type { Rol } from '@core/types'
 import BotonAvisos from './BotonAvisos'
 
@@ -29,10 +28,7 @@ export default function Header({ nombre, rol, onLogout }: HeaderProps) {
 
   return (
     <header className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-10">
-      <div className="flex items-center gap-2">
-        <FiDroplet className="text-lg" aria-hidden="true" />
-        <span className="font-semibold text-white hidden sm:inline">WillyTank</span>
-      </div>
+      <img src="/logo.jpg" alt="WillyTank" className="h-9 w-9 rounded-lg object-cover" />
 
       <div className="flex items-center gap-3">
         {/* notifyMgr.ts solo avisa a SUP_AREA y GERENTE */}
