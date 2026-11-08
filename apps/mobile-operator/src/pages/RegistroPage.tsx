@@ -117,20 +117,27 @@ export default function RegistroPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pozo, tankForms, th, miPorTanque])
 
+  // El Qg depende de la placa (d) y del Meter Run (D) REALES del pozo, que fija el supervisor.
+  // Si faltan no se inventa un valor por defecto: no hay Qg hasta que se configuren.
+  const diamPlaca = pozo?.diamOrif ?? 0
+  const meterRun = pozo?.meterRun ?? 0
+  const gasConfigurado = diamPlaca > 0 && meterRun > 0
+
   const gasResult = useMemo(() => {
+    if (!gasConfigurado) return null
     try {
       return calcAGA3({
         pf: parseFloat(pf) || 0,
         hw: parseFloat(hw) || 0,
         tGas: parseFloat(tGas) || 0,
         gg: parseFloat(gg) || 0.6,
-        diam: pozo?.diamOrif ?? 2,
-        meterRun: pozo?.meterRun ?? 4,
+        diam: diamPlaca,
+        meterRun,
       })
     } catch {
       return null
     }
-  }, [pf, hw, tGas, gg, pozo])
+  }, [pf, hw, tGas, gg, diamPlaca, meterRun, gasConfigurado])
 
   async function handleGuardar() {
     if (!evalId || !pozo) return
@@ -158,8 +165,8 @@ export default function RegistroPage() {
             hw: parseFloat(hw) || 0,
             tGas: parseFloat(tGas) || 0,
             gg: parseFloat(gg) || 0.6,
-            diam: pozo.diamOrif ?? 2,
-            meterRun: pozo.meterRun ?? 4,
+            diam: diamPlaca,
+            meterRun,
             beta: gasResult.beta,
             Fc: gasResult.Fc,
             Fb: gasResult.Fb,
@@ -334,6 +341,16 @@ export default function RegistroPage() {
               <input type="number" step="0.01" value={gg} onChange={(e) => setGg(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
           </div>
+          <p className="text-xs text-slate-500 flex items-center gap-1">
+            Placa: <span className="text-slate-300 font-mono">{gasConfigurado ? `${diamPlaca}"` : '-'}</span>
+            {' · '}Meter Run: <span className="text-slate-300 font-mono">{gasConfigurado ? `${meterRun}"` : '-'}</span>
+            <FiLock aria-hidden="true" />
+          </p>
+          {!gasConfigurado && (
+            <p role="alert" className="text-xs text-amber-400 pt-2 border-t border-slate-800">
+              Este pozo no tiene Placa y Meter Run configurados: no se calcula Qg. Avise a su Supervisor de Campo.
+            </p>
+          )}
           {gasResult && (
             <p className="text-xs text-slate-400 pt-2 border-t border-slate-800">
               Qg: <span className="text-white font-mono">{gasResult.qg.toFixed(2)} MMSCFD</span>

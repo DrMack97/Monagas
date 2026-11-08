@@ -35,6 +35,8 @@ export default function NewWellPage() {
   const [empresa, setEmpresa] = useState('')
   const [equipo, setEquipo] = useState('')
   const [reductorPulgadas, setReductorPulgadas] = useState('')
+  const [diamOrif, setDiamOrif] = useState('')
+  const [meterRun, setMeterRun] = useState('')
   const [zonaSeleccionada, setZonaSeleccionada] = useState(zona ?? 'FAJA')
   const [horasEval, setHorasEval] = useState('5')
   const [limResorte, setLimResorte] = useState('300')
@@ -80,6 +82,9 @@ export default function NewWellPage() {
         ...(empresa.trim() && { empresa: empresa.trim() }),
         ...(equipo.trim() && { equipo: equipo.trim() }),
         ...(reductorPulgadas.trim() && { reductorPulgadas: reductorPulgadas.trim() }),
+        // Placa y Meter Run: sin ellos la app no calcula Qg (no se inventan valores por defecto)
+        ...(parseFloat(diamOrif) > 0 && { diamOrif: parseFloat(diamOrif) }),
+        ...(parseFloat(meterRun) > 0 && { meterRun: parseFloat(meterRun) }),
         zona: zonaFinal,
         ft: tanquesFinales[0]?.ft.toString() ?? '2.40',
         limResorte: parseFloat(limResorte) || 0,
@@ -165,6 +170,17 @@ export default function NewWellPage() {
               </div>
             </div>
           ))}
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold text-slate-300">Medición de gas</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Placa de orificio (pulg)" type="number" step="0.001" value={diamOrif} onChange={(e) => setDiamOrif(e.target.value)} placeholder="ej: 3.250" />
+            <Input label="Meter Run (pulg)" type="number" step="0.001" value={meterRun} onChange={(e) => setMeterRun(e.target.value)} placeholder="ej: 3.826" />
+          </div>
+          <p className="text-xs text-slate-500">
+            Diámetro de la placa (d) y diámetro interno del Meter Run (D). Sin ambos, el Operador no obtiene Qg.
+          </p>
         </section>
 
         <section className="space-y-4">

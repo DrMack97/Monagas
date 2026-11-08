@@ -1,14 +1,14 @@
 // src/pages/WellDetailPage.tsx
 //
 // Detalle y edición de un pozo. El alcance de edición depende del rol:
-//   SUP_CAMPO (solo en SU propio pozo) — únicamente tanques, límites y Reductor (pulg).
+//   SUP_CAMPO (solo en SU propio pozo) — únicamente tanques, límites, Reductor (pulg), Placa y Meter Run.
 //   SUP_AREA/GERENTE — tanques, límites, y además Empresa/Equipo
 //     (encabezado del reporte PDVSA — ver checklist Fase 4). Nombre/
 //     campo/zona siguen sin ser editables desde acá (se fijan una vez
 //     al crear el pozo en NewWellPage.tsx).
 //
 // El update de SUP_CAMPO envía EXCLUSIVAMENTE {tanques, limResorte,
-// limGamma, reductorPulgadas} — nada más — para coincidir exacto con hasOnly([...]) de
+// limGamma, reductorPulgadas, diamOrif, meterRun} — nada más — para coincidir exacto con hasOnly([...]) de
 // canEditOwnTanquesYLimites() en firestore.rules. Enviar cualquier
 // otro campo, aunque no cambie de valor, arriesga que Firestore
 // rechace el write completo. SUP_AREA/GERENTE (canManagePozoEnZona, sin
@@ -99,6 +99,8 @@ export default function WellDetailPage() {
   const [empresa, setEmpresa] = useState('')
   const [equipo, setEquipo] = useState('')
   const [reductorPulgadas, setReductorPulgadas] = useState('')
+  const [diamOrif, setDiamOrif] = useState('')
+  const [meterRun, setMeterRun] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null)
@@ -111,6 +113,8 @@ export default function WellDetailPage() {
       setEmpresa(pozo.empresa ?? '')
       setEquipo(pozo.equipo ?? '')
       setReductorPulgadas(pozo.reductorPulgadas ?? '')
+      setDiamOrif(pozo.diamOrif ? String(pozo.diamOrif) : '')
+      setMeterRun(pozo.meterRun ? String(pozo.meterRun) : '')
     }
   }, [pozo])
 
@@ -126,7 +130,7 @@ export default function WellDetailPage() {
     setGuardando(true)
     setErrorGuardar(null)
     try {
-      // Payload EXACTO para SUP_CAMPO — solo estos 4 campos, para que
+      // Payload EXACTO para SUP_CAMPO — solo estos 6 campos, para que
       // coincida con hasOnly([...]) de canEditOwnTanquesYLimites() en
       // firestore.rules. SUP_AREA/GERENTE (canManagePozoEnZona, sin
       // restricción de campos) sí pueden mandar empresa/equipo además
@@ -136,6 +140,9 @@ export default function WellDetailPage() {
         limResorte: parseFloat(limResorte) || 0,
         limGamma: parseFloat(limGamma) || 0,
         reductorPulgadas: reductorPulgadas.trim(),
+        // 0 = sin configurar (Firestore no admite undefined): el Operador no calcula Qg sin d y D
+        diamOrif: parseFloat(diamOrif) || 0,
+        meterRun: parseFloat(meterRun) || 0,
         ...(puedeEditarTodo && { empresa, equipo }),
       })
       setGuardadoOk(true)
@@ -219,6 +226,33 @@ export default function WellDetailPage() {
           />
           <p className="text-xs text-slate-500">
             Medida de la tubería. Los Operadores la ven en sus lecturas sin poder cambiarla; no afecta los barriles.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold text-slate-300">Medición de gas</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Placa de orificio (pulg)"
+              type="number"
+              step="0.001"
+              value={diamOrif}
+              onChange={(e) => { setDiamOrif(e.target.value); setGuardadoOk(false) }}
+              placeholder="ej: 3.250"
+              disabled={!puedeEditarTanquesYLimites}
+            />
+            <Input
+              label="Meter Run (pulg)"
+              type="number"
+              step="0.001"
+              value={meterRun}
+              onChange={(e) => { setMeterRun(e.target.value); setGuardadoOk(false) }}
+              placeholder="ej: 3.826"
+              disabled={!puedeEditarTanquesYLimites}
+            />
+          </div>
+          <p className="text-xs text-slate-500">
+            Diámetro de la placa (d) y diámetro interno del Meter Run (D). Sin ambos, el Operador no obtiene Qg.
           </p>
         </section>
 

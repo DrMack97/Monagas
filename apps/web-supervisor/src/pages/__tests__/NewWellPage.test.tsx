@@ -95,6 +95,33 @@ describe('NewWellPage', () => {
     expect(addDocMock.mock.calls[0][1]).not.toHaveProperty('reductorPulgadas')
   })
 
+  it('guarda Placa y Meter Run como números; si se dejan vacíos no se mandan', async () => {
+    useAuthMock.mockReturnValue({ rol: 'SUP_AREA', zona: 'MONAGAS', user: { uid: 'uid-area' } })
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText(/nombre del pozo/i), 'SBC-61')
+    await user.type(screen.getByLabelText(/^campo$/i), 'Bare')
+    await user.type(screen.getByLabelText('Placa de orificio (pulg)'), '3.25')
+    await user.type(screen.getByLabelText('Meter Run (pulg)'), '3.826')
+    await user.click(screen.getByRole('button', { name: /crear pozo/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
+    expect(addDocMock.mock.calls[0][1]).toMatchObject({ diamOrif: 3.25, meterRun: 3.826 })
+  })
+
+  it('no manda diamOrif ni meterRun si no se llenan', async () => {
+    useAuthMock.mockReturnValue({ rol: 'SUP_AREA', zona: 'MONAGAS', user: { uid: 'uid-area' } })
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText(/nombre del pozo/i), 'SBC-62')
+    await user.type(screen.getByLabelText(/^campo$/i), 'Bare')
+    await user.click(screen.getByRole('button', { name: /crear pozo/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
+    expect(addDocMock.mock.calls[0][1]).not.toHaveProperty('diamOrif')
+    expect(addDocMock.mock.calls[0][1]).not.toHaveProperty('meterRun')
+  })
+
   it('muestra un mensaje amigable si Firestore rechaza la creación', async () => {
     useAuthMock.mockReturnValue({ rol: 'SUP_AREA', zona: 'MONAGAS', user: { uid: 'uid-area' } })
     addDocMock.mockRejectedValueOnce({ code: 'permission-denied' })

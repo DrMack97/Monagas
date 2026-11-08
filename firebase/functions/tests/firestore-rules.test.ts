@@ -185,6 +185,15 @@ describe('/pozos — update por el Supervisor de Campo', () => {
       tanques: [], limResorte: 300, limGamma: 60, reductorPulgadas: '1/2"',
     }))
   })
+  it('permite fijar Placa (diamOrif) y Meter Run de SU pozo (el Qg del Operador depende de ambos)', async () => {
+    await assertSucceeds(updateDoc(doc(as('sc1', SUP_CAMPO), 'pozos/pozo1'), { diamOrif: 3.25, meterRun: 3.826 }))
+  })
+  it('DENIEGA que el Operador cambie Placa o Meter Run', async () => {
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), 'pozos/pozo1'), { diamOrif: 3.25 }))
+  })
+  it('DENIEGA editar la Placa de un pozo que no es el suyo', async () => {
+    await assertFails(updateDoc(doc(as('sc1', SUP_CAMPO), 'pozos/pozo2'), { diamOrif: 3.25 }))
+  })
   it('DENIEGA editar el Reductor de un pozo que no es el suyo', async () => {
     await assertFails(updateDoc(doc(as('sc1', SUP_CAMPO), 'pozos/pozo2'), { reductorPulgadas: '1/2"' }))
   })

@@ -2,7 +2,7 @@
 //
 // Protege el payload EXACTO que guardarTanquesYLimites() envía a
 // Firestore para SUP_CAMPO — debe ser siempre {tanques, limResorte,
-// limGamma, reductorPulgadas} y nada más, para coincidir con hasOnly([...]) de
+// limGamma, reductorPulgadas, diamOrif, meterRun} y nada más, para coincidir con hasOnly([...]) de
 // canEditOwnTanquesYLimites() en firestore.rules. Agregar un campo
 // aquí sin actualizar la regla (o viceversa) rompe el guardado de
 // SUP_CAMPO en producción sin que tsc lo detecte.
@@ -74,7 +74,7 @@ describe('WellDetailPage', () => {
     usePozoMock.mockReturnValue({ pozo: POZO_BASE, loading: false, error: null })
   })
 
-  it('SUP_CAMPO guarda con el payload restringido exacto (tanques, limResorte, limGamma, reductorPulgadas)', async () => {
+  it('SUP_CAMPO guarda con el payload restringido exacto (tanques, límites, reductorPulgadas, diamOrif, meterRun)', async () => {
     useAuthMock.mockReturnValue({ rol: 'SUP_CAMPO' })
     renderPage()
     const user = userEvent.setup()
@@ -83,7 +83,29 @@ describe('WellDetailPage', () => {
 
     await waitFor(() => expect(updateDocMock).toHaveBeenCalled())
     const payload = updateDocMock.mock.calls[0][1]
-    expect(Object.keys(payload).sort()).toEqual(['limGamma', 'limResorte', 'reductorPulgadas', 'tanques'])
+    expect(Object.keys(payload).sort()).toEqual(['diamOrif', 'limGamma', 'limResorte', 'meterRun', 'reductorPulgadas', 'tanques'])
+  })
+
+  it('SUP_CAMPO edita Placa y Meter Run: se guardan como número; vacíos → 0 (sin configurar)', async () => {
+    useAuthMock.mockReturnValue({ rol: 'SUP_CAMPO' })
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText('Placa de orificio (pulg)'), '3.25')
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+
+    await waitFor(() => expect(updateDocMock).toHaveBeenCalled())
+    const payload = updateDocMock.mock.calls[0][1]
+    expect(payload.diamOrif).toBe(3.25)
+    expect(payload.meterRun).toBe(0)
+  })
+
+  it('muestra la Placa y el Meter Run ya configurados en el pozo', () => {
+    useAuthMock.mockReturnValue({ rol: 'SUP_CAMPO' })
+    usePozoMock.mockReturnValue({ pozo: { ...POZO_BASE, diamOrif: 3.25, meterRun: 3.826 }, loading: false, error: null })
+    renderPage()
+    expect(screen.getByLabelText('Placa de orificio (pulg)')).toHaveValue(3.25)
+    expect(screen.getByLabelText('Meter Run (pulg)')).toHaveValue(3.826)
   })
 
   it('SUP_CAMPO edita el Reductor (pulg) y se guarda tal cual, sin espacios sobrantes', async () => {
@@ -107,7 +129,7 @@ describe('WellDetailPage', () => {
 
     await waitFor(() => expect(updateDocMock).toHaveBeenCalled())
     const payload = updateDocMock.mock.calls[0][1]
-    expect(Object.keys(payload).sort()).toEqual(['empresa', 'equipo', 'limGamma', 'limResorte', 'reductorPulgadas', 'tanques'])
+    expect(Object.keys(payload).sort()).toEqual(['diamOrif', 'empresa', 'equipo', 'limGamma', 'limResorte', 'meterRun', 'reductorPulgadas', 'tanques'])
   })
 
   it('muestra "solo lectura" y oculta Guardar cuando el rol no tiene permiso de edición', () => {
