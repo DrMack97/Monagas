@@ -24,7 +24,7 @@
 // sincronización no puede hacerse desde este cliente.
 
 import { useId, useState } from 'react'
-import { FiSend, FiAlertTriangle, FiCheckCircle, FiSave, FiFileText, FiChevronDown, FiChevronUp } from 'react-icons/fi'
+import { FiArrowLeft, FiSend, FiAlertTriangle, FiCheckCircle, FiSave, FiFileText, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
@@ -46,9 +46,11 @@ interface ViajeForm {
 interface ReportePageProps {
   pozoId: string
   evalId: string
+  /** Volver a la pantalla anterior; lo resuelve la ruta (App.tsx) para que esta pantalla siga aislada y testeable. */
+  onVolver?: () => void
 }
 
-export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
+export default function ReportePage({ pozoId, evalId, onVolver }: ReportePageProps) {
   const { pozo } = usePozoInfo(pozoId)
   const { lecturas, loading } = useLecturasEvaluacion(evalId)
 
@@ -214,10 +216,32 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
     return datos ? reporteAWhatsApp(construirReporteEstandar(datos)) : ''
   }
 
-  if (loading) return <div className="p-6 text-slate-400">Cargando...</div>
+  // Sin esto la pantalla no tenía cómo retroceder y el usuario tenía que cerrar la app.
+  const botonVolver = (
+    <button
+      type="button"
+      onClick={onVolver}
+      className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-white"
+    >
+      <FiArrowLeft aria-hidden="true" /> Volver
+    </button>
+  )
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950">
+        <div className="p-4 max-w-2xl mx-auto space-y-5">
+          {botonVolver}
+          <p className="text-slate-400">Cargando...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 max-w-md mx-auto space-y-5">
+    <div className="min-h-screen bg-slate-950">
+    <div className="p-4 max-w-2xl mx-auto space-y-5">
+      {botonVolver}
 
       {/* Encabezado del reporte */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -251,7 +275,7 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
           onClick={() => setMostrarDatosPDVSA((v) => !v)}
           className="flex items-center justify-between w-full text-sm font-semibold text-slate-300"
         >
-          Datos del Reporte (PDVSA)
+          Datos del Reporte
           {mostrarDatosPDVSA ? <FiChevronUp aria-hidden="true" /> : <FiChevronDown aria-hidden="true" />}
         </button>
 
@@ -347,7 +371,7 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
         disabled={calculando || lecturas.length === 0}
         className="w-full bg-amber-500 text-slate-950 font-medium rounded-lg py-3 disabled:opacity-50"
       >
-        {calculando ? 'Calculando...' : cicloCompleto ? 'Calcular Promedio Final (24H)' : 'Calcular Promedio (Forzado)'}
+        {calculando ? 'Calculando...' : cicloCompleto ? 'Calcular Promedio Final (24H)' : 'Calcular Promedio'}
       </button>
 
       {error && (
@@ -368,7 +392,7 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
               : 'bg-slate-800/60 border border-slate-700 text-slate-300'
           }`}>
             {resultados.tipoCalculo !== 'FINAL_24H' ? (
-              <><FiAlertTriangle aria-hidden="true" /> Cálculo Preliminar Forzado — {resultados.horasTotales}H de {pozo?.horasEval ?? '?'}H</>
+              <><FiAlertTriangle aria-hidden="true" /> Cálculo Preliminar — {resultados.horasTotales}H de {pozo?.horasEval ?? '?'}H</>
             ) : enviado ? (
               <><FiSend aria-hidden="true" /> Enviado a Supervisión — 24 Horas Completas</>
             ) : (
@@ -429,6 +453,7 @@ export default function ReportePage({ pozoId, evalId }: ReportePageProps) {
           </div>
         </>
       )}
+    </div>
     </div>
   )
 }

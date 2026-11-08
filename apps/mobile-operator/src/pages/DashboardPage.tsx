@@ -43,7 +43,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="p-4 max-w-md mx-auto space-y-4">
+      <div className="p-4 max-w-2xl mx-auto space-y-4">
         {loading ? (
           <LoadingSpinner message="Cargando pozo asignado..." />
         ) : !pozoAsignado || !pozo ? (

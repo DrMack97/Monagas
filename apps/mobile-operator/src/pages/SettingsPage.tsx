@@ -29,7 +29,8 @@ export default function SettingsPage() {
   if (!user) return <div className="p-4 text-slate-400">Cargando...</div>
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 max-w-md mx-auto">
+    <div className="min-h-screen bg-slate-950">
+    <div className="p-4 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => navigate('/dashboard')} className="text-slate-400"><FiArrowLeft aria-label="Volver" /></button>
         <h1 className="text-xl font-bold text-white">Configuración</h1>
@@ -112,6 +113,7 @@ export default function SettingsPage() {
       >
         Cerrar sesión
       </button>
+    </div>
     </div>
   )
 }

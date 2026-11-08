@@ -52,7 +52,7 @@ export async function exportarInformeExcel({ pozo, resultados, lecturas, supervi
     ...reporteAFilasExcel(estandar),
     [],
     ['Supervisor de Área', supervisorArea || '—'],
-    ['Tipo de Cálculo', esPreliminar ? 'Preliminar Forzado' : 'Final (24H)'],
+    ['Tipo de Cálculo', esPreliminar ? 'Preliminar' : 'Final (24H)'],
   ])
   resumenSheet['!cols'] = [{ wch: 32 }, { wch: 24 }]
 

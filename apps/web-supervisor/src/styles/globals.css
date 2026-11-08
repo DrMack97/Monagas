@@ -1,3 +1,9 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Fondo de toda la app (slate-950): sin esto, en pantallas anchas los lados de una columna centrada
+   se veían en blanco. */
+@layer base {
+  html, body, #root { min-height: 100%; background-color: #020617; }
+}

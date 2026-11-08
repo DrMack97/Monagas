@@ -103,4 +103,30 @@ describe('ReportePage — reporte estándar', () => {
     // y el botón vuelve a estar disponible para reintentar
     expect(screen.getByRole('button', { name: /^excel$/i })).toBeEnabled()
   })
+
+  describe('pantalla: volver, textos y fondo', () => {
+    it('tiene botón "Volver" y lo ejecuta (sin él no había cómo retroceder y se cerraba la app)', async () => {
+      const volver = jest.fn()
+      render(<ReportePage pozoId="p1" evalId="e1" onVolver={volver} />)
+      await userEvent.setup().click(screen.getByRole('button', { name: /volver/i }))
+      expect(volver).toHaveBeenCalledTimes(1)
+    })
+
+    it('el texto de la pantalla no lleva "(PDVSA)" ni "Forzado"', async () => {
+      const { container } = render(<ReportePage pozoId="p1" evalId="e1" />)
+      const user = userEvent.setup()
+      expect(screen.getByRole('button', { name: /^datos del reporte$/i })).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /^calcular promedio$/i }))
+      expect(container.textContent).toMatch(/Cálculo Preliminar —/)
+      expect(container.textContent).not.toMatch(/(PDVSA)/)
+      expect(container.textContent).not.toMatch(/forzado/i)
+    })
+
+    it('el fondo oscuro cubre TODO el ancho: el elemento con el fondo no tiene ancho máximo (en la web se veían lados blancos)', () => {
+      const { container } = render(<ReportePage pozoId="p1" evalId="e1" />)
+      const raiz = container.firstElementChild as HTMLElement
+      expect(raiz.className).toMatch(/bg-slate-950/)
+      expect(raiz.className).not.toMatch(/max-w-/)
+    })
+  })
 })

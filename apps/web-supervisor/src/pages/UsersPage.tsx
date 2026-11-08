@@ -6,6 +6,8 @@
 // componente nunca escribe directo a /usuarios ni a /pozos.
 
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { FiArrowLeft } from 'react-icons/fi'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
@@ -174,6 +176,7 @@ function ModalReasignar({
 }
 
 export default function UsersPage() {
+  const navigate = useNavigate()
   const { rol, zona } = useAuth()
   const { personal, loading, error } = usePersonal(rol, zona)
   const [modalCrear, setModalCrear] = useState(false)
@@ -181,7 +184,15 @@ export default function UsersPage() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-6 max-w-3xl mx-auto">
+    <div className="min-h-screen bg-slate-950">
+    <div className="p-4 md:p-6 max-w-3xl mx-auto">
+      <button
+        type="button"
+        onClick={() => navigate('/dashboard')}
+        className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-white mb-4"
+      >
+        <FiArrowLeft aria-hidden="true" /> Volver
+      </button>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold text-white">Personal</h1>
         <Button onClick={() => setModalCrear(true)}>+ Nuevo Personal</Button>
@@ -239,6 +250,7 @@ export default function UsersPage() {
           onReasignado={() => setRefreshKey((k) => k + 1)}
         />
       )}
+    </div>
     </div>
   )
 }

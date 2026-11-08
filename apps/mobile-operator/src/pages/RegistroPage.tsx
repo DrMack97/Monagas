@@ -288,7 +288,7 @@ export default function RegistroPage() {
         </button>
       </div>
 
-      <div className="p-4 max-w-md mx-auto space-y-5">
+      <div className="p-4 max-w-2xl mx-auto space-y-5">
         <div>
           <label className="block text-sm text-slate-300 mb-1.5">Horas desde última lectura</label>
           <input
