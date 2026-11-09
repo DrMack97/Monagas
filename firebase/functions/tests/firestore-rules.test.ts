@@ -206,6 +206,58 @@ describe('/evaluaciones/{id}/lecturas — corrección por el Supervisor (drill-d
   })
 })
 
+describe('/evaluaciones — recalcular promedios tras corregir (supervisor)', () => {
+  const ruta = 'evaluaciones/evPendiente'
+  const promedios = (uid: string, over: Record<string, unknown> = {}) => ({
+    'resultados.bpdPromedio': 200, 'resultados.netosPromedio': 180, 'resultados.qgPromedio': 1.5,
+    'resultados.aysBls': 10, 'resultados.proyeccion24H': 4800,
+    'resultados.recalculadoEn': new Date(), 'resultados.recalculadoPor': uid, ...over,
+  })
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), ruta), evalNueva({
+        estado: 'PENDIENTE_SUPERVISOR',
+        resultados: { bpdPromedio: 100, netosPromedio: 90, qgPromedio: 1, aysBls: 5, horasTotales: 5, proyeccion24H: 2400, tipoCalculo: 'FINAL_24H', calculadoEn: new Date() },
+      }))
+    })
+  })
+
+  it('permite al SUP_AREA de la zona actualizar los promedios con su uid como autor', async () => {
+    await assertSucceeds(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), promedios('sup')))
+  })
+  it('permite al GERENTE', async () => {
+    await assertSucceeds(updateDoc(doc(as('ger', GERENTE), ruta), promedios('ger')))
+  })
+  it('DENIEGA firmar el recálculo con el uid de otra persona', async () => {
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), promedios('otro')))
+  })
+  it('DENIEGA tocar horasTotales, tipoCalculo o calculadoEn (no son promedios)', async () => {
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), promedios('sup', { 'resultados.horasTotales': 99 })))
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), promedios('sup', { 'resultados.tipoCalculo': 'PRELIMINAR_FORZADO' })))
+  })
+  it('DENIEGA colar otros campos junto con los promedios (estado, pozoId…)', async () => {
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), promedios('sup', { estado: 'OFICIAL' })))
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), promedios('sup', { pozoId: 'pozo2' })))
+  })
+  it('DENIEGA al SUP_AREA de otra zona', async () => {
+    await assertFails(updateDoc(doc(as('supF', SUP_FAJA), ruta), promedios('supF')))
+  })
+  it('DENIEGA al Operador y al Supervisor de Campo', async () => {
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), ruta), promedios('op1')))
+    await assertFails(updateDoc(doc(as('sc1', SUP_CAMPO), ruta), promedios('sc1')))
+  })
+  it('DENIEGA recalcular una evaluación que ya no está pendiente (aprobada o en curso)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), ruta), evalNueva({ estado: 'APROBADA_SUPERVISOR', resultados: { bpdPromedio: 1, netosPromedio: 1, qgPromedio: 1, aysBls: 1, horasTotales: 1, proyeccion24H: 1, tipoCalculo: 'FINAL_24H', calculadoEn: new Date() } }))
+    })
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), promedios('sup')))
+  })
+  it('sigue permitiendo aprobar (solo estado + aprobaciones) — la regla de aprobar no cambió', async () => {
+    await assertSucceeds(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { estado: 'APROBADA_SUPERVISOR', aprobaciones: [{ rol: 'SUP_AREA', uid: 'sup', accion: 'APROBAR', timestamp: new Date() }] }))
+  })
+})
+
 describe('/pozos — update por el Supervisor de Campo', () => {
   it('permite fijar el Reductor (pulg) de SU pozo junto con tanques y límites (WellDetailPage)', async () => {
     await assertSucceeds(updateDoc(doc(as('sc1', SUP_CAMPO), 'pozos/pozo1'), {

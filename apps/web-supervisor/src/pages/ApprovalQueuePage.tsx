@@ -16,9 +16,9 @@
 // ver checklist Fase 2), así que no se reflejan de inmediato en esta
 // página más allá de que la evaluación desaparece de la cola.
 
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { FiCheck, FiX, FiAlertTriangle, FiInbox, FiChevronDown, FiChevronUp, FiEdit2 } from 'react-icons/fi'
-import { doc, updateDoc } from 'firebase/firestore'
+import { doc, writeBatch } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { useApprovals } from '../hooks/useApprovals'
@@ -27,10 +27,17 @@ import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
 import Header from '../components/common/Header'
 import Sidebar from '../components/common/Sidebar'
 import Button from '../components/common/Button'
+import { calcularPromedioEvaluacion } from '@core/calculos/promedio'
+import { redondearAHoraEntera, horaEnteraTexto } from '@core/utils/hora'
+import { capacidadesZona } from '@core/constants/zonas'
 import type { IEvaluacion, ILectura, ILecturaTanque } from '@core/types'
 
 function fmt(n: number | undefined, decimales = 1): string {
   return typeof n === 'number' ? n.toFixed(decimales) : '—'
+}
+
+function fechaCorta(d: Date): string {
+  return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function fecha(d: Date | undefined): string {
@@ -49,9 +56,21 @@ function fecha(d: Date | undefined): string {
 function FilaLecturaEditable({
   evalId,
   lectura,
+  lecturas,
+  uid,
+  recalcularPromedios,
+  mostrarNetos,
+  columnas,
 }: {
   evalId: string
   lectura: ILectura
+  /** TODAS las lecturas de la evaluación (para recalcular el promedio con la corrección aplicada). */
+  lecturas: ILectura[]
+  uid: string | null
+  /** La evaluación ya trae resultados (cerrada por el Operador): hay promedios que mantener al día. */
+  recalcularPromedios: boolean
+  mostrarNetos: boolean
+  columnas: number
 }) {
   const [editando, setEditando] = useState(false)
   const [tanques, setTanques] = useState<ILecturaTanque[]>(lectura.tanques)
@@ -74,11 +93,31 @@ function FilaLecturaEditable({
       // Rutas anidadas ('operativos.pCab'), NO operativos: { pCab, pSep }: esto último reemplaza el mapa
       // completo y borraba el Reductor (reductorPulgadas) y el Casing (pCsg) de la lectura. Solo se
       // escriben los dos valores corregidos; el resto de operativos queda intacto.
-      await updateDoc(doc(db, 'evaluaciones', evalId, 'lecturas', lectura.id), {
+      const nuevaPCab = parseFloat(pCab) || 0
+      const nuevaPSep = parseFloat(pSep) || 0
+
+      // Lectura y promedios se escriben JUNTOS (un solo lote: o se guardan los dos o ninguno), para que
+      // lo que el supervisor aprueba siempre corresponda a las lecturas ya corregidas.
+      const lote = writeBatch(db)
+      lote.update(doc(db, 'evaluaciones', evalId, 'lecturas', lectura.id), {
         tanques,
-        'operativos.pCab': parseFloat(pCab) || 0,
-        'operativos.pSep': parseFloat(pSep) || 0,
+        'operativos.pCab': nuevaPCab,
+        'operativos.pSep': nuevaPSep,
       })
+      if (recalcularPromedios && uid) {
+        const corregida: ILectura = { ...lectura, tanques, operativos: { ...lectura.operativos, pCab: nuevaPCab, pSep: nuevaPSep } }
+        const prom = calcularPromedioEvaluacion(lecturas.map((l) => (l.id === lectura.id ? corregida : l)))
+        lote.update(doc(db, 'evaluaciones', evalId), {
+          'resultados.bpdPromedio': prom.bpdPromedio,
+          'resultados.netosPromedio': prom.netosPromedio,
+          'resultados.qgPromedio': prom.qgPromedio,
+          'resultados.aysBls': prom.aysBls,
+          'resultados.proyeccion24H': prom.proyeccion24H,
+          'resultados.recalculadoEn': new Date(),
+          'resultados.recalculadoPor': uid,
+        })
+      }
+      await lote.commit()
       setEditando(false)
     } catch (err: any) {
       setError(
@@ -95,8 +134,8 @@ function FilaLecturaEditable({
     return (
       <tr className="border-b border-slate-900 text-slate-300">
         <td className="py-2 px-1">{lectura.hora}</td>
-        <td className="py-2 px-1">{new Date(ts).toLocaleString('es-VE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-        <td className="py-2 px-1 font-mono">{netos.toFixed(1)}</td>
+        <td className="py-2 px-1">{horaEnteraTexto(new Date(ts))}</td>
+        {mostrarNetos && <td className="py-2 px-1 font-mono">{netos.toFixed(1)}</td>}
         <td className="py-2 px-1 font-mono">{lectura.gas ? lectura.gas.qg.toFixed(2) : '—'}</td>
         <td className="py-2 px-1">
           {lectura.alertas && lectura.alertas.length > 0 ? (
@@ -116,7 +155,7 @@ function FilaLecturaEditable({
 
   return (
     <tr className="border-b border-slate-900">
-      <td colSpan={6} className="py-3 px-1">
+      <td colSpan={columnas} className="py-3 px-1">
         <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-3">
           <p className="text-xs text-slate-500">Corrigiendo lectura #{lectura.hora}</p>
           {tanques.map((t, idx) => (
@@ -174,8 +213,22 @@ function FilaLecturaEditable({
   )
 }
 
-function LecturasDrilldown({ evalId }: { evalId: string }) {
+function LecturasDrilldown({
+  evalId,
+  zona,
+  uid,
+  recalcularPromedios,
+}: {
+  evalId: string
+  zona?: string
+  uid: string | null
+  recalcularPromedios: boolean
+}) {
   const { lecturas, loading, error } = useLecturasEvaluacion(evalId)
+  // Norte de Monagas no muestra la columna Netos en la tabla de lecturas (Informe Técnico 04/11/2026).
+  // El promedio de Netos de la tarjeta y el campo Netos del formulario de corrección se mantienen.
+  const { netosEnLecturas } = capacidadesZona(zona)
+  const columnas = netosEnLecturas ? 6 : 5
 
   if (loading) {
     return <p className="text-xs text-slate-500 py-3">Cargando lecturas...</p>
@@ -192,18 +245,43 @@ function LecturasDrilldown({ evalId }: { evalId: string }) {
       <table className="w-full text-xs">
         <thead>
           <tr className="text-left text-slate-500 border-b border-slate-800">
+            <th className="py-2 px-1">#</th>
             <th className="py-2 px-1">Hora</th>
-            <th className="py-2 px-1">Fecha/Hora</th>
-            <th className="py-2 px-1">Netos (Bls)</th>
+            {netosEnLecturas && <th className="py-2 px-1">Netos (Bls)</th>}
             <th className="py-2 px-1">Qg (MMSCFD)</th>
             <th className="py-2 px-1">Alertas</th>
             <th className="py-2 px-1"></th>
           </tr>
         </thead>
         <tbody>
-          {lecturas.map((l) => (
-            <FilaLecturaEditable key={l.id} evalId={evalId} lectura={l} />
-          ))}
+          {lecturas.map((l, i) => {
+            // La fecha va UNA vez por día (fila separadora), no repetida en cada fila; la hora, a la hora
+            // entera más cercana (misma regla que el Operador).
+            const aFecha = (x: ILectura) => {
+              const t = (x.timestamp as any)?.toDate ? (x.timestamp as any).toDate() : x.timestamp
+              return redondearAHoraEntera(new Date(t))
+            }
+            const dia = fechaCorta(aFecha(l))
+            const diaAnterior = i > 0 ? fechaCorta(aFecha(lecturas[i - 1])) : null
+            return (
+              <Fragment key={l.id}>
+                {dia !== diaAnterior && (
+                  <tr className="text-slate-500">
+                    <td colSpan={columnas} className="pt-3 pb-1">Fecha: {dia}</td>
+                  </tr>
+                )}
+                <FilaLecturaEditable
+                  evalId={evalId}
+                  lectura={l}
+                  lecturas={lecturas}
+                  uid={uid}
+                  recalcularPromedios={recalcularPromedios}
+                  mostrarNetos={netosEnLecturas}
+                  columnas={columnas}
+                />
+              </Fragment>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -213,12 +291,14 @@ function LecturasDrilldown({ evalId }: { evalId: string }) {
 function TarjetaEvaluacion({
   evaluacion,
   pozoNombre,
+  uid,
   procesando,
   onAprobar,
   onRechazar,
 }: {
   evaluacion: IEvaluacion
   pozoNombre: string
+  uid: string | null
   procesando: boolean
   onAprobar: () => void
   onRechazar: (motivo: string) => void
@@ -238,6 +318,10 @@ function TarjetaEvaluacion({
           Pendiente
         </span>
       </div>
+
+      {evaluacion.resultados?.recalculadoEn && (
+        <p className="text-xs text-amber-400">Promedios recalculados con las lecturas corregidas por el supervisor.</p>
+      )}
 
       {evaluacion.resultados && (
         <div className="grid grid-cols-3 gap-2 text-sm border-t border-slate-800 pt-3">
@@ -264,7 +348,9 @@ function TarjetaEvaluacion({
         {mostrarDetalle ? 'Ocultar lecturas individuales' : 'Ver lecturas individuales'}
       </button>
 
-      {mostrarDetalle && <LecturasDrilldown evalId={evaluacion.id} />}
+      {mostrarDetalle && (
+        <LecturasDrilldown evalId={evaluacion.id} zona={evaluacion.zona} uid={uid} recalcularPromedios={!!evaluacion.resultados} />
+      )}
 
       {mostrarRechazo ? (
         <div className="space-y-2 border-t border-slate-800 pt-3">
@@ -388,6 +474,7 @@ export default function ApprovalQueuePage() {
                   key={evaluacion.id}
                   evaluacion={evaluacion}
                   pozoNombre={pozoPorId[evaluacion.pozoId] ?? 'Pozo desconocido'}
+                  uid={user?.uid ?? null}
                   procesando={procesando && accionando === evaluacion.id}
                   onAprobar={() => handleAprobar(evaluacion.id)}
                   onRechazar={(motivo) => handleRechazar(evaluacion.id, motivo)}

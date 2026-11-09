@@ -111,6 +111,9 @@ export interface IResultadosEval {
    */
   tipoCalculo: 'FINAL_24H' | 'PRELIMINAR_FORZADO'
   calculadoEn: Date
+  /** Si un supervisor corrigió lecturas y recalculó los promedios: cuándo y quién (uid). */
+  recalculadoEn?: Date
+  recalculadoPor?: string
 }
 
 export interface IAprobacion {
