@@ -12,7 +12,7 @@
 // Se corre dentro de `pnpm test` de firebase/functions (ya levanta el
 // emulador de Firestore vía `firebase emulators:exec`).
 
-import { describe, it, beforeAll, afterAll, beforeEach } from '@jest/globals'
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals'
 import {
   initializeTestEnvironment,
   assertSucceeds,
@@ -76,6 +76,10 @@ beforeEach(async () => {
     await setDoc(doc(db, 'evaluaciones/evEnCurso'), evalNueva())
     await setDoc(doc(db, 'evaluaciones/evPendiente'), evalNueva({ estado: 'PENDIENTE_SUPERVISOR' }))
     await setDoc(doc(db, 'evaluaciones/evEnCurso/lecturas/l1'), { hora: 1, tanques: [], operativos: {} })
+    await setDoc(doc(db, 'evaluaciones/evPendiente/lecturas/l1'), {
+      hora: 1, timestamp: new Date(), alertas: [], tanques: [{ tanqueId: 't1', bph: 1, bpd: 24, netos: 24 }],
+      operativos: { pCab: 540, pSep: 300, pCsg: 12, reductorPulgadas: '1"' },
+    })
   })
 }, 20000) // 8 escrituras en frío contra el emulador — 5000ms (default de Jest) no siempre alcanza
 
@@ -176,6 +180,29 @@ describe('/evaluaciones/{id}/lecturas — create', () => {
     await assertFails(
       addDoc(collection(as('op2', OPERADOR_OTRO_POZO), 'evaluaciones/evEnCurso/lecturas'), { hora: 2, tanques: [], operativos: {} })
     )
+  })
+})
+
+describe('/evaluaciones/{id}/lecturas — corrección por el Supervisor (drill-down de aprobaciones)', () => {
+  const ruta = 'evaluaciones/evPendiente/lecturas/l1'
+
+  it('permite corregir P. Cabezal con ruta anidada (operativos.pCab) sin tocar el resto de operativos', async () => {
+    await assertSucceeds(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 600, 'operativos.pSep': 310 }))
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const { operativos } = (await getDoc(doc(ctx.firestore(), ruta))).data() as any
+      expect(operativos).toEqual({ pCab: 600, pSep: 310, pCsg: 12, reductorPulgadas: '1"' })
+    })
+  })
+
+  it('DENIEGA cambiar la hora (es un hecho, no un valor medido)', async () => {
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { hora: 9 }))
+  })
+
+  it('DENIEGA corregir lecturas de una evaluación ya aprobada (congeladas)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'evaluaciones/evPendiente'), evalNueva({ estado: 'APROBADA_SUPERVISOR' }))
+    })
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 1 }))
   })
 })
 

@@ -71,9 +71,13 @@ function FilaLecturaEditable({
     setGuardando(true)
     setError(null)
     try {
+      // Rutas anidadas ('operativos.pCab'), NO operativos: { pCab, pSep }: esto último reemplaza el mapa
+      // completo y borraba el Reductor (reductorPulgadas) y el Casing (pCsg) de la lectura. Solo se
+      // escriben los dos valores corregidos; el resto de operativos queda intacto.
       await updateDoc(doc(db, 'evaluaciones', evalId, 'lecturas', lectura.id), {
         tanques,
-        operativos: { pCab: parseFloat(pCab) || 0, pSep: parseFloat(pSep) || 0 },
+        'operativos.pCab': parseFloat(pCab) || 0,
+        'operativos.pSep': parseFloat(pSep) || 0,
       })
       setEditando(false)
     } catch (err: any) {
