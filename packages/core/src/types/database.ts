@@ -175,6 +175,15 @@ export interface IReporteOperativo {
     trasegable?: number     // Volumen trasegable (Bls); previsión de fluidos incarreables (precargado igual a la existencia)
     totalTrasegado?: number // Total trasegado acumulado (Bls)
   }
+  /**
+   * Punto de partida de los acumulados de ESTE ciclo: lo acumulado antes de que empezara (acumulado digitado menos lo
+   * de este ciclo en el momento de guardar). Permite recalcular "base + este ciclo" al reabrir el reporte sin contar dos
+   * veces lo del ciclo. Lo escribe la pantalla Reporte.
+   */
+  acumuladosBase?: {
+    totalTrasegado?: number // Bls
+    viajes?: number
+  }
   nivelCellar?: number  // %
   viajesVacuum?: number // Cantidad de viajes de camión vacuum
 }

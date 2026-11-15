@@ -76,7 +76,7 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
   // IReporteOperativo en @monagas/core). El texto lo arma construirReporteEstandar.
   // Reporte anterior del pozo (ciclo actual y anteriores): fuente del prefill. Los nombres de los supervisores no se
   // escriben hora a hora: tras el primer registro se autocompletan en los reportes posteriores.
-  const { anterior } = useReporteAnterior(pozoId, evalId)
+  const { anterior, actual = null, previo = null } = useReporteAnterior(pozoId, evalId)
   // Supervisores: lo editado por el operador; si no lo ha tocado, el del reporte anterior; si no, vacío.
   const [supEditado, setSupEditado] = useState<Partial<Record<CampoSupervisor, string>>>({})
   const supAnterior = (campo: CampoSupervisor): string | undefined => {
@@ -124,9 +124,24 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
   const trasegable = trasegableEditado ?? existencia
   const existenciaPrefill = existenciaEditada === undefined && medidaTanques !== undefined
   const trasegablePrefill = trasegableEditado === undefined && existencia.trim() !== ''
-  const [totalTrasegado, setTotalTrasegado] = useState('')
+  // Acumulados: Total Trasegado Acumulado y Total de Viajes se CALCULAN a partir de la ventana anterior:
+  //   acumulado = (lo acumulado antes de este ciclo) + (lo trasegado en este ciclo).
+  // La base sale, en orden, de: la base que este ciclo ya guardó (acumuladosBase) o el acumulado con que cerró el ciclo
+  // anterior. Sin ninguna base (primer reporte del pozo) no se inventa nada: el operador digita el acumulado una vez y
+  // desde entonces se calcula solo. Ambos siguen siendo editables.
+  const cicloTrasegado = resumenTrasegado(lecturas)
+  const baseTrasegado = actual?.acumuladosBase?.totalTrasegado ?? previo?.resumenTanques?.totalTrasegado
+  const baseViajes = actual?.acumuladosBase?.viajes ?? previo?.viajesVacuum
+  const [totalTrasegadoEditado, setTotalTrasegadoEditado] = useState<string | undefined>(undefined)
+  const [viajesEditado, setViajesEditado] = useState<string | undefined>(undefined)
+  const totalTrasegado =
+    totalTrasegadoEditado ??
+    (typeof baseTrasegado === 'number' && Number.isFinite(baseTrasegado) ? aTextoBls(baseTrasegado + cicloTrasegado.totalBls) : '')
+  const viajesVacuum =
+    viajesEditado ?? (typeof baseViajes === 'number' && Number.isFinite(baseViajes) ? String(baseViajes + cicloTrasegado.viajes) : '')
+  const totalTrasegadoPrefill = totalTrasegadoEditado === undefined && totalTrasegado !== ''
+  const viajesPrefill = viajesEditado === undefined && viajesVacuum !== ''
   const [nivelCellar, setNivelCellar] = useState('')
-  const [viajesVacuum, setViajesVacuum] = useState('')
   const [viajes24h, setViajes24h] = useState<ViajeForm[]>([])
   const [mostrarDatosPDVSA, setMostrarDatosPDVSA] = useState(false)
 
@@ -168,6 +183,19 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
             ...(exi !== undefined && { existencia: exi }),
             ...(tra !== undefined && { trasegable: tra }),
             ...(tot !== undefined && { totalTrasegado: tot }),
+          },
+        }
+      })(),
+      ...(() => {
+        // Base de los acumulados de ESTE ciclo = acumulado digitado menos lo trasegado en este ciclo ahora mismo. Al
+        // reabrir, "base + ciclo" vuelve a dar el acumulado actual sin contar dos veces lo ya guardado.
+        const tot = totalTrasegado.trim() !== '' ? parseFloat(totalTrasegado) || 0 : undefined
+        const via = viajesVacuum.trim() !== '' ? parseFloat(viajesVacuum) || 0 : undefined
+        if (tot === undefined && via === undefined) return {}
+        return {
+          acumuladosBase: {
+            ...(tot !== undefined && { totalTrasegado: Number((tot - cicloTrasegado.totalBls).toFixed(2)) }),
+            ...(via !== undefined && { viajes: via - cicloTrasegado.viajes }),
           },
         }
       })(),
@@ -417,7 +445,7 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
             <div className="grid grid-cols-2 gap-3">
               <CampoTexto label="Existencia (Bls)" value={existencia} onChange={setExistenciaEditada} type="number" nivel={avisosCierre.existencia.nivel} aviso={avisosCierre.existencia.aviso} prefill={existenciaPrefill} />
               <CampoTexto label="Trasegable (Bls)" value={trasegable} onChange={setTrasegableEditado} type="number" prefill={trasegablePrefill} />
-              <CampoTexto label="Total Trasegado Acumulado (Bls)" value={totalTrasegado} onChange={setTotalTrasegado} type="number" nivel={avisosCierre.totalTrasegado.nivel} aviso={avisosCierre.totalTrasegado.aviso} />
+              <CampoTexto label="Total Trasegado Acumulado (Bls)" value={totalTrasegado} onChange={setTotalTrasegadoEditado} type="number" nivel={avisosCierre.totalTrasegado.nivel} aviso={avisosCierre.totalTrasegado.aviso} prefill={totalTrasegadoPrefill} />
             </div>
             <p className="text-xs text-slate-500">
               {existenciaPrefill || trasegablePrefill
@@ -428,8 +456,13 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
             <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Control de vacuum y disposición</p>
             <div className="grid grid-cols-2 gap-3">
               <CampoTexto label="Nivel de Celler (%)" value={nivelCellar} onChange={setNivelCellar} type="number" />
-              <CampoTexto label="Total Viajes Vacuum Acumulados" value={viajesVacuum} onChange={setViajesVacuum} type="number" />
+              <CampoTexto label="Total Viajes Vacuum Acumulados" value={viajesVacuum} onChange={setViajesEditado} type="number" prefill={viajesPrefill} />
             </div>
+            {(totalTrasegadoPrefill || viajesPrefill) && (
+              <p className="text-xs text-slate-500">
+                Acumulados calculados: lo acumulado en el reporte anterior más lo trasegado en este ciclo. Edítalos si cambiaron.
+              </p>
+            )}
 
             <p className="text-xs text-slate-500">Viajes de vacuum — últimas 24 Hrs</p>
             {viajes24h.map((v, idx) => (

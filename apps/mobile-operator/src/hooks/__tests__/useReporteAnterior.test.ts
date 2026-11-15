@@ -58,6 +58,33 @@ describe('fusionarReportes', () => {
   })
 })
 
+describe('fusionarReportes — objetos anidados (resumenTanques, tipoFluido…)', () => {
+  it('fusiona subcampo por subcampo: un ciclo que solo trae la existencia no tapa el acumulado de uno anterior', () => {
+    const r = fusionarReportes(
+      [ciclo('actual', 9, { resumenTanques: { existencia: 117, trasegable: 117 } }), ciclo('a1', 1, { resumenTanques: { existencia: 5, totalTrasegado: 2542.92 } })],
+      'actual'
+    )
+    expect(r.resumenTanques).toEqual({ existencia: 117, trasegable: 117, totalTrasegado: 2542.92 })
+  })
+
+  it('tipoFluido: el API de un ciclo anterior y el H2S de otro', () => {
+    const r = fusionarReportes([ciclo('a2', 2, { tipoFluido: { h2s: 'Negativo' } }), ciclo('a1', 1, { tipoFluido: { api: 38.6, h2s: 'Viejo' } })], 'actual')
+    expect(r.tipoFluido).toEqual({ h2s: 'Negativo', api: 38.6 })
+  })
+
+  it('las fechas (Date / Timestamp) y las listas NO se parten: se toman completas', () => {
+    const fecha = new Date(2026, 9, 9)
+    const timestamp = { toDate: () => fecha, seconds: 1 }
+    const r = fusionarReportes([ciclo('a1', 1, { fechaAlineacion: timestamp, viajesVacuum24h: [{ chofer: 'R' }] } as any)], 'actual')
+    expect(r.fechaAlineacion).toBe(timestamp)
+    expect(r.viajesVacuum24h).toHaveLength(1)
+  })
+
+  it('un objeto sin ningún subcampo con valor no aparece en el resultado', () => {
+    expect(fusionarReportes([ciclo('a1', 1, { resumenTanques: {} })], 'actual')).toEqual({})
+  })
+})
+
 describe('useReporteAnterior', () => {
   const doc = (id: string, creadoMs: number, reporteOperativo?: Record<string, unknown>) => ({
     id, data: () => ({ creadoEn: { toMillis: () => creadoMs }, ...(reporteOperativo && { reporteOperativo }) }),
@@ -80,6 +107,27 @@ describe('useReporteAnterior', () => {
     const { result } = renderHook(() => useReporteAnterior('p1', 'actual'))
     await waitFor(() => expect(result.current.anterior).not.toBeNull())
     expect(result.current.anterior!.supervisorPDVSA).toBe('Nuevo')
+  })
+
+  it('devuelve también "actual" (solo el ciclo actual) y "previo" (sin el ciclo actual)', async () => {
+    getDocsMock.mockResolvedValue({
+      docs: [
+        doc('actual', 9, { acumuladosBase: { totalTrasegado: 2400 }, supervisorPDVSA: 'Nuevo' }),
+        doc('a2', 2, { resumenTanques: { totalTrasegado: 2542.92 }, supervisorPDVSA: 'Viejo' }),
+      ],
+    })
+    const { result } = renderHook(() => useReporteAnterior('p1', 'actual'))
+    await waitFor(() => expect(result.current.anterior).not.toBeNull())
+    expect(result.current.actual).toEqual({ acumuladosBase: { totalTrasegado: 2400 }, supervisorPDVSA: 'Nuevo' })
+    expect(result.current.previo).toEqual({ resumenTanques: { totalTrasegado: 2542.92 }, supervisorPDVSA: 'Viejo' })
+    expect(result.current.anterior!.supervisorPDVSA).toBe('Nuevo') // el actual manda en "anterior"
+  })
+
+  it('el ciclo actual sin reporte guardado: actual = null', async () => {
+    getDocsMock.mockResolvedValue({ docs: [doc('actual', 9), doc('a1', 1, { supervisorPDVSA: 'Viejo' })] })
+    const { result } = renderHook(() => useReporteAnterior('p1', 'actual'))
+    await waitFor(() => expect(result.current.previo).not.toBeNull())
+    expect(result.current.actual).toBeNull()
   })
 
   it('sin ningún reporte guardado devuelve null', async () => {
