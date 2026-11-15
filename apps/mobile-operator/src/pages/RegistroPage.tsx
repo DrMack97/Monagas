@@ -45,6 +45,7 @@ interface TankFormState {
 }
 
 type CampoGas = 'pf' | 'hw' | 'tGas' | 'gg'
+type CampoPresion = 'pCab' | 'pSep' | 'pCsg'
 /** Valores de partida cuando NO hay ninguna carga anterior del pozo. */
 const GAS_POR_DEFECTO: Record<CampoGas, string> = { pf: '0', hw: '0', tGas: '80', gg: '0.6' }
 
@@ -98,9 +99,26 @@ export default function RegistroPage() {
   const hw = valorGas('hw')
   const tGas = valorGas('tGas')
   const gg = valorGas('gg')
-  const [pCab, setPCab] = useState('0')
-  const [pSep, setPSep] = useState('0')
-  const [pCsg, setPCsg] = useState('0')
+  // Ventana Presiones Operativas: misma regla que AGA-3 — lo editado por el operador, si no, el valor de la carga
+  // anterior, si no, 0. P. Casing solo se captura (y se prefilla) en zonas que lo usan.
+  const [presionEditada, setPresionEditada] = useState<Partial<Record<CampoPresion, string>>>({})
+  const operativosAnterior = cargasAnteriores.find((l) => Number.isFinite(l.operativos?.pCab))?.operativos
+  const presionAnterior = (campo: CampoPresion): number | undefined => {
+    if (!operativosAnterior) return undefined
+    if (campo === 'pCsg' && !zonaCaps.casing) return undefined
+    const v = operativosAnterior[campo]
+    return Number.isFinite(v) ? (v as number) : undefined
+  }
+  const valorPresion = (campo: CampoPresion): string =>
+    presionEditada[campo] ?? (presionAnterior(campo) !== undefined ? String(presionAnterior(campo)) : '0')
+  const presionPrefill = (campo: CampoPresion): boolean => presionEditada[campo] === undefined && presionAnterior(campo) !== undefined
+  const editarPresion = (campo: CampoPresion, valor: string) => {
+    setPresionEditada((prev) => ({ ...prev, [campo]: valor }))
+    setGuardadoOk(false)
+  }
+  const pCab = valorPresion('pCab')
+  const pSep = valorPresion('pSep')
+  const pCsg = valorPresion('pCsg')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [guardadoOk, setGuardadoOk] = useState(false)
@@ -546,19 +564,22 @@ export default function RegistroPage() {
 
         <section className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
           <h3 className="text-sm font-semibold text-white">Presiones Operativas</h3>
+          {operativosAnterior && (
+            <p className="text-xs text-slate-500">Valores de la carga anterior; edítalos si cambiaron.</p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">P. Cabezal (psig)</label>
-              <input type="number" value={pCab} onChange={(e) => setPCab(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pCab} onChange={(e) => editarPresion('pCab', e.target.value)} data-prefill={presionPrefill('pCab')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">P. Separador (psig)</label>
-              <input type="number" value={pSep} onChange={(e) => setPSep(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pSep} onChange={(e) => editarPresion('pSep', e.target.value)} data-prefill={presionPrefill('pSep')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
             {zonaCaps.casing && (
               <div>
                 <label className="block text-xs text-slate-500 mb-1">P. Casing (psig)</label>
-                <input type="number" value={pCsg} onChange={(e) => setPCsg(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+                <input type="number" value={pCsg} onChange={(e) => editarPresion('pCsg', e.target.value)} data-prefill={presionPrefill('pCsg')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
               </div>
             )}
             <div>
