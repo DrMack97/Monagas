@@ -29,6 +29,7 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
 import { useReporteAnterior } from '../hooks/useReporteAnterior'
+import { aInputDatetimeLocal } from '../utils/fechaInput'
 import { usePozoInfo } from '../hooks/usePozoInfo'
 import { calcularPromedioEvaluacion } from '@core/calculos'
 import { construirReporteEstandar, reporteAWhatsApp } from '@core/utils/reporteEstandar'
@@ -39,6 +40,7 @@ import { fmt, dateFormat } from '../utils/formatters'
 import { exportarInformeExcel } from '../utils/exportExcel'
 import type { IResultadosEval, IReporteOperativo, IViajeVacuum } from '@core/types'
 
+type CampoTesting = 'fechaAlineacion' | 'fechaCulminacion' | 'estadoActual' | 'asunto' | 'plan' | 'api'
 type CampoSupervisor = 'supervisorPDVSA' | 'supervisorPDVSANocturno' | 'cuadrillaDiurno' | 'cuadrillaNocturno'
 
 interface ViajeForm {
@@ -88,12 +90,29 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
   const cuadrillaDiurno = valorSup('cuadrillaDiurno')                       // Supv. Well Testing (DSI)
   const cuadrillaNocturno = valorSup('cuadrillaNocturno')
   const hayPrefillSupervisores = (['supervisorPDVSA', 'supervisorPDVSANocturno', 'cuadrillaDiurno', 'cuadrillaNocturno'] as CampoSupervisor[]).some(supPrefill)
-  const [fechaAlineacion, setFechaAlineacion] = useState('')            // Fecha Inicio Well Testing
-  const [fechaCulminacion, setFechaCulminacion] = useState('')
-  const [estadoActual, setEstadoActual] = useState('')
-  const [asunto, setAsunto] = useState('')
-  const [plan, setPlan] = useState('')
-  const [api, setApi] = useState('')
+  // Datos del testing (fecha de inicio y de culminación, estatus actual, asunto, plan y API): se precargan desde el
+  // reporte anterior; lo editado por el operador manda y, si lo borra a propósito, no se vuelve a rellenar.
+  const [testingEditado, setTestingEditado] = useState<Partial<Record<CampoTesting, string>>>({})
+  const testingAnterior = (campo: CampoTesting): string | undefined => {
+    if (!anterior) return undefined
+    if (campo === 'fechaAlineacion' || campo === 'fechaCulminacion') return aInputDatetimeLocal(anterior[campo])
+    if (campo === 'api') {
+      const api = anterior.tipoFluido?.api
+      return typeof api === 'number' && Number.isFinite(api) ? String(api) : undefined
+    }
+    const v = anterior[campo]
+    return typeof v === 'string' && v.trim() !== '' ? v : undefined
+  }
+  const valorTesting = (campo: CampoTesting): string => testingEditado[campo] ?? testingAnterior(campo) ?? ''
+  const testingPrefill = (campo: CampoTesting): boolean => testingEditado[campo] === undefined && testingAnterior(campo) !== undefined
+  const editarTesting = (campo: CampoTesting) => (valor: string) => setTestingEditado((prev) => ({ ...prev, [campo]: valor }))
+  const fechaAlineacion = valorTesting('fechaAlineacion')                   // Fecha Inicio Well Testing
+  const fechaCulminacion = valorTesting('fechaCulminacion')
+  const estadoActual = valorTesting('estadoActual')
+  const asunto = valorTesting('asunto')
+  const plan = valorTesting('plan')
+  const api = valorTesting('api')
+  const hayPrefillTesting = (['fechaAlineacion', 'fechaCulminacion', 'estadoActual', 'asunto', 'plan', 'api'] as CampoTesting[]).some(testingPrefill)
   const [existencia, setExistencia] = useState('')
   const [trasegable, setTrasegable] = useState('')
   const [totalTrasegado, setTotalTrasegado] = useState('')
@@ -353,22 +372,25 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
               <CampoTexto label="Nocturno" value={cuadrillaNocturno} onChange={editarSup('cuadrillaNocturno')} prefill={supPrefill('cuadrillaNocturno')} />
             </div>
 
+            {hayPrefillTesting && (
+              <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Datos del testing tomados del reporte anterior; edítalos si cambiaron.</p>
+            )}
             <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-800">
-              <CampoTexto label="Fecha Inicio Well Testing" value={fechaAlineacion} onChange={setFechaAlineacion} type="datetime-local" />
-              <CampoTexto label="Fecha Culminación" value={fechaCulminacion} onChange={setFechaCulminacion} type="datetime-local" />
+              <CampoTexto label="Fecha Inicio Well Testing" value={fechaAlineacion} onChange={editarTesting('fechaAlineacion')} type="datetime-local" prefill={testingPrefill('fechaAlineacion')} />
+              <CampoTexto label="Fecha Culminación" value={fechaCulminacion} onChange={editarTesting('fechaCulminacion')} type="datetime-local" prefill={testingPrefill('fechaCulminacion')} />
             </div>
             <p className="text-xs text-slate-500">Sin fecha de culminación el reporte dice "En progreso".</p>
 
-            <CampoArea label="Estatus actual" value={estadoActual} onChange={setEstadoActual}
+            <CampoArea label="Estatus actual" value={estadoActual} onChange={editarTesting('estadoActual')} prefill={testingPrefill('estadoActual')}
               placeholder="ej: Pozo fluyendo a través del SWT en superficie y quema de gas en sitio" />
-            <CampoArea label="Asunto" value={asunto} onChange={setAsunto}
+            <CampoArea label="Asunto" value={asunto} onChange={editarTesting('asunto')} prefill={testingPrefill('asunto')}
               placeholder="ej: Inicia prueba de producción a las 09:00 am por orden del representante del cliente" />
-            <CampoArea label="Plan" value={plan} onChange={setPlan}
+            <CampoArea label="Plan" value={plan} onChange={editarTesting('plan')} prefill={testingPrefill('plan')}
               placeholder="ej: Evaluar comportamiento operacional de pozo con unidad WT" />
 
             <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Calidad del fluido</p>
             <div className="grid grid-cols-2 gap-3">
-              <CampoTexto label="API (°)" value={api} onChange={setApi} type="number" />
+              <CampoTexto label="API (°)" value={api} onChange={editarTesting('api')} type="number" prefill={testingPrefill('api')} />
             </div>
             <p className="text-xs text-slate-500">
               BSW: se toma del AyS% ya registrado en las lecturas — no se repite acá.
@@ -537,11 +559,14 @@ function CampoArea({
   value,
   onChange,
   placeholder,
+  prefill = false,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   placeholder?: string
+  /** El valor viene del reporte anterior (prefill) y el operador aún no lo ha tocado. */
+  prefill?: boolean
 }) {
   const id = useId()
   return (
@@ -550,6 +575,7 @@ function CampoArea({
       <textarea
         id={id}
         value={value}
+        data-prefill={prefill}
         onChange={(e) => onChange(e.target.value)}
         rows={2}
         placeholder={placeholder}
