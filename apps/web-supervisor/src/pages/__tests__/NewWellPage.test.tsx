@@ -158,6 +158,32 @@ describe('NewWellPage', () => {
     })
   })
 
+  it('guarda el Desplazado inicial con la fecha de hoy; si se deja vacío no se manda', async () => {
+    useAuthMock.mockReturnValue({ rol: 'SUP_AREA', zona: 'MONAGAS', user: { uid: 'uid-area' } })
+    renderPage()
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText(/nombre del pozo/i), 'SBC-63')
+    await user.type(screen.getByLabelText(/^campo$/i), 'Bare')
+    await user.type(screen.getByLabelText('Desplazado inicial (Bls)'), '2542.92')
+    await user.click(screen.getByRole('button', { name: /crear pozo/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
+    const payload = addDocMock.mock.calls[0][1]
+    expect(payload.desplazadoInicial).toBe(2542.92)
+    expect(payload.desplazadoInicialDesde).toBeInstanceOf(Date)
+  })
+
+  it('sin Desplazado inicial no manda ni el valor ni la fecha', async () => {
+    useAuthMock.mockReturnValue({ rol: 'SUP_AREA', zona: 'MONAGAS', user: { uid: 'uid-area' } })
+    renderPage()
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText(/nombre del pozo/i), 'SBC-64')
+    await user.type(screen.getByLabelText(/^campo$/i), 'Bare')
+    await user.click(screen.getByRole('button', { name: /crear pozo/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
+    expect(addDocMock.mock.calls[0][1]).not.toHaveProperty('desplazadoInicial')
+    expect(addDocMock.mock.calls[0][1]).not.toHaveProperty('desplazadoInicialDesde')
+  })
+
   it('muestra un mensaje amigable si Firestore rechaza la creación', async () => {
     useAuthMock.mockReturnValue({ rol: 'SUP_AREA', zona: 'MONAGAS', user: { uid: 'uid-area' } })
     addDocMock.mockRejectedValueOnce({ code: 'permission-denied' })

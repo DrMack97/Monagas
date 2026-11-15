@@ -47,6 +47,7 @@ export default function NewWellPage() {
   const [reductorPulgadas, setReductorPulgadas] = useState('')
   const [diamOrif, setDiamOrif] = useState('')
   const [meterRun, setMeterRun] = useState('')
+  const [desplazadoInicial, setDesplazadoInicial] = useState('')
   const [zonaSeleccionada, setZonaSeleccionada] = useState(zona ?? 'FAJA')
   const [horasEval, setHorasEval] = useState('5')
   const [limResorte, setLimResorte] = useState('300')
@@ -95,6 +96,8 @@ export default function NewWellPage() {
         // Placa y Meter Run: sin ellos la app no calcula Qg (no se inventan valores por defecto)
         ...(parseFloat(diamOrif) > 0 && { diamOrif: parseFloat(diamOrif) }),
         ...(parseFloat(meterRun) > 0 && { meterRun: parseFloat(meterRun) }),
+        // Desplazado inicial del equipo (opcional): lo acumulado antes de la app; el histórico suma lo registrado desde hoy
+        ...(parseFloat(desplazadoInicial) > 0 && { desplazadoInicial: parseFloat(desplazadoInicial), desplazadoInicialDesde: new Date() }),
         zona: zonaFinal,
         ft: tanquesFinales[0]?.ft.toString() ?? '2.40',
         limResorte: parseFloat(limResorte) || 0,
@@ -190,6 +193,14 @@ export default function NewWellPage() {
           </div>
           <p className="text-xs text-slate-500">
             Diámetro de la placa (d) y diámetro interno del Meter Run (D). Sin ambos, el Operador no obtiene Qg.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold text-slate-300">Historial del equipo</h2>
+          <Input label="Desplazado inicial (Bls)" type="number" step="0.01" value={desplazadoInicial} onChange={(e) => setDesplazadoInicial(e.target.value)} placeholder="ej: 2542.92" />
+          <p className="text-xs text-slate-500">
+            Opcional. Lo que el equipo ya había desplazado en este pozo antes de usar la app; el Excel "Data Histórica del Equipo" parte de aquí.
           </p>
         </section>
 

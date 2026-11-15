@@ -270,6 +270,15 @@ describe('/pozos — update por el Supervisor de Campo', () => {
   it('DENIEGA que el Operador cambie Placa o Meter Run', async () => {
     await assertFails(updateDoc(doc(as('op1', OPERADOR), 'pozos/pozo1'), { diamOrif: 3.25 }))
   })
+  it('permite fijar el Desplazado inicial y su fecha de corte en SU pozo (Excel histórico del equipo)', async () => {
+    await assertSucceeds(updateDoc(doc(as('sc1', SUP_CAMPO), 'pozos/pozo1'), { desplazadoInicial: 2542.92, desplazadoInicialDesde: new Date() }))
+  })
+  it('DENIEGA al Operador fijar el Desplazado inicial', async () => {
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), 'pozos/pozo1'), { desplazadoInicial: 1 }))
+  })
+  it('DENIEGA fijar el Desplazado inicial de un pozo que no es el suyo', async () => {
+    await assertFails(updateDoc(doc(as('sc1', SUP_CAMPO), 'pozos/pozo2'), { desplazadoInicial: 1 }))
+  })
   it('DENIEGA editar la Placa de un pozo que no es el suyo', async () => {
     await assertFails(updateDoc(doc(as('sc1', SUP_CAMPO), 'pozos/pozo2'), { diamOrif: 3.25 }))
   })

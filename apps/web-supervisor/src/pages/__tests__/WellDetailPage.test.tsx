@@ -120,6 +120,35 @@ describe('WellDetailPage', () => {
     expect(updateDocMock.mock.calls[0][1].reductorPulgadas).toBe('1/2"')
   })
 
+  it('Desplazado inicial: al cambiarlo se envía junto con la fecha desde la que cuenta la app', async () => {
+    useAuthMock.mockReturnValue({ rol: 'SUP_CAMPO' })
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.type(screen.getByLabelText('Desplazado inicial (Bls)'), '2542.92')
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+
+    await waitFor(() => expect(updateDocMock).toHaveBeenCalled())
+    const payload = updateDocMock.mock.calls[0][1]
+    expect(payload.desplazadoInicial).toBe(2542.92)
+    expect(payload.desplazadoInicialDesde).toBeInstanceOf(Date)
+    expect(Date.now() - payload.desplazadoInicialDesde.getTime()).toBeLessThan(10000) // "a partir de ahora"
+  })
+
+  it('Desplazado inicial: si no cambió NO se reenvía (ni se mueve la fecha de corte)', async () => {
+    useAuthMock.mockReturnValue({ rol: 'SUP_CAMPO' })
+    usePozoMock.mockReturnValue({ pozo: { ...POZO_BASE, desplazadoInicial: 2542.92, desplazadoInicialDesde: new Date(2026, 10, 1) }, loading: false, error: null })
+    renderPage()
+    const user = userEvent.setup()
+    expect(screen.getByLabelText('Desplazado inicial (Bls)')).toHaveValue(2542.92)
+
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+    await waitFor(() => expect(updateDocMock).toHaveBeenCalled())
+    const payload = updateDocMock.mock.calls[0][1]
+    expect(payload).not.toHaveProperty('desplazadoInicial')
+    expect(payload).not.toHaveProperty('desplazadoInicialDesde')
+  })
+
   it('SUP_AREA/GERENTE además mandan empresa/equipo (permitido, sin hasOnly restringiéndolos)', async () => {
     useAuthMock.mockReturnValue({ rol: 'SUP_AREA' })
     renderPage()

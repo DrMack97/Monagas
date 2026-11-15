@@ -45,7 +45,7 @@ service cloud.firestore {
     function canEditOwnTanquesYLimites(pozoId) {
       return isSupCampo() && isAssignedToPozo(pozoId) &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['tanques', 'limResorte', 'limGamma', 'reductorPulgadas', 'diamOrif', 'meterRun']);
+          .hasOnly(['tanques', 'limResorte', 'limGamma', 'reductorPulgadas', 'diamOrif', 'meterRun', 'desplazadoInicial', 'desplazadoInicialDesde']);
     }
 
     // Candado de ciclo EN_CURSO (useEvaluacionActual.ts, mobile-operator).

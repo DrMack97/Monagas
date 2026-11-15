@@ -101,6 +101,7 @@ export default function WellDetailPage() {
   const [reductorPulgadas, setReductorPulgadas] = useState('')
   const [diamOrif, setDiamOrif] = useState('')
   const [meterRun, setMeterRun] = useState('')
+  const [desplazadoInicial, setDesplazadoInicial] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null)
@@ -115,6 +116,7 @@ export default function WellDetailPage() {
       setReductorPulgadas(pozo.reductorPulgadas ?? '')
       setDiamOrif(pozo.diamOrif ? String(pozo.diamOrif) : '')
       setMeterRun(pozo.meterRun ? String(pozo.meterRun) : '')
+      setDesplazadoInicial(pozo.desplazadoInicial !== undefined ? String(pozo.desplazadoInicial) : '')
     }
   }, [pozo])
 
@@ -124,6 +126,9 @@ export default function WellDetailPage() {
     )
     setGuardadoOk(false)
   }
+
+  const desplazadoCambio =
+    desplazadoInicial.trim() !== '' && Number.isFinite(parseFloat(desplazadoInicial)) && parseFloat(desplazadoInicial) !== pozo?.desplazadoInicial
 
   async function guardarTanquesYLimites() {
     if (!pozoId) return
@@ -143,6 +148,9 @@ export default function WellDetailPage() {
         // 0 = sin configurar (Firestore no admite undefined): el Operador no calcula Qg sin d y D
         diamOrif: parseFloat(diamOrif) || 0,
         meterRun: parseFloat(meterRun) || 0,
+        // Desplazado inicial: solo se envía si cambió. Al cambiar se fija también la fecha desde la que cuenta la app
+        // (el Excel histórico suma lo registrado a partir de ahí, sin contar dos veces lo anterior).
+        ...(desplazadoCambio && { desplazadoInicial: parseFloat(desplazadoInicial), desplazadoInicialDesde: new Date() }),
         ...(puedeEditarTodo && { empresa, equipo }),
       })
       setGuardadoOk(true)
@@ -253,6 +261,26 @@ export default function WellDetailPage() {
           </div>
           <p className="text-xs text-slate-500">
             Diámetro de la placa (d) y diámetro interno del Meter Run (D). Sin ambos, el Operador no obtiene Qg.
+          </p>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold text-slate-300">Historial del equipo</h2>
+          <Input
+            label="Desplazado inicial (Bls)"
+            type="number"
+            step="0.01"
+            value={desplazadoInicial}
+            onChange={(e) => { setDesplazadoInicial(e.target.value); setGuardadoOk(false) }}
+            placeholder="ej: 2542.92"
+            disabled={!puedeEditarTanquesYLimites}
+          />
+          <p className="text-xs text-slate-500">
+            Lo que el equipo ya había desplazado en este pozo antes de usar la app. El Excel "Data Histórica del Equipo" parte
+            de este valor y suma lo registrado a partir de la fecha en que se guarda.
+            {pozo?.desplazadoInicialDesde && (
+              <> Cargado desde el {fechaCorta((pozo.desplazadoInicialDesde as any)?.toDate ? (pozo.desplazadoInicialDesde as any).toDate() : (pozo.desplazadoInicialDesde as Date))}.</>
+            )}
           </p>
         </section>
 

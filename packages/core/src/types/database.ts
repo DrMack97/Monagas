@@ -57,6 +57,14 @@ export interface IPozo {
    * ILecturaOp.reductorPulgadas. No participa en ningún cálculo de barriles.
    */
   reductorPulgadas?: string
+  /**
+   * Desplazado total (Bls) que el equipo de testing ya había acumulado en este pozo ANTES de que la app lo registrara.
+   * Lo carga el Supervisor una vez. El Excel "Data Histórica del Equipo" parte de este valor y le suma lo que la app
+   * registre a partir de `desplazadoInicialDesde` (para no contar dos veces lo que la app ya tuviera).
+   */
+  desplazadoInicial?: number
+  /** Fecha desde la que cuenta la app; se fija sola al guardar un `desplazadoInicial` nuevo. */
+  desplazadoInicialDesde?: Date
   empresa?: string    // Empresa contratista que ejecuta el servicio (encabezado de reporte)
   equipo?: string     // Identificador del equipo de medición (ej. "WT-DSI-01") — encabezado del reporte PDVSA, dato estable del pozo igual que `empresa`
   legal?: IPozoLegal  // Información legal — ver IPozoLegal. Opcional: pozos existentes no lo tienen todavía.
