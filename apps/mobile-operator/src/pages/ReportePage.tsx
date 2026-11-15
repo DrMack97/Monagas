@@ -35,6 +35,7 @@ import { calcularPromedioEvaluacion } from '@core/calculos'
 import { construirReporteEstandar, reporteAWhatsApp } from '@core/utils/reporteEstandar'
 import { horaEnteraTexto } from '@core/utils/hora'
 import { resumenTrasegado } from '@core/utils/trasegado'
+import { existenciaMedida, aTextoBls } from '@core/utils/existencia'
 import { validarExistencia, validarTrasegadoAcumulado, BLS_POR_PULGADA_DEFECTO, type NivelAlerta } from '@core/utils/balanceMasas'
 import { fmt, dateFormat } from '../utils/formatters'
 import { exportarInformeExcel } from '../utils/exportExcel'
@@ -113,8 +114,16 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
   const plan = valorTesting('plan')
   const api = valorTesting('api')
   const hayPrefillTesting = (['fechaAlineacion', 'fechaCulminacion', 'estadoActual', 'asunto', 'plan', 'api'] as CampoTesting[]).some(testingPrefill)
-  const [existencia, setExistencia] = useState('')
-  const [trasegable, setTrasegable] = useState('')
+  // Existencia y Trasegable: la Existencia carga la medición de los tanques en la última lectura (Σ medida final × factor
+  // del tanque) y ese mismo valor se refleja en Trasegable como previsión de fluidos incarreables. Ambos siguen siendo
+  // editables; Trasegable acompaña a la Existencia mientras el operador no lo cambie.
+  const medidaTanques = existenciaMedida(pozo?.tanques ?? [], lecturas[lecturas.length - 1])
+  const [existenciaEditada, setExistenciaEditada] = useState<string | undefined>(undefined)
+  const [trasegableEditado, setTrasegableEditado] = useState<string | undefined>(undefined)
+  const existencia = existenciaEditada ?? (medidaTanques !== undefined ? aTextoBls(medidaTanques) : '')
+  const trasegable = trasegableEditado ?? existencia
+  const existenciaPrefill = existenciaEditada === undefined && medidaTanques !== undefined
+  const trasegablePrefill = trasegableEditado === undefined && existencia.trim() !== ''
   const [totalTrasegado, setTotalTrasegado] = useState('')
   const [nivelCellar, setNivelCellar] = useState('')
   const [viajesVacuum, setViajesVacuum] = useState('')
@@ -147,13 +156,21 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
       ...(plan.trim() && { plan: plan.trim() }),
       ...(viajes.length > 0 && { viajesVacuum24h: viajes }),
       ...(api && { tipoFluido: { api: parseFloat(api) || 0 } }),
-      ...((existencia || trasegable || totalTrasegado) && {
-        resumenTanques: {
-          existencia: parseFloat(existencia) || 0,
-          trasegable: parseFloat(trasegable) || 0,
-          totalTrasegado: parseFloat(totalTrasegado) || 0,
-        },
-      }),
+      ...(() => {
+        // Solo se guarda lo que realmente hay: un campo vacío no se convierte en 0 ("—" en el reporte, no un 0 inventado).
+        const num = (t: string) => (t.trim() !== '' ? parseFloat(t) || 0 : undefined)
+        const exi = num(existencia)
+        const tra = num(trasegable)
+        const tot = num(totalTrasegado)
+        if (exi === undefined && tra === undefined && tot === undefined) return {}
+        return {
+          resumenTanques: {
+            ...(exi !== undefined && { existencia: exi }),
+            ...(tra !== undefined && { trasegable: tra }),
+            ...(tot !== undefined && { totalTrasegado: tot }),
+          },
+        }
+      })(),
       ...(nivelCellar && { nivelCellar: parseFloat(nivelCellar) || 0 }),
       ...(viajesVacuum && { viajesVacuum: parseFloat(viajesVacuum) || 0 }),
     }
@@ -398,12 +415,14 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
 
             <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Tanques de almacenamiento</p>
             <div className="grid grid-cols-2 gap-3">
-              <CampoTexto label="Existencia (Bls)" value={existencia} onChange={setExistencia} type="number" nivel={avisosCierre.existencia.nivel} aviso={avisosCierre.existencia.aviso} />
-              <CampoTexto label="Trasegable (Bls)" value={trasegable} onChange={setTrasegable} type="number" />
+              <CampoTexto label="Existencia (Bls)" value={existencia} onChange={setExistenciaEditada} type="number" nivel={avisosCierre.existencia.nivel} aviso={avisosCierre.existencia.aviso} prefill={existenciaPrefill} />
+              <CampoTexto label="Trasegable (Bls)" value={trasegable} onChange={setTrasegableEditado} type="number" prefill={trasegablePrefill} />
               <CampoTexto label="Total Trasegado Acumulado (Bls)" value={totalTrasegado} onChange={setTotalTrasegado} type="number" nivel={avisosCierre.totalTrasegado.nivel} aviso={avisosCierre.totalTrasegado.aviso} />
             </div>
             <p className="text-xs text-slate-500">
-              Si no digitas la existencia, se suma de los tanques (medida final × factor del tanque).
+              {existenciaPrefill || trasegablePrefill
+                ? 'Existencia tomada de la medición de los tanques en la última lectura (medida final × factor del tanque); Trasegable la repite como previsión de fluidos incarreables. Edítalos si cambiaron.'
+                : 'Existencia: medición de los tanques (medida final × factor del tanque). Trasegable: previsión de fluidos incarreables.'}
             </p>
 
             <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Control de vacuum y disposición</p>

@@ -182,6 +182,26 @@ describe('reporte estándar — datos faltantes y variantes', () => {
   })
 })
 
+describe('reporte estándar — resumen de tanques parcial', () => {
+  it('con solo existencia y trasegable (sin acumulado) no inventa un acumulado en 0: sale "—"', () => {
+    const d = datosEjemplo()
+    d.reporte = { ...d.reporte, resumenTanques: { existencia: 117, trasegable: 117 } }
+    const t = reporteAWhatsApp(construirReporteEstandar(d))
+    expect(t).toContain('• Existencia Total: 117 Bls | Total Trasegable: 117 Bls')
+    expect(t).toContain('• Total Trasegado Acumulado: —')
+    expect(t).toContain('• Total Despachado General: —')
+  })
+
+  it('con solo el acumulado, la existencia se calcula de los tanques (no se pone 0)', () => {
+    const d = datosEjemplo()
+    d.reporte = { ...d.reporte, resumenTanques: { totalTrasegado: 2542.92 } }
+    const t = reporteAWhatsApp(construirReporteEstandar(d))
+    expect(t).toContain('• Existencia Total: 117 Bls | Total Trasegable: —')
+    expect(t).toContain('• Total Trasegado Acumulado: 2,542.92 Bls')
+    expect(t).toContain('• Total Despachado General: 2,659.92 Bls')
+  })
+})
+
 describe('reporte estándar — robustez', () => {
   it('un pozo sin lista de tanques NO rompe el reporte (rompía el botón de Excel)', () => {
     const d = datosEjemplo()

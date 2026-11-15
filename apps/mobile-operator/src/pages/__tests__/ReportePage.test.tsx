@@ -165,13 +165,15 @@ describe('ReportePage — reporte estándar', () => {
 
     it('existencia igual a la medida por nivel (48.75 pulg × 2.4 = 117 Bls): sin alerta', async () => {
       const user = await abrir()
-      await user.type(campo('Existencia (Bls)'), '117')
+      // ya viene precargada con la medición (117): sin alerta
+      expect(campo('Existencia (Bls)')).toHaveValue(117)
       expect(campo('Existencia (Bls)')).toHaveAttribute('data-nivel', 'OK')
       expect(screen.queryByText(/difiere/i)).not.toBeInTheDocument()
     })
 
     it('existencia con el decimal corrido (11.7): ROJA con sugerencia de decimal', async () => {
       const user = await abrir()
+      await user.clear(campo('Existencia (Bls)'))
       await user.type(campo('Existencia (Bls)'), '11.7')
       expect(campo('Existencia (Bls)')).toHaveAttribute('data-nivel', 'ROJA')
       expect(campo('Existencia (Bls)').className).toMatch(/border-red-500/)
@@ -182,6 +184,7 @@ describe('ReportePage — reporte estándar', () => {
 
     it('existencia que difiere menos de una pulgada (118 vs 117): AMARILLA', async () => {
       const user = await abrir()
+      await user.clear(campo('Existencia (Bls)'))
       await user.type(campo('Existencia (Bls)'), '118')
       expect(campo('Existencia (Bls)')).toHaveAttribute('data-nivel', 'AMARILLA')
       expect(screen.getByText(/alerta amarilla: difiere 1.00 Bls/i)).toBeInTheDocument()
@@ -207,6 +210,7 @@ describe('ReportePage — reporte estándar', () => {
     it('campos vacíos no generan alerta, y con alerta roja se puede calcular y compartir igual (no bloquea)', async () => {
       const user = await abrir()
       expect(campo('Existencia (Bls)')).toHaveAttribute('data-nivel', 'OK')
+      await user.clear(campo('Existencia (Bls)'))
       await user.type(campo('Existencia (Bls)'), '11.7')
       await user.click(screen.getByRole('button', { name: /^calcular promedio$/i }))
       expect(screen.getByRole('link', { name: /whatsapp/i })).toBeInTheDocument()

@@ -166,10 +166,14 @@ export interface IReporteOperativo {
     api: number   // Gravedad API (°)
     h2s?: string  // Presencia/medición de H2S — texto libre (ppm, "Negativo", etc.), no siempre se mide con un número
   }
+  /**
+   * Cada campo es opcional: solo se guarda el que realmente hay. Antes, con un solo campo rellenado, los otros dos se
+   * guardaban como 0 y el reporte mostraba un "0" inventado en lugar de "—".
+   */
   resumenTanques?: {
-    existencia: number     // Existencia total en tanques (Bls) al momento del reporte
-    trasegable: number     // Volumen trasegable (Bls)
-    totalTrasegado: number // Total trasegado acumulado (Bls)
+    existencia?: number     // Existencia total en tanques (Bls) al momento del reporte
+    trasegable?: number     // Volumen trasegable (Bls); previsión de fluidos incarreables (precargado igual a la existencia)
+    totalTrasegado?: number // Total trasegado acumulado (Bls)
   }
   nivelCellar?: number  // %
   viajesVacuum?: number // Cantidad de viajes de camión vacuum

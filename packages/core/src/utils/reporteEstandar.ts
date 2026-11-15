@@ -103,7 +103,7 @@ export function construirReporteEstandar(datos: DatosReporteEstandar): ReporteEs
     ? (volumenTanques as number[]).reduce((a, b) => a + b, 0)
     : undefined
   const resumen = reporte.resumenTanques
-  const existencia = resumen ? resumen.existencia : sumaTanques
+  const existencia = resumen?.existencia ?? sumaTanques
   const trasegable = resumen?.trasegable
   const totalTrasegado = resumen?.totalTrasegado
   const despachado = totalTrasegado !== undefined && existencia !== undefined ? totalTrasegado + existencia : undefined
