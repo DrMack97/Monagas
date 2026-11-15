@@ -21,6 +21,7 @@ import { useAuth } from '../hooks/useAuth'
 import { usePozoInfo } from '../hooks/usePozoInfo'
 import { useEvaluacionActual } from '../hooks/useEvaluacionActual'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
+import { useLecturaPrevia } from '../hooks/useLecturaPrevia'
 import { useConnectivity } from '../hooks/useConnectivity'
 import { calcTanque, calcAGA3 } from '@monagas/core/calculos'
 import { capacidadesZona } from '@core/constants/zonas'
@@ -42,6 +43,10 @@ interface TankFormState {
   /** Bls que se llevó un viaje de vacuum desde la lectura anterior (tanque vaciado). */
   trasegado: string
 }
+
+type CampoGas = 'pf' | 'hw' | 'tGas' | 'gg'
+/** Valores de partida cuando NO hay ninguna carga anterior del pozo. */
+const GAS_POR_DEFECTO: Record<CampoGas, string> = { pf: '0', hw: '0', tGas: '80', gg: '0.6' }
 
 function tankFormInicial(): TankFormState {
   return { mf: '0', reductor: '0', aysPct: '0', dilDia: '0', trasegado: '0' }
@@ -65,7 +70,11 @@ export default function RegistroPage() {
     user?.uid,
     pozo?.zona
   )
-  const { lecturas } = useLecturasEvaluacion(evalId ?? undefined)
+  const { lecturas, loading: cargandoLecturas } = useLecturasEvaluacion(evalId ?? undefined)
+  // Prefill: "carga anterior" = la última lectura de ESTE ciclo; si el ciclo aún no tiene ninguna (primera lectura de un
+  // ciclo nuevo), la última del ciclo anterior del pozo.
+  const { previas } = useLecturaPrevia(pozoId, evalId, !cargandoLecturas && lecturas.length === 0)
+  const cargasAnteriores = lecturas.length > 0 ? [...lecturas].reverse() : previas
   const { isOnline } = useConnectivity()
 
   // Qué se captura/muestra según la zona del pozo (Casing y Netos solo en la Faja).
@@ -73,10 +82,22 @@ export default function RegistroPage() {
 
   const [th, setTh] = useState('1')
   const [tankForms, setTankForms] = useState<Record<string, TankFormState>>({})
-  const [pf, setPf] = useState('0')
-  const [hw, setHw] = useState('0')
-  const [tGas, setTGas] = useState('80')
-  const [gg, setGg] = useState('0.6')
+  // Ventana AGA-3 (gas): cada campo muestra lo editado por el operador; si no lo ha tocado, el valor de la carga
+  // anterior; si no hay carga anterior, el valor por defecto. Así los datos se conservan al reabrir la pantalla y al
+  // empezar un ciclo nuevo (requisito del cliente: "todas las ventanas deben mantener la data de la carga anterior").
+  const [gasEditado, setGasEditado] = useState<Partial<Record<CampoGas, string>>>({})
+  const gasAnterior = cargasAnteriores.find((l) => l.gas)?.gas
+  const valorGas = (campo: CampoGas): string =>
+    gasEditado[campo] ?? (gasAnterior && Number.isFinite(gasAnterior[campo]) ? String(gasAnterior[campo]) : GAS_POR_DEFECTO[campo])
+  const gasPrefill = (campo: CampoGas): boolean => gasEditado[campo] === undefined && !!gasAnterior && Number.isFinite(gasAnterior[campo])
+  const editarGas = (campo: CampoGas, valor: string) => {
+    setGasEditado((prev) => ({ ...prev, [campo]: valor }))
+    setGuardadoOk(false)
+  }
+  const pf = valorGas('pf')
+  const hw = valorGas('hw')
+  const tGas = valorGas('tGas')
+  const gg = valorGas('gg')
   const [pCab, setPCab] = useState('0')
   const [pSep, setPSep] = useState('0')
   const [pCsg, setPCsg] = useState('0')
@@ -488,21 +509,24 @@ export default function RegistroPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Presión Estática (psig)</label>
-              <input type="number" value={pf} onChange={(e) => setPf(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pf} onChange={(e) => editarGas('pf', e.target.value)} data-prefill={gasPrefill('pf')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Diferencial (inH₂O)</label>
-              <input type="number" value={hw} onChange={(e) => setHw(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={hw} onChange={(e) => editarGas('hw', e.target.value)} data-prefill={gasPrefill('hw')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Temp. gas (°F)</label>
-              <input type="number" value={tGas} onChange={(e) => setTGas(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={tGas} onChange={(e) => editarGas('tGas', e.target.value)} data-prefill={gasPrefill('tGas')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Gravedad específica</label>
-              <input type="number" step="0.01" value={gg} onChange={(e) => setGg(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" step="0.01" value={gg} onChange={(e) => editarGas('gg', e.target.value)} data-prefill={gasPrefill('gg')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
           </div>
+          {gasAnterior && (
+            <p className="text-xs text-slate-500">Valores de la carga anterior; edítalos si cambiaron.</p>
+          )}
           <p className="text-xs text-slate-500 flex items-center gap-1">
             Placa: <span className="text-slate-300 font-mono">{gasConfigurado ? `${diamPlaca}"` : '-'}</span>
             {' · '}Meter Run: <span className="text-slate-300 font-mono">{gasConfigurado ? `${meterRun}"` : '-'}</span>
