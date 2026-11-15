@@ -32,6 +32,8 @@ import { usePozoInfo } from '../hooks/usePozoInfo'
 import { calcularPromedioEvaluacion } from '@core/calculos'
 import { construirReporteEstandar, reporteAWhatsApp } from '@core/utils/reporteEstandar'
 import { horaEnteraTexto } from '@core/utils/hora'
+import { resumenTrasegado } from '@core/utils/trasegado'
+import { validarExistencia, validarTrasegadoAcumulado, BLS_POR_PULGADA_DEFECTO, type NivelAlerta } from '@core/utils/balanceMasas'
 import { fmt, dateFormat } from '../utils/formatters'
 import { exportarInformeExcel } from '../utils/exportExcel'
 import type { IResultadosEval, IReporteOperativo, IViajeVacuum } from '@core/types'
@@ -216,6 +218,45 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
     return datos ? reporteAWhatsApp(construirReporteEstandar(datos)) : ''
   }
 
+  // Alerta de balance de masas al cierre (preventiva, NO bloquea): lo que el Operador digita se contrasta con lo
+  // medido. Existencia digitada vs. Σ (medida final × factor del tanque) de la última lectura; Total trasegado
+  // acumulado digitado no puede ser menor que lo trasegado en este ciclo.
+  const avisosCierre = (() => {
+    const ultimaLectura = lecturas[lecturas.length - 1]
+    const tanquesPozo = pozo?.tanques ?? []
+    const medida = ultimaLectura
+      ? tanquesPozo.reduce((acc, t) => acc + (ultimaLectura.tanques.find((x) => x.tanqueId === t.id)?.mf ?? 0) * t.ft, 0)
+      : 0
+    const umbral = tanquesPozo.length > 0 ? Math.max(...tanquesPozo.map((t) => t.ft)) : BLS_POR_PULGADA_DEFECTO
+    const trasegadoCiclo = resumenTrasegado(lecturas).totalBls
+    const f = (n: number) => n.toFixed(2)
+    const sinAviso = { nivel: 'OK' as NivelAlerta, aviso: undefined as string | undefined }
+
+    const exi = existencia.trim() !== '' && ultimaLectura
+      ? (() => {
+          const v = validarExistencia(parseFloat(existencia) || 0, medida, umbral)
+          return v.nivel === 'OK'
+            ? sinAviso
+            : {
+                nivel: v.nivel,
+                aviso: `${v.nivel === 'ROJA' ? 'Alerta roja' : 'Alerta amarilla'}: difiere ${f(Math.abs(v.diferencia))} Bls de la medida por nivel (${f(medida)} Bls).${v.posibleDecimal ? ' ¿Se omitió o sobra un decimal?' : ''}`,
+              }
+        })()
+      : sinAviso
+    const tra = totalTrasegado.trim() !== ''
+      ? (() => {
+          const v = validarTrasegadoAcumulado(parseFloat(totalTrasegado) || 0, trasegadoCiclo)
+          return v.nivel === 'OK'
+            ? sinAviso
+            : {
+                nivel: v.nivel,
+                aviso: `Alerta roja: el acumulado (${f(parseFloat(totalTrasegado) || 0)} Bls) es menor que lo trasegado en este ciclo (${f(trasegadoCiclo)} Bls); no puede serlo.${v.posibleDecimal ? ' ¿Se omitió un decimal?' : ''}`,
+              }
+        })()
+      : sinAviso
+    return { existencia: exi, totalTrasegado: tra }
+  })()
+
   // Sin esto la pantalla no tenía cómo retroceder y el usuario tenía que cerrar la app.
   const botonVolver = (
     <button
@@ -316,9 +357,9 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
 
             <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Tanques de almacenamiento</p>
             <div className="grid grid-cols-2 gap-3">
-              <CampoTexto label="Existencia (Bls)" value={existencia} onChange={setExistencia} type="number" />
+              <CampoTexto label="Existencia (Bls)" value={existencia} onChange={setExistencia} type="number" nivel={avisosCierre.existencia.nivel} aviso={avisosCierre.existencia.aviso} />
               <CampoTexto label="Trasegable (Bls)" value={trasegable} onChange={setTrasegable} type="number" />
-              <CampoTexto label="Total Trasegado Acumulado (Bls)" value={totalTrasegado} onChange={setTotalTrasegado} type="number" />
+              <CampoTexto label="Total Trasegado Acumulado (Bls)" value={totalTrasegado} onChange={setTotalTrasegado} type="number" nivel={avisosCierre.totalTrasegado.nivel} aviso={avisosCierre.totalTrasegado.aviso} />
             </div>
             <p className="text-xs text-slate-500">
               Si no digitas la existencia, se suma de los tanques (medida final × factor del tanque).
@@ -504,13 +545,20 @@ function CampoTexto({
   value,
   onChange,
   type = 'text',
+  nivel = 'OK',
+  aviso,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   type?: string
+  /** Alerta preventiva (no bloquea): resalta el borde del campo. */
+  nivel?: NivelAlerta
+  aviso?: string
 }) {
   const id = useId()
+  const borde =
+    nivel === 'ROJA' ? 'border-red-500 ring-1 ring-red-500/40' : nivel === 'AMARILLA' ? 'border-amber-500 ring-1 ring-amber-500/40' : 'border-slate-800'
   return (
     <div>
       <label htmlFor={id} className="block text-xs text-slate-500 mb-1">{label}</label>
@@ -519,8 +567,15 @@ function CampoTexto({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm"
+        data-nivel={nivel}
+        aria-describedby={aviso ? `${id}-aviso` : undefined}
+        className={`w-full bg-slate-950 border rounded-lg px-3 py-2 text-white text-sm ${borde}`}
       />
+      {aviso && (
+        <p id={`${id}-aviso`} role="status" className={`text-xs mt-1 ${nivel === 'ROJA' ? 'text-red-400' : 'text-amber-400'}`}>
+          {aviso}
+        </p>
+      )}
     </div>
   )
 }

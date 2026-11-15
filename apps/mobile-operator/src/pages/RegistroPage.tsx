@@ -25,6 +25,8 @@ import { useConnectivity } from '../hooks/useConnectivity'
 import { calcTanque, calcAGA3 } from '@monagas/core/calculos'
 import { capacidadesZona } from '@core/constants/zonas'
 import { resumenTrasegado } from '@core/utils/trasegado'
+import { balanceMasas, detectarSalto, peorNivel, type NivelAlerta } from '@core/utils/balanceMasas'
+import BalanceMasasPanel, { ETIQUETA_NIVEL } from '../components/BalanceMasasPanel'
 import LoadingSpinner from '../components/LoadingSpinner'
 import type { ILecturaTanque, ILecturaGas } from '@core/types'
 
@@ -43,6 +45,14 @@ interface TankFormState {
 
 function tankFormInicial(): TankFormState {
   return { mf: '0', reductor: '0', aysPct: '0', dilDia: '0', trasegado: '0' }
+}
+
+/** Borde del campo según el nivel de alerta (amarillo/rojo); sin alerta, el borde normal. */
+function claseCampo(nivel: NivelAlerta): string {
+  const base = 'w-full bg-slate-950 border rounded-lg px-3 py-2 text-white'
+  if (nivel === 'ROJA') return `${base} border-red-500 ring-1 ring-red-500/40`
+  if (nivel === 'AMARILLA') return `${base} border-amber-500 ring-1 ring-amber-500/40`
+  return `${base} border-slate-800`
 }
 
 export default function RegistroPage() {
@@ -146,6 +156,58 @@ export default function RegistroPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pozo, tankForms, th, miPorTanque])
 
+  // Alerta de balance de masas (preventiva, NO bloqueante): Desplazamiento − Trasegado − Existente = 0, por tanque.
+  // Se calcula con las lecturas guardadas MÁS lo que se está escribiendo (solo los tanques que el operador ya tocó;
+  // el valor por defecto 0 de un tanque sin tocar no es una medida y daría una alerta falsa).
+  const tocado = (tankId: string) => !!tankForms[tankId]
+  const balance = useMemo(() => {
+    const tanquesIn = (pozo?.tanques ?? []).map((t) => ({ id: t.id, nombre: t.nombre, ft: t.ft, mi: t.mi }))
+    const pendiente = {
+      tanques: resultadosPorTank
+        .filter(({ tank, resultado }) => resultado && tocado(tank.id))
+        .map(({ tank, resultado }) => ({
+          tanqueId: tank.id,
+          mi: miPorTanque[tank.id] ?? tank.mi,
+          mf: parseFloat(formDeTank(tank.id).mf) || 0,
+          bph: resultado!.bph,
+          th: parseFloat(th) || 1,
+          trasegado: parseFloat(formDeTank(tank.id).trasegado) || 0,
+        })),
+    }
+    return balanceMasas(tanquesIn, [...lecturas, pendiente])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pozo, lecturas, resultadosPorTank, tankForms, th, miPorTanque])
+
+  /** Avisos de un tanque (para resaltar sus campos y explicar): balance + salto desproporcionado. */
+  function avisosDeTanque(tankId: string): { nivel: NivelAlerta; mensajes: { nivel: NivelAlerta; texto: string }[] } {
+    if (!tocado(tankId)) return { nivel: 'OK', mensajes: [] }
+    const mensajes: { nivel: NivelAlerta; texto: string }[] = []
+    const b = balance.tanques.find((t) => t.tanqueId === tankId)
+    if (b && b.nivel !== 'OK') {
+      mensajes.push({
+        nivel: b.nivel,
+        texto:
+          b.nivel === 'ROJA'
+            ? `Discrepancia crítica en el balance de masas: no cuadran ${Math.abs(b.residuo).toFixed(2)} Bls (más de una pulgada de nivel).`
+            : `Desviación menor en el balance de masas: no cuadran ${Math.abs(b.residuo).toFixed(2)} Bls (menos de una pulgada).`,
+      })
+    }
+    const resultado = resultadosPorTank.find((r) => r.tank.id === tankId)?.resultado
+    if (resultado) {
+      const previas = lecturas.map((l) => l.tanques.find((t) => t.tanqueId === tankId)?.bph ?? 0)
+      const salto = detectarSalto(previas, resultado.bph)
+      if (salto.salto) {
+        mensajes.push({
+          nivel: 'AMARILLA',
+          texto:
+            `La producción por hora es ${salto.factor >= 1 ? `${salto.factor.toFixed(1)} veces mayor` : `${(1 / salto.factor).toFixed(1)} veces menor`} que la de las lecturas anteriores` +
+            (salto.posibleDecimal ? ': ¿se omitió o sobra un decimal en la medida?' : '. Verifica la medida.'),
+        })
+      }
+    }
+    return { nivel: peorNivel(...mensajes.map((m) => m.nivel)), mensajes }
+  }
+
   // El Qg depende de la placa (d) y del Meter Run (D) REALES del pozo, que fija el supervisor.
   // Si faltan no se inventa un valor por defecto: no hay Qg hasta que se configuren.
   const diamPlaca = pozo?.diamOrif ?? 0
@@ -225,6 +287,12 @@ export default function RegistroPage() {
         alertas.push(
           `Diferencial (${gas.hw} inH₂O) excede el gamma configurado (${pozo.limGamma} inH₂O)`
         )
+      }
+
+      // Constancia del balance de masas / incongruencias de captura (alertas internas, no salen en exportables)
+      for (const t of pozo.tanques) {
+        const av = avisosDeTanque(t.id)
+        for (const m of av.mensajes) alertas.push(`${ETIQUETA_NIVEL[m.nivel]} (${t.nombre}): ${m.texto}`)
       }
 
       const escrituras = Promise.all([
@@ -333,6 +401,12 @@ export default function RegistroPage() {
 
         {resultadosPorTank.map(({ tank, resultado }) => {
           const form = formDeTank(tank.id)
+          const avisos = avisosDeTanque(tank.id)
+          const nivelBalance = balance.tanques.find((t) => t.tanqueId === tank.id)?.nivel ?? 'OK'
+          // Resaltado directo de los campos de entrada: rojo/amarillo según el balance; un salto desproporcionado
+          // marca la Medida Final en amarillo.
+          const nivelMedida = tocado(tank.id) ? peorNivel(nivelBalance, avisos.mensajes.some((m) => m.texto.includes('por hora')) ? 'AMARILLA' : 'OK') : 'OK'
+          const nivelTrasegado = tocado(tank.id) ? nivelBalance : 'OK'
           return (
             <section key={tank.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
               <div className="flex items-center justify-between">
@@ -348,7 +422,8 @@ export default function RegistroPage() {
                   <input
                     type="number" step="0.01" value={form.mf}
                     onChange={(e) => actualizarTank(tank.id, 'mf', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                    data-nivel={nivelMedida}
+                    className={claseCampo(nivelMedida)}
                   />
                 </div>
                 <div>
@@ -366,18 +441,32 @@ export default function RegistroPage() {
                 <input
                   type="number" step="0.01" min="0" value={form.trasegado}
                   onChange={(e) => actualizarTank(tank.id, 'trasegado', e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                  data-nivel={nivelTrasegado}
+                  className={claseCampo(nivelTrasegado)}
                 />
                 <p className="text-xs text-slate-500 mt-1">
                   Solo si un viaje de vacuum retiró fluido de este tanque desde la lectura anterior.
                 </p>
               </div>
 
-              {bajoMedida(tank.id) && (
-                <p role="status" className="text-xs text-amber-400">
-                  La medida final es menor que la inicial ({miPorTanque[tank.id] ?? tank.mi}): el BPD de este tanque sale 0.
-                  Si el tanque se vació por un viaje de vacuum, anota los barriles en "Trasegado (Bls)".
-                </p>
+              {(bajoMedida(tank.id) || avisos.mensajes.length > 0) && (
+                <div
+                  role="status"
+                  data-nivel={bajoMedida(tank.id) && avisos.nivel === 'OK' ? 'AMARILLA' : avisos.nivel}
+                  className={`text-xs space-y-1 ${avisos.nivel === 'ROJA' ? 'text-red-400' : 'text-amber-400'}`}
+                >
+                  {bajoMedida(tank.id) && (
+                    <p>
+                      La medida final es menor que la inicial ({miPorTanque[tank.id] ?? tank.mi}): el BPD de este tanque sale 0.
+                      Si el tanque se vació por un viaje de vacuum, anota los barriles en "Trasegado (Bls)".
+                    </p>
+                  )}
+                  {avisos.mensajes.map((m) => (
+                    <p key={m.texto}>
+                      <strong>{ETIQUETA_NIVEL[m.nivel]}:</strong> {m.texto} Puedes seguir y guardar.
+                    </p>
+                  ))}
+                </div>
               )}
 
               {resultado && (
@@ -391,6 +480,8 @@ export default function RegistroPage() {
             </section>
           )
         })}
+
+        <BalanceMasasPanel balance={balance} />
 
         <section className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
           <h3 className="text-sm font-semibold text-white">Gas (AGA-3)</h3>
