@@ -28,6 +28,7 @@ import { FiArrowLeft, FiSend, FiAlertTriangle, FiCheckCircle, FiSave, FiFileText
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
+import { useReporteAnterior } from '../hooks/useReporteAnterior'
 import { usePozoInfo } from '../hooks/usePozoInfo'
 import { calcularPromedioEvaluacion } from '@core/calculos'
 import { construirReporteEstandar, reporteAWhatsApp } from '@core/utils/reporteEstandar'
@@ -37,6 +38,8 @@ import { validarExistencia, validarTrasegadoAcumulado, BLS_POR_PULGADA_DEFECTO, 
 import { fmt, dateFormat } from '../utils/formatters'
 import { exportarInformeExcel } from '../utils/exportExcel'
 import type { IResultadosEval, IReporteOperativo, IViajeVacuum } from '@core/types'
+
+type CampoSupervisor = 'supervisorPDVSA' | 'supervisorPDVSANocturno' | 'cuadrillaDiurno' | 'cuadrillaNocturno'
 
 interface ViajeForm {
   fechaHora: string // datetime-local
@@ -68,10 +71,23 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
   // Producción, División Punta de Mata; Informe Técnico Willytank 04/11/2026,
   // sección 2) — se llenan una sola vez, no por lectura horaria (ver
   // IReporteOperativo en @monagas/core). El texto lo arma construirReporteEstandar.
-  const [supervisorPDVSA, setSupervisorPDVSA] = useState('')            // Supv. Producción PDVSA — diurno
-  const [supervisorPDVSANocturno, setSupervisorPDVSANocturno] = useState('')
-  const [cuadrillaDiurno, setCuadrillaDiurno] = useState('')            // Supv. Well Testing (DSI)
-  const [cuadrillaNocturno, setCuadrillaNocturno] = useState('')
+  // Reporte anterior del pozo (ciclo actual y anteriores): fuente del prefill. Los nombres de los supervisores no se
+  // escriben hora a hora: tras el primer registro se autocompletan en los reportes posteriores.
+  const { anterior } = useReporteAnterior(pozoId, evalId)
+  // Supervisores: lo editado por el operador; si no lo ha tocado, el del reporte anterior; si no, vacío.
+  const [supEditado, setSupEditado] = useState<Partial<Record<CampoSupervisor, string>>>({})
+  const supAnterior = (campo: CampoSupervisor): string | undefined => {
+    const v = anterior?.[campo]
+    return typeof v === 'string' && v.trim() !== '' ? v : undefined
+  }
+  const valorSup = (campo: CampoSupervisor): string => supEditado[campo] ?? supAnterior(campo) ?? ''
+  const supPrefill = (campo: CampoSupervisor): boolean => supEditado[campo] === undefined && supAnterior(campo) !== undefined
+  const editarSup = (campo: CampoSupervisor) => (valor: string) => setSupEditado((prev) => ({ ...prev, [campo]: valor }))
+  const supervisorPDVSA = valorSup('supervisorPDVSA')                       // Supv. Producción PDVSA — diurno
+  const supervisorPDVSANocturno = valorSup('supervisorPDVSANocturno')
+  const cuadrillaDiurno = valorSup('cuadrillaDiurno')                       // Supv. Well Testing (DSI)
+  const cuadrillaNocturno = valorSup('cuadrillaNocturno')
+  const hayPrefillSupervisores = (['supervisorPDVSA', 'supervisorPDVSANocturno', 'cuadrillaDiurno', 'cuadrillaNocturno'] as CampoSupervisor[]).some(supPrefill)
   const [fechaAlineacion, setFechaAlineacion] = useState('')            // Fecha Inicio Well Testing
   const [fechaCulminacion, setFechaCulminacion] = useState('')
   const [estadoActual, setEstadoActual] = useState('')
@@ -322,16 +338,19 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
 
         {mostrarDatosPDVSA && (
           <div className="mt-3 space-y-3">
+            {hayPrefillSupervisores && (
+              <p className="text-xs text-slate-500">Nombres tomados del reporte anterior; edítalos si cambiaron.</p>
+            )}
             <p className="text-xs text-slate-500">Supv. Producción PDVSA</p>
             <div className="grid grid-cols-2 gap-3">
-              <CampoTexto label="Diurno" value={supervisorPDVSA} onChange={setSupervisorPDVSA} />
-              <CampoTexto label="Nocturno" value={supervisorPDVSANocturno} onChange={setSupervisorPDVSANocturno} />
+              <CampoTexto label="Diurno" value={supervisorPDVSA} onChange={editarSup('supervisorPDVSA')} prefill={supPrefill('supervisorPDVSA')} />
+              <CampoTexto label="Nocturno" value={supervisorPDVSANocturno} onChange={editarSup('supervisorPDVSANocturno')} prefill={supPrefill('supervisorPDVSANocturno')} />
             </div>
 
             <p className="text-xs text-slate-500 pt-1 border-t border-slate-800">Supv. Well Testing</p>
             <div className="grid grid-cols-2 gap-3">
-              <CampoTexto label="Diurno" value={cuadrillaDiurno} onChange={setCuadrillaDiurno} />
-              <CampoTexto label="Nocturno" value={cuadrillaNocturno} onChange={setCuadrillaNocturno} />
+              <CampoTexto label="Diurno" value={cuadrillaDiurno} onChange={editarSup('cuadrillaDiurno')} prefill={supPrefill('cuadrillaDiurno')} />
+              <CampoTexto label="Nocturno" value={cuadrillaNocturno} onChange={editarSup('cuadrillaNocturno')} prefill={supPrefill('cuadrillaNocturno')} />
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-800">
@@ -547,6 +566,7 @@ function CampoTexto({
   type = 'text',
   nivel = 'OK',
   aviso,
+  prefill = false,
 }: {
   label: string
   value: string
@@ -555,6 +575,8 @@ function CampoTexto({
   /** Alerta preventiva (no bloquea): resalta el borde del campo. */
   nivel?: NivelAlerta
   aviso?: string
+  /** El valor viene del reporte anterior (prefill) y el operador aún no lo ha tocado. */
+  prefill?: boolean
 }) {
   const id = useId()
   const borde =
@@ -568,6 +590,7 @@ function CampoTexto({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         data-nivel={nivel}
+        data-prefill={prefill}
         aria-describedby={aviso ? `${id}-aviso` : undefined}
         className={`w-full bg-slate-950 border rounded-lg px-3 py-2 text-white text-sm ${borde}`}
       />
