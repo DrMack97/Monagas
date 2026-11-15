@@ -24,6 +24,7 @@ import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
 import { useConnectivity } from '../hooks/useConnectivity'
 import { calcTanque, calcAGA3 } from '@monagas/core/calculos'
 import { capacidadesZona } from '@core/constants/zonas'
+import { resumenTrasegado } from '@core/utils/trasegado'
 import LoadingSpinner from '../components/LoadingSpinner'
 import type { ILecturaTanque, ILecturaGas } from '@core/types'
 
@@ -90,6 +91,17 @@ export default function RegistroPage() {
     }
     return mapa
   }, [pozo, lecturas])
+
+  // Ventanas "Total trasegado" y "Número de viajes" (arriba de la pantalla): salen solas de lo ya guardado en
+  // las lecturas del ciclo; lo que se está escribiendo y aún no se guarda se muestra aparte ("por guardar").
+  const trasegadoGuardado = useMemo(() => resumenTrasegado(lecturas), [lecturas])
+  const trasegadoPorGuardar = useMemo(
+    () =>
+      resumenTrasegado([
+        { tanques: (pozo?.tanques ?? []).map((t) => ({ trasegado: parseFloat(tankForms[t.id]?.trasegado ?? '') || 0 })) },
+      ]),
+    [pozo, tankForms]
+  )
 
   function formDeTank(tankId: string): TankFormState {
     return tankForms[tankId] ?? tankFormInicial()
@@ -289,6 +301,25 @@ export default function RegistroPage() {
       </div>
 
       <div className="p-4 max-w-2xl mx-auto space-y-5">
+        <div className="grid grid-cols-2 gap-3">
+          <section aria-label="Total trasegado" className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+            <p className="text-xs text-slate-500">Total trasegado</p>
+            <p className="text-xl font-bold text-white font-mono">
+              {trasegadoGuardado.totalBls.toFixed(2)} <span className="text-xs font-normal text-slate-500">Bls</span>
+            </p>
+            {trasegadoPorGuardar.totalBls > 0 && (
+              <p className="text-xs text-amber-400 mt-1">+ {trasegadoPorGuardar.totalBls.toFixed(2)} Bls por guardar</p>
+            )}
+          </section>
+          <section aria-label="Número de viajes" className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+            <p className="text-xs text-slate-500">Número de viajes</p>
+            <p className="text-xl font-bold text-white font-mono">{trasegadoGuardado.viajes}</p>
+            {trasegadoPorGuardar.viajes > 0 && (
+              <p className="text-xs text-amber-400 mt-1">+ {trasegadoPorGuardar.viajes} por guardar</p>
+            )}
+          </section>
+        </div>
+
         <div>
           <label className="block text-sm text-slate-300 mb-1.5">Horas desde última lectura</label>
           <input
