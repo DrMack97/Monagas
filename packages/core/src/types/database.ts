@@ -57,6 +57,14 @@ export interface IPozo {
    * ILecturaOp.reductorPulgadas. No participa en ningún cálculo de barriles.
    */
   reductorPulgadas?: string
+  /**
+   * Desplazado total (Bls) que el equipo de testing ya había acumulado en este pozo ANTES de que la app lo registrara.
+   * Lo carga el Supervisor una vez. El Excel "Data Histórica del Equipo" parte de este valor y le suma lo que la app
+   * registre a partir de `desplazadoInicialDesde` (para no contar dos veces lo que la app ya tuviera).
+   */
+  desplazadoInicial?: number
+  /** Fecha desde la que cuenta la app; se fija sola al guardar un `desplazadoInicial` nuevo. */
+  desplazadoInicialDesde?: Date
   empresa?: string    // Empresa contratista que ejecuta el servicio (encabezado de reporte)
   equipo?: string     // Identificador del equipo de medición (ej. "WT-DSI-01") — encabezado del reporte PDVSA, dato estable del pozo igual que `empresa`
   legal?: IPozoLegal  // Información legal — ver IPozoLegal. Opcional: pozos existentes no lo tienen todavía.
@@ -111,6 +119,9 @@ export interface IResultadosEval {
    */
   tipoCalculo: 'FINAL_24H' | 'PRELIMINAR_FORZADO'
   calculadoEn: Date
+  /** Si un supervisor corrigió lecturas y recalculó los promedios: cuándo y quién (uid). */
+  recalculadoEn?: Date
+  recalculadoPor?: string
 }
 
 export interface IAprobacion {
@@ -133,10 +144,29 @@ export interface IAprobacion {
  * Sedimentos) que ya existe por tanque en cada lectura, solo con otro
  * nombre. No se duplica.
  */
+/** Un viaje de camión vacuum — línea del bloque "Control de Vacuum y Disposición" del reporte estándar. */
+export interface IViajeVacuum {
+  fechaHora: Date
+  chofer: string
+  volumen: number   // Bls
+  destino: string   // ej. "E/F Santa Bárbara"
+}
+
 export interface IReporteOperativo {
+  /** Supervisor de Producción PDVSA del turno DIURNO (nombre histórico del campo, antes único). */
   supervisorPDVSA?: string
+  /** Supervisor de Producción PDVSA del turno nocturno. */
+  supervisorPDVSANocturno?: string
+  /** Supervisores de Well Testing (DSI): turno diurno / nocturno. */
   cuadrillaDiurno?: string
   cuadrillaNocturno?: string
+  /** Fecha de culminación del Well Testing; sin valor el reporte dice "En progreso". */
+  fechaCulminacion?: Date
+  /** Asunto y Plan del reporte estándar (texto libre). */
+  asunto?: string
+  plan?: string
+  /** Viajes de vacuum de las últimas 24 h; el "Total trasegado (24 Hrs)" se suma de aquí. */
+  viajesVacuum24h?: IViajeVacuum[]
   fechaAlineacion?: Date // Cuándo se alineó el pozo al skid de well testing — distinta de fechaInicio (cuándo arrancó ESTE ciclo de medición)
   estadoActual?: string  // Texto libre, ej. "Pozo alineado a través del SWT DSI con retorno de fluidos a tanques y quema de gas en sitio"
   notas?: string
@@ -144,10 +174,23 @@ export interface IReporteOperativo {
     api: number   // Gravedad API (°)
     h2s?: string  // Presencia/medición de H2S — texto libre (ppm, "Negativo", etc.), no siempre se mide con un número
   }
+  /**
+   * Cada campo es opcional: solo se guarda el que realmente hay. Antes, con un solo campo rellenado, los otros dos se
+   * guardaban como 0 y el reporte mostraba un "0" inventado en lugar de "—".
+   */
   resumenTanques?: {
-    existencia: number     // Existencia total en tanques (Bls) al momento del reporte
-    trasegable: number     // Volumen trasegable (Bls)
-    totalTrasegado: number // Total trasegado acumulado (Bls)
+    existencia?: number     // Existencia total en tanques (Bls) al momento del reporte
+    trasegable?: number     // Volumen trasegable (Bls); previsión de fluidos incarreables (precargado igual a la existencia)
+    totalTrasegado?: number // Total trasegado acumulado (Bls)
+  }
+  /**
+   * Punto de partida de los acumulados de ESTE ciclo: lo acumulado antes de que empezara (acumulado digitado menos lo
+   * de este ciclo en el momento de guardar). Permite recalcular "base + este ciclo" al reabrir el reporte sin contar dos
+   * veces lo del ciclo. Lo escribe la pantalla Reporte.
+   */
+  acumuladosBase?: {
+    totalTrasegado?: number // Bls
+    viajes?: number
   }
   nivelCellar?: number  // %
   viajesVacuum?: number // Cantidad de viajes de camión vacuum
@@ -176,6 +219,8 @@ export interface ILecturaTanque {
   dif: number
   th: number
   reductor: number
+  /** Bls retirados por vacuum en este intervalo; solo se guarda si fue mayor que 0 (ver calcTanque). */
+  trasegado?: number
   bph: number
   bpd: number
   aysBls: number
@@ -194,6 +239,19 @@ export interface ILecturaGas {
   Fb: number
   Fg: number
   Ftf: number
+  /**
+   * Fpv, Y, Cd y Z son opcionales: las lecturas guardadas antes del motor completo de Qg
+   * (ronda de ajustes del Informe Técnico, nov-2026) no los tienen.
+   */
+  Fpv?: number   // supercompresibilidad 1/√Z
+  Y?: number     // factor de expansión
+  Cd?: number    // coeficiente de descarga (Reader-Harris/Gallagher)
+  Z?: number     // compresibilidad del gas a condiciones de flujo
+  /**
+   * Caudal de gas en MMSCFD (millones de pies cúbicos estándar por día).
+   * Las lecturas anteriores a ese cambio guardaron un caudal horario en Mscf/h (con otra
+   * fórmula y en presión manométrica): no son comparables con las nuevas.
+   */
   qg: number
 }
 

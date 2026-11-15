@@ -23,6 +23,9 @@ module.exports = {
     '^@monagas/core/constants$': '<rootDir>/../../packages/core/src/constants/index.ts',
     '^@monagas/core/types$': '<rootDir>/../../packages/core/src/types/index.ts',
     '^@monagas/core$': '<rootDir>/../../packages/core/src/index.ts',
+    // Los fuentes del núcleo se importan entre sí con extensión ".js" (ESM/NodeNext); Jest no la
+    // resuelve sola. Se quita para que encuentre el .ts y los tests no necesiten mockear el núcleo.
+    '^(\\.{1,2}/.*)\\.js$': '$1',
     '\\.(css|less|scss)$': 'identity-obj-proxy',
   },
   transform: {

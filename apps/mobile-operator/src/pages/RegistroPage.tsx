@@ -21,8 +21,13 @@ import { useAuth } from '../hooks/useAuth'
 import { usePozoInfo } from '../hooks/usePozoInfo'
 import { useEvaluacionActual } from '../hooks/useEvaluacionActual'
 import { useLecturasEvaluacion } from '../hooks/useLecturasEvaluacion'
+import { useLecturaPrevia } from '../hooks/useLecturaPrevia'
 import { useConnectivity } from '../hooks/useConnectivity'
 import { calcTanque, calcAGA3 } from '@monagas/core/calculos'
+import { capacidadesZona } from '@core/constants/zonas'
+import { resumenTrasegado } from '@core/utils/trasegado'
+import { balanceMasas, detectarSalto, peorNivel, type NivelAlerta } from '@core/utils/balanceMasas'
+import BalanceMasasPanel, { ETIQUETA_NIVEL } from '../components/BalanceMasasPanel'
 import LoadingSpinner from '../components/LoadingSpinner'
 import type { ILecturaTanque, ILecturaGas } from '@core/types'
 
@@ -35,10 +40,25 @@ interface TankFormState {
   reductor: string
   aysPct: string
   dilDia: string
+  /** Bls que se llevó un viaje de vacuum desde la lectura anterior (tanque vaciado). */
+  trasegado: string
 }
 
+type CampoGas = 'pf' | 'hw' | 'tGas' | 'gg'
+type CampoPresion = 'pCab' | 'pSep' | 'pCsg'
+/** Valores de partida cuando NO hay ninguna carga anterior del pozo. */
+const GAS_POR_DEFECTO: Record<CampoGas, string> = { pf: '0', hw: '0', tGas: '80', gg: '0.6' }
+
 function tankFormInicial(): TankFormState {
-  return { mf: '0', reductor: '0', aysPct: '0', dilDia: '0' }
+  return { mf: '0', reductor: '0', aysPct: '0', dilDia: '0', trasegado: '0' }
+}
+
+/** Borde del campo según el nivel de alerta (amarillo/rojo); sin alerta, el borde normal. */
+function claseCampo(nivel: NivelAlerta): string {
+  const base = 'w-full bg-slate-950 border rounded-lg px-3 py-2 text-white'
+  if (nivel === 'ROJA') return `${base} border-red-500 ring-1 ring-red-500/40`
+  if (nivel === 'AMARILLA') return `${base} border-amber-500 ring-1 ring-amber-500/40`
+  return `${base} border-slate-800`
 }
 
 export default function RegistroPage() {
@@ -51,18 +71,54 @@ export default function RegistroPage() {
     user?.uid,
     pozo?.zona
   )
-  const { lecturas } = useLecturasEvaluacion(evalId ?? undefined)
+  const { lecturas, loading: cargandoLecturas } = useLecturasEvaluacion(evalId ?? undefined)
+  // Prefill: "carga anterior" = la última lectura de ESTE ciclo; si el ciclo aún no tiene ninguna (primera lectura de un
+  // ciclo nuevo), la última del ciclo anterior del pozo.
+  const { previas } = useLecturaPrevia(pozoId, evalId, !cargandoLecturas && lecturas.length === 0)
+  const cargasAnteriores = lecturas.length > 0 ? [...lecturas].reverse() : previas
   const { isOnline } = useConnectivity()
+
+  // Qué se captura/muestra según la zona del pozo (Casing y Netos solo en la Faja).
+  const zonaCaps = capacidadesZona(pozo?.zona)
 
   const [th, setTh] = useState('1')
   const [tankForms, setTankForms] = useState<Record<string, TankFormState>>({})
-  const [pf, setPf] = useState('0')
-  const [hw, setHw] = useState('0')
-  const [tGas, setTGas] = useState('80')
-  const [gg, setGg] = useState('0.6')
-  const [pCab, setPCab] = useState('0')
-  const [pSep, setPSep] = useState('0')
-  const [pCsg, setPCsg] = useState('0')
+  // Ventana AGA-3 (gas): cada campo muestra lo editado por el operador; si no lo ha tocado, el valor de la carga
+  // anterior; si no hay carga anterior, el valor por defecto. Así los datos se conservan al reabrir la pantalla y al
+  // empezar un ciclo nuevo (requisito del cliente: "todas las ventanas deben mantener la data de la carga anterior").
+  const [gasEditado, setGasEditado] = useState<Partial<Record<CampoGas, string>>>({})
+  const gasAnterior = cargasAnteriores.find((l) => l.gas)?.gas
+  const valorGas = (campo: CampoGas): string =>
+    gasEditado[campo] ?? (gasAnterior && Number.isFinite(gasAnterior[campo]) ? String(gasAnterior[campo]) : GAS_POR_DEFECTO[campo])
+  const gasPrefill = (campo: CampoGas): boolean => gasEditado[campo] === undefined && !!gasAnterior && Number.isFinite(gasAnterior[campo])
+  const editarGas = (campo: CampoGas, valor: string) => {
+    setGasEditado((prev) => ({ ...prev, [campo]: valor }))
+    setGuardadoOk(false)
+  }
+  const pf = valorGas('pf')
+  const hw = valorGas('hw')
+  const tGas = valorGas('tGas')
+  const gg = valorGas('gg')
+  // Ventana Presiones Operativas: misma regla que AGA-3 — lo editado por el operador, si no, el valor de la carga
+  // anterior, si no, 0. P. Casing solo se captura (y se prefilla) en zonas que lo usan.
+  const [presionEditada, setPresionEditada] = useState<Partial<Record<CampoPresion, string>>>({})
+  const operativosAnterior = cargasAnteriores.find((l) => Number.isFinite(l.operativos?.pCab))?.operativos
+  const presionAnterior = (campo: CampoPresion): number | undefined => {
+    if (!operativosAnterior) return undefined
+    if (campo === 'pCsg' && !zonaCaps.casing) return undefined
+    const v = operativosAnterior[campo]
+    return Number.isFinite(v) ? (v as number) : undefined
+  }
+  const valorPresion = (campo: CampoPresion): string =>
+    presionEditada[campo] ?? (presionAnterior(campo) !== undefined ? String(presionAnterior(campo)) : '0')
+  const presionPrefill = (campo: CampoPresion): boolean => presionEditada[campo] === undefined && presionAnterior(campo) !== undefined
+  const editarPresion = (campo: CampoPresion, valor: string) => {
+    setPresionEditada((prev) => ({ ...prev, [campo]: valor }))
+    setGuardadoOk(false)
+  }
+  const pCab = valorPresion('pCab')
+  const pSep = valorPresion('pSep')
+  const pCsg = valorPresion('pCsg')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [guardadoOk, setGuardadoOk] = useState(false)
@@ -85,6 +141,17 @@ export default function RegistroPage() {
     return mapa
   }, [pozo, lecturas])
 
+  // Ventanas "Total trasegado" y "Número de viajes" (arriba de la pantalla): salen solas de lo ya guardado en
+  // las lecturas del ciclo; lo que se está escribiendo y aún no se guarda se muestra aparte ("por guardar").
+  const trasegadoGuardado = useMemo(() => resumenTrasegado(lecturas), [lecturas])
+  const trasegadoPorGuardar = useMemo(
+    () =>
+      resumenTrasegado([
+        { tanques: (pozo?.tanques ?? []).map((t) => ({ trasegado: parseFloat(tankForms[t.id]?.trasegado ?? '') || 0 })) },
+      ]),
+    [pozo, tankForms]
+  )
+
   function formDeTank(tankId: string): TankFormState {
     return tankForms[tankId] ?? tankFormInicial()
   }
@@ -92,6 +159,16 @@ export default function RegistroPage() {
   function actualizarTank(tankId: string, campo: keyof TankFormState, valor: string) {
     setTankForms((prev) => ({ ...prev, [tankId]: { ...formDeTank(tankId), [campo]: valor } }))
     setGuardadoOk(false)
+  }
+
+  // Medida final por debajo de la inicial sin trasegado: el cálculo da 0 y conviene avisarlo (antes
+  // salía "0.00" sin explicación y esa lectura entraba al promedio como producción cero).
+  function bajoMedida(tankId: string): boolean {
+    const f = tankForms[tankId]
+    if (!f || f.mf.trim() === '') return false
+    const tank = pozo?.tanques.find((t) => t.id === tankId)
+    const mi = miPorTanque[tankId] ?? tank?.mi ?? 0
+    return (parseFloat(f.mf) || 0) < mi && (parseFloat(f.trasegado) || 0) === 0
   }
 
   const resultadosPorTank = useMemo(() => {
@@ -107,6 +184,7 @@ export default function RegistroPage() {
         reductor: parseFloat(form.reductor) || 0,
         aysPct: parseFloat(form.aysPct) || 0,
         dilDia: parseFloat(form.dilDia) || 0,
+        trasegado: parseFloat(form.trasegado) || 0,
       }
       try {
         return { tank, resultado: calcTanque(input) }
@@ -117,20 +195,79 @@ export default function RegistroPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pozo, tankForms, th, miPorTanque])
 
+  // Alerta de balance de masas (preventiva, NO bloqueante): Desplazamiento − Trasegado − Existente = 0, por tanque.
+  // Se calcula con las lecturas guardadas MÁS lo que se está escribiendo (solo los tanques que el operador ya tocó;
+  // el valor por defecto 0 de un tanque sin tocar no es una medida y daría una alerta falsa).
+  const tocado = (tankId: string) => !!tankForms[tankId]
+  const balance = useMemo(() => {
+    const tanquesIn = (pozo?.tanques ?? []).map((t) => ({ id: t.id, nombre: t.nombre, ft: t.ft, mi: t.mi }))
+    const pendiente = {
+      tanques: resultadosPorTank
+        .filter(({ tank, resultado }) => resultado && tocado(tank.id))
+        .map(({ tank, resultado }) => ({
+          tanqueId: tank.id,
+          mi: miPorTanque[tank.id] ?? tank.mi,
+          mf: parseFloat(formDeTank(tank.id).mf) || 0,
+          bph: resultado!.bph,
+          th: parseFloat(th) || 1,
+          trasegado: parseFloat(formDeTank(tank.id).trasegado) || 0,
+        })),
+    }
+    return balanceMasas(tanquesIn, [...lecturas, pendiente])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pozo, lecturas, resultadosPorTank, tankForms, th, miPorTanque])
+
+  /** Avisos de un tanque (para resaltar sus campos y explicar): balance + salto desproporcionado. */
+  function avisosDeTanque(tankId: string): { nivel: NivelAlerta; mensajes: { nivel: NivelAlerta; texto: string }[] } {
+    if (!tocado(tankId)) return { nivel: 'OK', mensajes: [] }
+    const mensajes: { nivel: NivelAlerta; texto: string }[] = []
+    const b = balance.tanques.find((t) => t.tanqueId === tankId)
+    if (b && b.nivel !== 'OK') {
+      mensajes.push({
+        nivel: b.nivel,
+        texto:
+          b.nivel === 'ROJA'
+            ? `Discrepancia crítica en el balance de masas: no cuadran ${Math.abs(b.residuo).toFixed(2)} Bls (más de una pulgada de nivel).`
+            : `Desviación menor en el balance de masas: no cuadran ${Math.abs(b.residuo).toFixed(2)} Bls (menos de una pulgada).`,
+      })
+    }
+    const resultado = resultadosPorTank.find((r) => r.tank.id === tankId)?.resultado
+    if (resultado) {
+      const previas = lecturas.map((l) => l.tanques.find((t) => t.tanqueId === tankId)?.bph ?? 0)
+      const salto = detectarSalto(previas, resultado.bph)
+      if (salto.salto) {
+        mensajes.push({
+          nivel: 'AMARILLA',
+          texto:
+            `La producción por hora es ${salto.factor >= 1 ? `${salto.factor.toFixed(1)} veces mayor` : `${(1 / salto.factor).toFixed(1)} veces menor`} que la de las lecturas anteriores` +
+            (salto.posibleDecimal ? ': ¿se omitió o sobra un decimal en la medida?' : '. Verifica la medida.'),
+        })
+      }
+    }
+    return { nivel: peorNivel(...mensajes.map((m) => m.nivel)), mensajes }
+  }
+
+  // El Qg depende de la placa (d) y del Meter Run (D) REALES del pozo, que fija el supervisor.
+  // Si faltan no se inventa un valor por defecto: no hay Qg hasta que se configuren.
+  const diamPlaca = pozo?.diamOrif ?? 0
+  const meterRun = pozo?.meterRun ?? 0
+  const gasConfigurado = diamPlaca > 0 && meterRun > 0
+
   const gasResult = useMemo(() => {
+    if (!gasConfigurado) return null
     try {
       return calcAGA3({
         pf: parseFloat(pf) || 0,
         hw: parseFloat(hw) || 0,
         tGas: parseFloat(tGas) || 0,
         gg: parseFloat(gg) || 0.6,
-        diam: pozo?.diamOrif ?? 2,
-        meterRun: pozo?.meterRun ?? 4,
+        diam: diamPlaca,
+        meterRun,
       })
     } catch {
       return null
     }
-  }, [pf, hw, tGas, gg, pozo])
+  }, [pf, hw, tGas, gg, diamPlaca, meterRun, gasConfigurado])
 
   async function handleGuardar() {
     if (!evalId || !pozo) return
@@ -150,6 +287,7 @@ export default function RegistroPage() {
           bpd: resultado!.bpd,
           aysBls: resultado!.aysBls,
           netos: resultado!.netos,
+          ...((parseFloat(formDeTank(tank.id).trasegado) || 0) > 0 && { trasegado: parseFloat(formDeTank(tank.id).trasegado) }),
         }))
 
       const gas: ILecturaGas | undefined = gasResult
@@ -158,13 +296,17 @@ export default function RegistroPage() {
             hw: parseFloat(hw) || 0,
             tGas: parseFloat(tGas) || 0,
             gg: parseFloat(gg) || 0.6,
-            diam: pozo.diamOrif ?? 2,
-            meterRun: pozo.meterRun ?? 4,
+            diam: diamPlaca,
+            meterRun,
             beta: gasResult.beta,
             Fc: gasResult.Fc,
             Fb: gasResult.Fb,
             Fg: gasResult.Fg,
             Ftf: gasResult.Ftf,
+            Fpv: gasResult.Fpv,
+            Y: gasResult.Y,
+            Cd: gasResult.Cd,
+            Z: gasResult.Z,
             qg: gasResult.qg,
           }
         : undefined
@@ -186,6 +328,12 @@ export default function RegistroPage() {
         )
       }
 
+      // Constancia del balance de masas / incongruencias de captura (alertas internas, no salen en exportables)
+      for (const t of pozo.tanques) {
+        const av = avisosDeTanque(t.id)
+        for (const m of av.mensajes) alertas.push(`${ETIQUETA_NIVEL[m.nivel]} (${t.nombre}): ${m.texto}`)
+      }
+
       const escrituras = Promise.all([
         addDoc(collection(db, 'evaluaciones', evalId, 'lecturas'), {
           hora: lecturas.length + 1,
@@ -195,7 +343,8 @@ export default function RegistroPage() {
           operativos: {
             pCab: parseFloat(pCab) || 0,
             pSep: parseFloat(pSep) || 0,
-            pCsg: parseFloat(pCsg) || 0,
+            // Casing solo en zonas que lo usan (Faja); en Norte de Monagas no se opera con Casing Gas.
+            ...(zonaCaps.casing && { pCsg: parseFloat(pCsg) || 0 }),
             ...(pozo.reductorPulgadas?.trim() && { reductorPulgadas: pozo.reductorPulgadas.trim() }),
           },
           alertas,
@@ -258,7 +407,26 @@ export default function RegistroPage() {
         </button>
       </div>
 
-      <div className="p-4 max-w-md mx-auto space-y-5">
+      <div className="p-4 max-w-2xl mx-auto space-y-5">
+        <div className="grid grid-cols-2 gap-3">
+          <section aria-label="Total trasegado" className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+            <p className="text-xs text-slate-500">Total trasegado</p>
+            <p className="text-xl font-bold text-white font-mono">
+              {trasegadoGuardado.totalBls.toFixed(2)} <span className="text-xs font-normal text-slate-500">Bls</span>
+            </p>
+            {trasegadoPorGuardar.totalBls > 0 && (
+              <p className="text-xs text-amber-400 mt-1">+ {trasegadoPorGuardar.totalBls.toFixed(2)} Bls por guardar</p>
+            )}
+          </section>
+          <section aria-label="Número de viajes" className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+            <p className="text-xs text-slate-500">Número de viajes</p>
+            <p className="text-xl font-bold text-white font-mono">{trasegadoGuardado.viajes}</p>
+            {trasegadoPorGuardar.viajes > 0 && (
+              <p className="text-xs text-amber-400 mt-1">+ {trasegadoPorGuardar.viajes} por guardar</p>
+            )}
+          </section>
+        </div>
+
         <div>
           <label className="block text-sm text-slate-300 mb-1.5">Horas desde última lectura</label>
           <input
@@ -272,6 +440,12 @@ export default function RegistroPage() {
 
         {resultadosPorTank.map(({ tank, resultado }) => {
           const form = formDeTank(tank.id)
+          const avisos = avisosDeTanque(tank.id)
+          const nivelBalance = balance.tanques.find((t) => t.tanqueId === tank.id)?.nivel ?? 'OK'
+          // Resaltado directo de los campos de entrada: rojo/amarillo según el balance; un salto desproporcionado
+          // marca la Medida Final en amarillo.
+          const nivelMedida = tocado(tank.id) ? peorNivel(nivelBalance, avisos.mensajes.some((m) => m.texto.includes('por hora')) ? 'AMARILLA' : 'OK') : 'OK'
+          const nivelTrasegado = tocado(tank.id) ? nivelBalance : 'OK'
           return (
             <section key={tank.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
               <div className="flex items-center justify-between">
@@ -287,7 +461,8 @@ export default function RegistroPage() {
                   <input
                     type="number" step="0.01" value={form.mf}
                     onChange={(e) => actualizarTank(tank.id, 'mf', e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white"
+                    data-nivel={nivelMedida}
+                    className={claseCampo(nivelMedida)}
                   />
                 </div>
                 <div>
@@ -300,58 +475,113 @@ export default function RegistroPage() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Trasegado (Bls)</label>
+                <input
+                  type="number" step="0.01" min="0" value={form.trasegado}
+                  onChange={(e) => actualizarTank(tank.id, 'trasegado', e.target.value)}
+                  data-nivel={nivelTrasegado}
+                  className={claseCampo(nivelTrasegado)}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Solo si un viaje de vacuum retiró fluido de este tanque desde la lectura anterior.
+                </p>
+              </div>
+
+              {(bajoMedida(tank.id) || avisos.mensajes.length > 0) && (
+                <div
+                  role="status"
+                  data-nivel={bajoMedida(tank.id) && avisos.nivel === 'OK' ? 'AMARILLA' : avisos.nivel}
+                  className={`text-xs space-y-1 ${avisos.nivel === 'ROJA' ? 'text-red-400' : 'text-amber-400'}`}
+                >
+                  {bajoMedida(tank.id) && (
+                    <p>
+                      La medida final es menor que la inicial ({miPorTanque[tank.id] ?? tank.mi}): el BPD de este tanque sale 0.
+                      Si el tanque se vació por un viaje de vacuum, anota los barriles en "Trasegado (Bls)".
+                    </p>
+                  )}
+                  {avisos.mensajes.map((m) => (
+                    <p key={m.texto}>
+                      <strong>{ETIQUETA_NIVEL[m.nivel]}:</strong> {m.texto} Puedes seguir y guardar.
+                    </p>
+                  ))}
+                </div>
+              )}
+
               {resultado && (
                 <div className="grid grid-cols-2 gap-2 text-xs text-slate-400 pt-2 border-t border-slate-800">
                   <span>BPD: <span className="text-white font-mono">{resultado.bpd.toFixed(2)}</span></span>
-                  <span>Netos: <span className="text-white font-mono">{resultado.netos.toFixed(2)}</span></span>
+                  {zonaCaps.netosEnLecturas && (
+                    <span>Netos: <span className="text-white font-mono">{resultado.netos.toFixed(2)}</span></span>
+                  )}
                 </div>
               )}
             </section>
           )
         })}
 
+        <BalanceMasasPanel balance={balance} />
+
         <section className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
           <h3 className="text-sm font-semibold text-white">Gas (AGA-3)</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Presión Estática (psig)</label>
-              <input type="number" value={pf} onChange={(e) => setPf(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pf} onChange={(e) => editarGas('pf', e.target.value)} data-prefill={gasPrefill('pf')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Diferencial (inH₂O)</label>
-              <input type="number" value={hw} onChange={(e) => setHw(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={hw} onChange={(e) => editarGas('hw', e.target.value)} data-prefill={gasPrefill('hw')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Temp. gas (°F)</label>
-              <input type="number" value={tGas} onChange={(e) => setTGas(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={tGas} onChange={(e) => editarGas('tGas', e.target.value)} data-prefill={gasPrefill('tGas')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Gravedad específica</label>
-              <input type="number" step="0.01" value={gg} onChange={(e) => setGg(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" step="0.01" value={gg} onChange={(e) => editarGas('gg', e.target.value)} data-prefill={gasPrefill('gg')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
           </div>
+          {gasAnterior && (
+            <p className="text-xs text-slate-500">Valores de la carga anterior; edítalos si cambiaron.</p>
+          )}
+          <p className="text-xs text-slate-500 flex items-center gap-1">
+            Placa: <span className="text-slate-300 font-mono">{gasConfigurado ? `${diamPlaca}"` : '-'}</span>
+            {' · '}Meter Run: <span className="text-slate-300 font-mono">{gasConfigurado ? `${meterRun}"` : '-'}</span>
+            <FiLock aria-hidden="true" />
+          </p>
+          {!gasConfigurado && (
+            <p role="alert" className="text-xs text-amber-400 pt-2 border-t border-slate-800">
+              Este pozo no tiene Placa y Meter Run configurados: no se calcula Qg. Avise a su Supervisor de Campo.
+            </p>
+          )}
           {gasResult && (
             <p className="text-xs text-slate-400 pt-2 border-t border-slate-800">
-              Qg: <span className="text-white font-mono">{gasResult.qg.toFixed(2)} MPCGD</span>
+              Qg: <span className="text-white font-mono">{gasResult.qg.toFixed(2)} MMSCFD</span>
             </p>
           )}
         </section>
 
         <section className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
           <h3 className="text-sm font-semibold text-white">Presiones Operativas</h3>
+          {operativosAnterior && (
+            <p className="text-xs text-slate-500">Valores de la carga anterior; edítalos si cambiaron.</p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">P. Cabezal (psig)</label>
-              <input type="number" value={pCab} onChange={(e) => setPCab(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pCab} onChange={(e) => editarPresion('pCab', e.target.value)} data-prefill={presionPrefill('pCab')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">P. Separador (psig)</label>
-              <input type="number" value={pSep} onChange={(e) => setPSep(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pSep} onChange={(e) => editarPresion('pSep', e.target.value)} data-prefill={presionPrefill('pSep')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
             </div>
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">P. Casing (psig)</label>
-              <input type="number" value={pCsg} onChange={(e) => setPCsg(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
-            </div>
+            {zonaCaps.casing && (
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">P. Casing (psig)</label>
+                <input type="number" value={pCsg} onChange={(e) => editarPresion('pCsg', e.target.value)} data-prefill={presionPrefill('pCsg')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              </div>
+            )}
             <div>
               <label className="block text-xs text-slate-500 mb-1">Reductor (pulg)</label>
               <div

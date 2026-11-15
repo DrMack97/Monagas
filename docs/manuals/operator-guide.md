@@ -29,7 +29,18 @@ Dos botones:
 ## 3. Registrar una lectura
 
 Desde "Registrar Lectura" cargas los valores medidos en ese momento:
-presión de cabezal, casing, separador, línea, los datos de tanques, y los parámetros de gas cuando aplique.
+presión de cabezal, separador, los datos de tanques, y los parámetros de gas (presión estática en psig, diferencial,
+temperatura y gravedad específica). La presión de casing solo se pide en zonas que la usan (no en Norte de Monagas).
+Cada tanque tiene su **Medida Final** y, debajo, **Trasegado (Bls)**: úsalo solo cuando un viaje de vacuum retiró fluido
+de ese tanque desde la lectura anterior (el volumen está en el ticket del viaje). Si el tanque se vació y la medida bajó, sin
+trasegado el BPD de ese tanque sale 0 y la pantalla te avisa; con el trasegado el cálculo es: cambio de nivel × factor del
+tanque + barriles trasegados.
+**Alerta de balance de masas (no bloquea):** mientras escribes, la app comprueba que Desplazamiento − Trasegado − Existente = 0
+en cada tanque. Si no cuadra, resalta en **amarillo** (desviación menor) o **rojo** (discrepancia crítica) la Medida Final y el
+Trasegado del tanque y te dice qué revisar; **puedes seguir y guardar igual**. Un decimal omitido suele caer en rojo. Detalle
+completo: docs/manuals/alerta-balance-masas.md.
+El **caudal de gas (Qg)** sale en **MMSCFD** y se calcula con la **Placa de orificio** y el **Meter Run** del pozo, que
+fija el Supervisor de Campo y tú ves de solo lectura: si faltan, la app te avisa y no calcula Qg (avisa a tu Supervisor de Campo).
 El **Reductor (pulg)** (la medida de la tubería) lo fija el Supervisor de Campo en el
 pozo: tú solo lo ves, sin poder cambiarlo, y se guarda con cada lectura. Si ves
 "-", el pozo todavía no lo tiene: avisa a tu Supervisor de Campo.
@@ -41,7 +52,9 @@ de evaluación que está actualmente EN_CURSO para tu pozo.
 ## 4. Ver la tabla de lecturas
 
 Muestra, en orden, todas las lecturas que llevas cargadas en el ciclo
-actual: hora, netos en barriles, caudal de gas, y si alguna lectura
+actual: la hora (redondeada a la hora entera más cercana: 8:52 → 09:00, 9:07 → 09:00; la fecha aparece una sola
+vez por día), los netos en barriles (solo en zonas que los muestran, no en Norte de Monagas), el caudal de gas
+en MMSCFD, y si alguna lectura
 disparó una alerta (por ejemplo, un valor fuera del límite configurado por
 el Supervisor para ese pozo). Desde aquí puedes pasar a "Ver Reporte".
 
@@ -62,6 +75,20 @@ de Reporte para:
    revisa y la aprueba o la rechaza.
 4. Si tu Supervisor **rechaza** la evaluación, vuelve a tu pantalla
    principal como EN_CURSO — puedes corregir y volver a cerrarla.
+
+Si todavía no se completan las horas del ciclo, en lugar de "Enviar a Supervisor" aparece **Guardar avance**: guarda el
+cálculo preliminar y tus datos del reporte en el sistema (en la base de datos, **no es un archivo en el teléfono**). La
+evaluación sigue en curso y no se envía al Supervisor. Si no hay señal, se envía sola al volver la red. Para tener un
+archivo en el teléfono usa el botón **Excel** (genera un .xlsx y abre el menú de compartir para elegir dónde guardarlo).
+
+**Excel — dos formatos independientes** (cada uno es su propio archivo; en el teléfono se abre el menú de compartir para guardarlo):
+- **Excel · Evaluación diaria:** solo la prueba de hoy, desde la hora en que empezó. Su **desplazado es exclusivo de ese lapso**: arranca en 0
+  en la primera lectura y no arrastra nada de otras pruebas. Trae además una hoja "Reporte" con el reporte estándar del día.
+- **Excel · Histórico del equipo:** todo lo acumulado del equipo de testing en el pozo desde el inicio de sus operaciones, de todas las evaluaciones,
+  con el **desplazado total** acumulado (el "desplazado inicial" que carga el Supervisor en el pozo, más lo registrado por la app a partir de la fecha
+  en que se cargó) y una hoja "Resumen por evaluación". Necesita leer todas las evaluaciones del pozo: sin señal solo incluye lo que el teléfono ya tenga.
+Ninguno exporta las alertas operativas. Columnas en el orden de la planilla de campo (hora, presiones, gas, tanques, BPH, BPD, total desplazado,
+existencia neta, trasegado, viajes, BSW).
 
 Desde la misma pantalla puedes generar el texto para compartir el reporte
 por WhatsApp, con el mismo formato que se usa en el reporte impreso.

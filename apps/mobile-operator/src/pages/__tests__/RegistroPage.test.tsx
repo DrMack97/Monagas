@@ -26,9 +26,12 @@ jest.mock('firebase/firestore', () => ({
 const calcTanqueMock = jest.fn((input: Record<string, number>) => ({
   dif: input.mf - input.mi, bph: 1, bpd: 24, aysBls: 0, netos: 24, dilDia: input.dilDia,
 }))
+const calcAGAMock = jest.fn((_input: Record<string, number>) => ({
+  beta: 0.5, Fc: 1.03, Fb: 800, Fg: 1.2, Ftf: 0.99, Fpv: 1.03, Y: 0.995, Cd: 0.6, Z: 0.94, qg: 1.234,
+}))
 jest.mock('@monagas/core/calculos', () => ({
   calcTanque: (input: Record<string, number>) => calcTanqueMock(input),
-  calcAGA3: () => ({ qg: 0 }),
+  calcAGA3: (input: Record<string, number>) => calcAGAMock(input),
 }))
 
 jest.mock('react-router-dom', () => ({
@@ -54,6 +57,8 @@ const POZO = {
   nombre: 'MFB-1',
   campo: 'Bare',
   zona: 'MONAGAS',
+  diamOrif: 3.25,
+  meterRun: 3.826,
   tanques: [{ id: 't1', nombre: 'Tanque 1', mi: 10, ft: 2.4 }],
 }
 
@@ -70,6 +75,7 @@ describe('RegistroPage — Reductor (pulg) y campos retirados', () => {
   beforeEach(() => {
     addDocMock.mockClear()
     calcTanqueMock.mockClear()
+    calcAGAMock.mockClear()
   })
 
   it('ya no pide Diluyente ni Reductor (Bls)', () => {
@@ -99,6 +105,57 @@ describe('RegistroPage — Reductor (pulg) y campos retirados', () => {
     expect(lectura.operativos.reductorPulgadas).toBe('1/2"')
     expect(lectura.tanques[0].reductor).toBe(0)
     expect(calcTanqueMock).toHaveBeenCalledWith(expect.objectContaining({ reductor: 0, dilDia: 0 }))
+  })
+
+  it('muestra el caudal de gas en MMSCFD (no MPCGD) y guarda los factores del motor completo', async () => {
+    renderPage({})
+    expect(screen.getByText(/1\.23 MMSCFD/)).toBeInTheDocument()
+    expect(screen.queryByText(/MPCGD/)).not.toBeInTheDocument()
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalled())
+    expect(addDocMock.mock.calls[0][1].gas).toMatchObject({ qg: 1.234, Fpv: 1.03, Y: 0.995, Cd: 0.6, Z: 0.94 })
+  })
+
+  it('usa la Placa y el Meter Run del pozo (solo lectura) para el cálculo de Qg', () => {
+    renderPage({ diamOrif: 2.5, meterRun: 4.026 })
+    expect(screen.getByText('2.5"')).toBeInTheDocument()
+    expect(screen.getByText('4.026"')).toBeInTheDocument()
+    expect(calcAGAMock).toHaveBeenCalledWith(expect.objectContaining({ diam: 2.5, meterRun: 4.026 }))
+  })
+
+  it('sin Placa/Meter Run en el pozo NO inventa 2"/4": avisa y no guarda gas', async () => {
+    renderPage({ diamOrif: undefined, meterRun: undefined })
+    expect(screen.getByRole('alert')).toHaveTextContent(/no tiene placa y meter run/i)
+    expect(screen.queryByText(/MMSCFD/)).not.toBeInTheDocument()
+    expect(calcAGAMock).not.toHaveBeenCalled()
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalled())
+    expect(addDocMock.mock.calls[0][1]).not.toHaveProperty('gas')
+  })
+
+  it('Norte de Monagas: sin P. Casing ni Netos en pantalla, y no guarda pCsg', async () => {
+    renderPage({ zona: 'MONAGAS' })
+    expect(screen.queryByText(/p\. casing/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/netos/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/bpd/i)).toBeInTheDocument() // lo demás sigue
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalled())
+    expect(addDocMock.mock.calls[0][1].operativos).not.toHaveProperty('pCsg')
+    // el cálculo de barriles no cambia: los netos se siguen calculando y guardando
+    expect(addDocMock.mock.calls[0][1].tanques[0].netos).toBe(24)
+  })
+
+  it('Faja: conserva P. Casing y Netos y guarda pCsg', async () => {
+    renderPage({ zona: 'FAJA' })
+    expect(screen.getByText(/p\. casing/i)).toBeInTheDocument()
+    expect(screen.getByText(/netos/i)).toBeInTheDocument()
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await waitFor(() => expect(addDocMock).toHaveBeenCalled())
+    expect(addDocMock.mock.calls[0][1].operativos).toHaveProperty('pCsg', 0)
   })
 
   it('no escribe reductorPulgadas en la lectura si el pozo no lo tiene', async () => {

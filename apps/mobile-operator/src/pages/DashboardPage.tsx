@@ -30,7 +30,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-950">
       <div className="p-4 border-b border-slate-800 flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-white">WillyTank</h1>
+          <img src="/logo.jpg" alt="WillyTank" className="h-9 w-9 rounded-lg object-cover mb-1" />
           <p className="text-xs text-slate-500">{user?.email}</p>
         </div>
         <div className="flex items-center gap-3">
@@ -43,7 +43,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="p-4 max-w-md mx-auto space-y-4">
+      <div className="p-4 max-w-2xl mx-auto space-y-4">
         {loading ? (
           <LoadingSpinner message="Cargando pozo asignado..." />
         ) : !pozoAsignado || !pozo ? (

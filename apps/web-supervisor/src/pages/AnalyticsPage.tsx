@@ -12,16 +12,9 @@ import { useAuth } from '../hooks/useAuth'
 import { useAnalyticsData } from '../hooks/useAnalyticsData'
 import { usePozosVisibles } from '../hooks/usePozosVisibles'
 import Header from '../components/common/Header'
+import EstadoBadge from '../components/common/EstadoBadge'
 import Sidebar from '../components/common/Sidebar'
 import MetricCard from '../components/dashboard/MetricCard'
-
-const ESTADO_LABEL: Record<string, string> = {
-  EN_CURSO: 'En Curso',
-  PENDIENTE_SUPERVISOR: 'Pendiente Supervisor',
-  APROBADA_SUPERVISOR: 'Aprobada',
-  OFICIAL: 'Oficial',
-  CERRADA: 'Cerrada',
-}
 
 function fecha(valor: any): string {
   if (!valor) return '—'
@@ -126,9 +119,7 @@ export default function AnalyticsPage() {
                       <p className="text-white font-medium">{pozoPorId[e.pozoId] ?? e.pozoId}</p>
                       <p className="text-slate-500 text-xs">{fecha(e.fechaCierre ?? e.creadoEn)}</p>
                     </div>
-                    <span className="text-xs px-2 py-0.5 rounded-full border border-slate-700 text-slate-300 whitespace-nowrap">
-                      {ESTADO_LABEL[e.estado] ?? e.estado}
-                    </span>
+                    <EstadoBadge estado={e.estado} />
                   </div>
                 ))}
               </div>

@@ -3,3 +3,4 @@
 // Paso 2: Definir OPERADOR, SUP_CAMPO, EN_CURSO, APROBADA_SUPERVISOR, etc.
 // Entregable: constantes de negocio disponibles globalmente
 export * from './roles.js'
+export * from './zonas.js'

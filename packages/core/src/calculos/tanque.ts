@@ -18,6 +18,12 @@ export interface TankInput {
   reductor: number   // Corrección manual (Bls)
   aysPct: number      // Agua y Sedimentos (%)
   dilDia?: number     // Diluyente inyectado por día (Bls/D) — 0 en Norte de Monagas, real en Faja del Orinoco
+  /**
+   * Barriles que un viaje de vacuum retiró del tanque DENTRO de este intervalo (≥ 0, por defecto 0).
+   * Si el tanque se vació, la medida final baja y sin esto el cambio de nivel sería negativo y la
+   * producción saldría 0. Producción del intervalo = cambio de nivel × kk + trasegado.
+   */
+  trasegado?: number
 }
 
 export interface TankResult {
@@ -32,16 +38,22 @@ export interface TankResult {
 export function calcTanque(input: TankInput): TankResult {
   const { mi, mf, ft, th, reductor, aysPct } = input
   const dilDia = input.dilDia ?? 0
+  const trasegado = input.trasegado ?? 0
 
   if (th <= 0) {
     throw new Error('Tiempo debe ser > 0')
+  }
+  if (trasegado < 0) {
+    throw new Error('Trasegado no puede ser negativo')
   }
   if (aysPct < 0 || aysPct > 100) {
     throw new Error('AyS% debe estar entre 0 y 100')
   }
 
   const dif       = Math.max(0, mf - mi)
-  const bph       = Math.max(0, (dif * ft - reductor) / th)
+  // Cambio de volumen del intervalo SIN recortar a 0 (puede ser negativo si el tanque se vació) más lo
+  // que se llevó el vacuum. Sin trasegado y con la medida bajando, sigue dando 0 como antes.
+  const bph       = Math.max(0, ((mf - mi) * ft + trasegado - reductor) / th)
   const bpd       = bph * 24
   const brutoSinDil = Math.max(0, bpd - dilDia)
   const aysBls    = brutoSinDil * (aysPct / 100)

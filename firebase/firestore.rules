@@ -34,8 +34,10 @@ service cloud.firestore {
 
     // SUP_CAMPO puede editar SU propio pozo, pero únicamente los campos
     // técnicos de operación diaria: tanques (mi/ft) y límites de alerta
-    // (limResorte/limGamma) y el Reductor (reductorPulgadas, medida de tubería
-    // que ven los Operadores). No puede tocar nombre, zona, asignados[],
+    // (limResorte/limGamma), el Reductor (reductorPulgadas, medida de tubería
+    // que ven los Operadores) y la medición de gas (diamOrif = placa de orificio,
+    // meterRun = Meter Run; el caudal de gas del Operador depende de ambos).
+    // No puede tocar nombre, zona, asignados[],
     // ni crear pozos nuevos — eso sigue siendo exclusivo de canManagePozoEnZona().
     // Tampoco tiene ninguna autoridad sobre creación o reasignación de
     // personal — eso vive exclusivamente en las Cloud Functions
@@ -43,7 +45,7 @@ service cloud.firestore {
     function canEditOwnTanquesYLimites(pozoId) {
       return isSupCampo() && isAssignedToPozo(pozoId) &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['tanques', 'limResorte', 'limGamma', 'reductorPulgadas']);
+          .hasOnly(['tanques', 'limResorte', 'limGamma', 'reductorPulgadas', 'diamOrif', 'meterRun', 'desplazadoInicial', 'desplazadoInicialDesde']);
     }
 
     // Candado de ciclo EN_CURSO (useEvaluacionActual.ts, mobile-operator).
@@ -78,6 +80,23 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'aprobaciones']) &&
         resource.data.estado == 'PENDIENTE_SUPERVISOR' &&
         request.resource.data.estado in ['APROBADA_SUPERVISOR', 'EN_CURSO'];
+    }
+
+    // Recalcular los promedios tras corregir una lectura (drill-down de ApprovalQueuePage.tsx).
+    // El supervisor puede corregir cada lectura (canEditLectura); si el promedio que aprueba no se
+    // actualizara, aprobaría cifras que ya no corresponden a las lecturas. Acotado a propósito:
+    //  - rol correcto y en SU zona, y solo mientras la evaluación siga PENDIENTE_SUPERVISOR;
+    //  - solo el campo resultados, y dentro de él únicamente los promedios (no tipoCalculo,
+    //    horasTotales ni calculadoEn) más la marca de quién y cuándo los recalculó;
+    //  - recalculadoPor debe ser el propio uid (queda registro de quién lo hizo).
+    // No pasa por canApproveEvaluacion, que sigue limitada a estado + aprobaciones.
+    function canCorregirResultados(evalZona) {
+      return canManagePozoEnZona(evalZona) &&
+        resource.data.estado == 'PENDIENTE_SUPERVISOR' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resultados']) &&
+        request.resource.data.resultados.diff(resource.data.resultados).affectedKeys()
+          .hasOnly(['bpdPromedio', 'netosPromedio', 'qgPromedio', 'aysBls', 'proyeccion24H', 'recalculadoEn', 'recalculadoPor']) &&
+        request.resource.data.resultados.recalculadoPor == request.auth.uid;
     }
 
     // El Operador solo puede tocar estos campos de SU PROPIA evaluación
@@ -179,6 +198,7 @@ service cloud.firestore {
       // podía editar cualquier evaluación sin restricción alguna.
       allow update: if isRoot()
         || canApproveEvaluacion(resource.data.zona)
+        || canCorregirResultados(resource.data.zona)
         || canUpdateOwnEvaluacion();
       allow delete: if isRoot();
 

@@ -5,7 +5,7 @@
 // (captura lecturas) → Reporte (promedio + cierre). TablaPage y
 // SettingsPage son accesorias, no bloquean el flujo principal.
 
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { RequireOperador } from './hooks/useAuthRole'
 
 import LoginPage from './pages/LoginPage'
@@ -18,10 +18,15 @@ import SettingsPage from './pages/SettingsPage'
 // ReportePage se diseñó recibiendo {pozoId, evalId} por props (no lee
 // la URL directamente) para quedar testeable de forma aislada — este
 // wrapper es el único punto que traduce params de ruta a esas props.
-function ReporteRoute() {
+export function ReporteRoute() {
   const { pozoId, evalId } = useParams<{ pozoId: string; evalId: string }>()
+  const navigate = useNavigate()
+  const location = useLocation()
   if (!pozoId || !evalId) return <Navigate to="/dashboard" replace />
-  return <ReportePage pozoId={pozoId} evalId={evalId} />
+  // Si se llegó desde otra pantalla de la app, volver a ella (Registro o Tabla); si se abrió el enlace
+  // directo no hay historial dentro de la app y navigate(-1) la sacaría: se va al inicio.
+  const volver = () => (location.key !== 'default' ? navigate(-1) : navigate('/dashboard'))
+  return <ReportePage pozoId={pozoId} evalId={evalId} onVolver={volver} />
 }
 
 export default function App() {
