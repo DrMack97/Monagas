@@ -81,6 +81,15 @@ cálculo preliminar y tus datos del reporte en el sistema (en la base de datos, 
 evaluación sigue en curso y no se envía al Supervisor. Si no hay señal, se envía sola al volver la red. Para tener un
 archivo en el teléfono usa el botón **Excel** (genera un .xlsx y abre el menú de compartir para elegir dónde guardarlo).
 
+**Excel — dos formatos independientes** (cada uno es su propio archivo; en el teléfono se abre el menú de compartir para guardarlo):
+- **Excel · Evaluación diaria:** solo la prueba de hoy, desde la hora en que empezó. Su **desplazado es exclusivo de ese lapso**: arranca en 0
+  en la primera lectura y no arrastra nada de otras pruebas. Trae además una hoja "Reporte" con el reporte estándar del día.
+- **Excel · Histórico del equipo:** todo lo acumulado del equipo de testing en el pozo desde el inicio de sus operaciones, de todas las evaluaciones,
+  con el **desplazado total** acumulado (el "desplazado inicial" que carga el Supervisor en el pozo, más lo registrado por la app a partir de la fecha
+  en que se cargó) y una hoja "Resumen por evaluación". Necesita leer todas las evaluaciones del pozo: sin señal solo incluye lo que el teléfono ya tenga.
+Ninguno exporta las alertas operativas. Columnas en el orden de la planilla de campo (hora, presiones, gas, tanques, BPH, BPD, total desplazado,
+existencia neta, trasegado, viajes, BSW).
+
 Desde la misma pantalla puedes generar el texto para compartir el reporte
 por WhatsApp, con el mismo formato que se usa en el reporte impreso.
 

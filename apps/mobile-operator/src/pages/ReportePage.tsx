@@ -38,7 +38,8 @@ import { resumenTrasegado } from '@core/utils/trasegado'
 import { existenciaMedida, aTextoBls } from '@core/utils/existencia'
 import { validarExistencia, validarTrasegadoAcumulado, BLS_POR_PULGADA_DEFECTO, type NivelAlerta } from '@core/utils/balanceMasas'
 import { fmt, dateFormat } from '../utils/formatters'
-import { exportarInformeExcel } from '../utils/exportExcel'
+import { exportarEvaluacionDiaria, exportarHistoricoEquipo } from '../utils/exportExcel'
+import { cargarEvaluacionesDelPozo } from '../utils/historicoPozo'
 import type { IResultadosEval, IReporteOperativo, IViajeVacuum } from '@core/types'
 
 type CampoTesting = 'fechaAlineacion' | 'fechaCulminacion' | 'estadoActual' | 'asunto' | 'plan' | 'api'
@@ -66,7 +67,8 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
   const [calculando, setCalculando] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [enviado, setEnviado] = useState(false)
-  const [exportando, setExportando] = useState(false)
+  // Qué Excel se está generando ahora (los dos formatos son independientes: Evaluación diaria / Histórico del equipo).
+  const [exportando, setExportando] = useState<'diaria' | 'historico' | null>(null)
   const [supervisorArea, setSupervisorArea] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -261,19 +263,24 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
     }
   }
 
-  // La exportación puede fallar (guardar el archivo, abrir el menú de compartir): se avisa en pantalla;
-  // antes un fallo quedaba en silencio y el botón parecía roto sin explicación.
-  async function handleExportarExcel() {
-    if (!resultados || !pozo) return
-    setExportando(true)
+  // Las exportaciones pueden fallar (leer el histórico, guardar el archivo, abrir el menú de compartir): se avisa en
+  // pantalla; antes un fallo quedaba en silencio y el botón parecía roto sin explicación.
+  async function exportar(tipo: 'diaria' | 'historico') {
+    if (!pozo) return
+    if (tipo === 'diaria' && !resultados) return
+    setExportando(tipo)
     setError(null)
     try {
-      await exportarInformeExcel({ pozo, resultados, lecturas, supervisorArea, reporteOperativo: construirReporteOperativo() })
+      if (tipo === 'diaria') {
+        await exportarEvaluacionDiaria({ pozo, evalId, resultados: resultados!, lecturas, supervisorArea, reporteOperativo: construirReporteOperativo() })
+      } else {
+        await exportarHistoricoEquipo({ pozo, evaluaciones: await cargarEvaluacionesDelPozo(pozo.id) })
+      }
     } catch (err) {
       console.error('Exportar Excel', err)
       setError('No se pudo exportar el Excel. Intenta de nuevo.')
     } finally {
-      setExportando(false)
+      setExportando(null)
     }
   }
 
@@ -573,7 +580,7 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <a
               href={`https://wa.me/?text=${encodeURIComponent(generarTextoWhatsApp())}`}
               target="_blank"
@@ -582,14 +589,28 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
             >
               Compartir por WhatsApp
             </a>
+          </div>
+
+          {/* Dos formatos de Excel independientes, cada uno en su propio archivo */}
+          <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={handleExportarExcel}
-              disabled={exportando}
-              className="flex items-center justify-center gap-1.5 bg-slate-800 border border-slate-700 text-white font-medium rounded-lg py-3"
+              onClick={() => exportar('diaria')}
+              disabled={exportando !== null}
+              className="flex items-center justify-center gap-1.5 bg-slate-800 border border-slate-700 text-white font-medium rounded-lg py-3 text-sm disabled:opacity-50"
             >
-              <FiFileText aria-hidden="true" /> {exportando ? 'Exportando...' : 'Excel'}
+              <FiFileText aria-hidden="true" /> {exportando === 'diaria' ? 'Exportando...' : 'Excel · Evaluación diaria'}
+            </button>
+            <button
+              onClick={() => exportar('historico')}
+              disabled={exportando !== null}
+              className="flex items-center justify-center gap-1.5 bg-slate-800 border border-slate-700 text-white font-medium rounded-lg py-3 text-sm disabled:opacity-50"
+            >
+              <FiFileText aria-hidden="true" /> {exportando === 'historico' ? 'Exportando...' : 'Excel · Histórico del equipo'}
             </button>
           </div>
+          <p className="text-xs text-slate-500">
+            Evaluación diaria: solo esta prueba, con su desplazado propio. Histórico del equipo: todo lo acumulado del equipo en el pozo.
+          </p>
         </>
       )}
     </div>

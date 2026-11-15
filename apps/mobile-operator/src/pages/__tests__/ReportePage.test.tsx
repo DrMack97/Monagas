@@ -8,7 +8,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ReportePage from '../ReportePage'
 import { updateDoc } from 'firebase/firestore'
-import { exportarInformeExcel } from '../../utils/exportExcel'
+import { exportarEvaluacionDiaria, exportarHistoricoEquipo } from '../../utils/exportExcel'
+import { cargarEvaluacionesDelPozo } from '../../utils/historicoPozo'
 
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(),
@@ -35,8 +36,11 @@ jest.mock('../../hooks/useLecturasEvaluacion', () => ({
   }),
 }))
 
-jest.mock('../../utils/exportExcel', () => ({ exportarInformeExcel: jest.fn() }))
-const exportarMock = exportarInformeExcel as jest.Mock
+jest.mock('../../utils/exportExcel', () => ({ exportarEvaluacionDiaria: jest.fn(), exportarHistoricoEquipo: jest.fn() }))
+jest.mock('../../utils/historicoPozo', () => ({ cargarEvaluacionesDelPozo: jest.fn() }))
+const diariaMock = exportarEvaluacionDiaria as jest.Mock
+const historicoMock = exportarHistoricoEquipo as jest.Mock
+const cargarMock = cargarEvaluacionesDelPozo as jest.Mock
 
 function textoWhatsApp(): string {
   const href = (screen.getByRole('link', { name: /whatsapp/i }) as HTMLAnchorElement).href
@@ -83,26 +87,72 @@ describe('ReportePage — reporte estándar', () => {
     expect(t).not.toContain('Sin fecha')
   })
 
-  it('botón Excel: entrega el informe y no muestra error', async () => {
-    exportarMock.mockReset().mockResolvedValue(undefined)
-    const user = userEvent.setup()
-    render(<ReportePage pozoId="p1" evalId="e1" />)
-    await user.click(screen.getByRole('button', { name: /calcular promedio/i }))
-    await user.click(screen.getByRole('button', { name: /^excel$/i }))
-    expect(exportarMock).toHaveBeenCalledTimes(1)
-    expect(screen.queryByText(/no se pudo exportar/i)).not.toBeInTheDocument()
-  })
+  describe('dos formatos de Excel independientes', () => {
+    async function calculado() {
+      const user = userEvent.setup()
+      render(<ReportePage pozoId="p1" evalId="e1" />)
+      await user.click(screen.getByRole('button', { name: /calcular promedio/i }))
+      return user
+    }
+    beforeEach(() => {
+      diariaMock.mockReset().mockResolvedValue(undefined)
+      historicoMock.mockReset().mockResolvedValue(undefined)
+      cargarMock.mockReset().mockResolvedValue([{ id: 'A', creadoEn: new Date(), lecturas: [] }])
+    })
 
-  it('botón Excel: si la exportación falla, SE AVISA en pantalla (antes fallaba en silencio)', async () => {
-    exportarMock.mockReset().mockRejectedValue(new Error('sin espacio'))
-    jest.spyOn(console, 'error').mockImplementation(() => undefined)
-    const user = userEvent.setup()
-    render(<ReportePage pozoId="p1" evalId="e1" />)
-    await user.click(screen.getByRole('button', { name: /calcular promedio/i }))
-    await user.click(screen.getByRole('button', { name: /^excel$/i }))
-    expect(await screen.findByText(/no se pudo exportar el excel/i)).toBeInTheDocument()
-    // y el botón vuelve a estar disponible para reintentar
-    expect(screen.getByRole('button', { name: /^excel$/i })).toBeEnabled()
+    it('hay DOS botones, uno por formato, y ya no un "Excel" genérico', async () => {
+      await calculado()
+      expect(screen.getByRole('button', { name: /excel · evaluación diaria/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /excel · histórico del equipo/i })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^excel$/i })).not.toBeInTheDocument()
+    })
+
+    it('Evaluación diaria: exporta SOLO esta evaluación (sin leer el histórico)', async () => {
+      const user = await calculado()
+      await user.click(screen.getByRole('button', { name: /excel · evaluación diaria/i }))
+      expect(diariaMock).toHaveBeenCalledTimes(1)
+      expect(diariaMock.mock.calls[0][0]).toMatchObject({ evalId: 'e1' })
+      expect(cargarMock).not.toHaveBeenCalled()
+      expect(historicoMock).not.toHaveBeenCalled()
+      expect(screen.queryByText(/no se pudo exportar/i)).not.toBeInTheDocument()
+    })
+
+    it('Histórico del equipo: carga TODAS las evaluaciones del pozo y las exporta', async () => {
+      const user = await calculado()
+      await user.click(screen.getByRole('button', { name: /excel · histórico del equipo/i }))
+      expect(cargarMock).toHaveBeenCalledWith('p1')
+      expect(historicoMock).toHaveBeenCalledTimes(1)
+      expect(historicoMock.mock.calls[0][0].evaluaciones).toHaveLength(1)
+      expect(diariaMock).not.toHaveBeenCalled()
+    })
+
+    it('si la exportación falla, SE AVISA en pantalla y se puede reintentar (diaria)', async () => {
+      diariaMock.mockRejectedValue(new Error('sin espacio'))
+      jest.spyOn(console, 'error').mockImplementation(() => undefined)
+      const user = await calculado()
+      await user.click(screen.getByRole('button', { name: /excel · evaluación diaria/i }))
+      expect(await screen.findByText(/no se pudo exportar el excel/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /excel · evaluación diaria/i })).toBeEnabled()
+    })
+
+    it('si falla la lectura del histórico (sin señal ni caché), SE AVISA y no se genera archivo', async () => {
+      cargarMock.mockRejectedValue({ code: 'unavailable' })
+      jest.spyOn(console, 'error').mockImplementation(() => undefined)
+      const user = await calculado()
+      await user.click(screen.getByRole('button', { name: /excel · histórico del equipo/i }))
+      expect(await screen.findByText(/no se pudo exportar el excel/i)).toBeInTheDocument()
+      expect(historicoMock).not.toHaveBeenCalled()
+    })
+
+    it('mientras se genera uno, los dos botones quedan deshabilitados (no se disparan dos exportaciones a la vez)', async () => {
+      let liberar: () => void = () => undefined
+      diariaMock.mockImplementation(() => new Promise<void>((r) => { liberar = r }))
+      const user = await calculado()
+      await user.click(screen.getByRole('button', { name: /excel · evaluación diaria/i }))
+      expect(screen.getByRole('button', { name: /exportando/i })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /excel · histórico del equipo/i })).toBeDisabled()
+      liberar()
+    })
   })
 
   describe('pantalla: volver, textos y fondo', () => {
