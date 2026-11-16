@@ -27,6 +27,7 @@ import { calcTanque, calcAGA3 } from '@monagas/core/calculos'
 import { capacidadesZona } from '@core/constants/zonas'
 import { resumenTrasegado } from '@core/utils/trasegado'
 import { balanceMasas, detectarSalto, peorNivel, type NivelAlerta } from '@core/utils/balanceMasas'
+import { datosCriticosEnCero, textoConstanciaLecturaVacia } from '@core/utils/lecturaVacia'
 import BalanceMasasPanel, { ETIQUETA_NIVEL } from '../components/BalanceMasasPanel'
 import LoadingSpinner from '../components/LoadingSpinner'
 import type { ILecturaTanque, ILecturaGas } from '@core/types'
@@ -253,6 +254,16 @@ export default function RegistroPage() {
   const meterRun = pozo?.meterRun ?? 0
   const gasConfigurado = diamPlaca > 0 && meterRun > 0
 
+  // Aviso en ROJO de "lectura vacía": datos críticos en 0 (Medida Final, Presión Estática, Diferencial, P. Cabezal,
+  // P. Separador). No bloquea el guardado (un 0 puede ser real), pero resalta los campos y deja constancia en la lectura.
+  const avisoVacia = datosCriticosEnCero({
+    tanques: (pozo?.tanques ?? []).map((t) => ({ id: t.id, nombre: t.nombre, mf: formDeTank(t.id).mf })),
+    pf, hw, pCab, pSep, gasConfigurado,
+  })
+  const critico = (tipo: 'pf' | 'hw' | 'pCab' | 'pSep'): NivelAlerta => (avisoVacia.campos.some((c) => c.tipo === tipo) ? 'ROJA' : 'OK')
+  const criticoMedida = (tankId: string): NivelAlerta =>
+    avisoVacia.campos.some((c) => c.tipo === 'medidaFinal' && c.tanqueId === tankId) ? 'ROJA' : 'OK'
+
   const gasResult = useMemo(() => {
     if (!gasConfigurado) return null
     try {
@@ -327,6 +338,9 @@ export default function RegistroPage() {
           `Diferencial (${gas.hw} inH₂O) excede el gamma configurado (${pozo.limGamma} inH₂O)`
         )
       }
+
+      // Constancia de datos críticos en 0 (alerta interna, no sale en exportables)
+      if (avisoVacia.campos.length > 0) alertas.push(textoConstanciaLecturaVacia(avisoVacia))
 
       // Constancia del balance de masas / incongruencias de captura (alertas internas, no salen en exportables)
       for (const t of pozo.tanques) {
@@ -444,7 +458,10 @@ export default function RegistroPage() {
           const nivelBalance = balance.tanques.find((t) => t.tanqueId === tank.id)?.nivel ?? 'OK'
           // Resaltado directo de los campos de entrada: rojo/amarillo según el balance; un salto desproporcionado
           // marca la Medida Final en amarillo.
-          const nivelMedida = tocado(tank.id) ? peorNivel(nivelBalance, avisos.mensajes.some((m) => m.texto.includes('por hora')) ? 'AMARILLA' : 'OK') : 'OK'
+          const nivelMedida = peorNivel(
+            tocado(tank.id) ? peorNivel(nivelBalance, avisos.mensajes.some((m) => m.texto.includes('por hora')) ? 'AMARILLA' : 'OK') : 'OK',
+            criticoMedida(tank.id),
+          )
           const nivelTrasegado = tocado(tank.id) ? nivelBalance : 'OK'
           return (
             <section key={tank.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
@@ -527,11 +544,11 @@ export default function RegistroPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Presión Estática (psig)</label>
-              <input type="number" value={pf} onChange={(e) => editarGas('pf', e.target.value)} data-prefill={gasPrefill('pf')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pf} onChange={(e) => editarGas('pf', e.target.value)} data-prefill={gasPrefill('pf')} data-nivel={critico('pf')} className={claseCampo(critico('pf'))} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Diferencial (inH₂O)</label>
-              <input type="number" value={hw} onChange={(e) => editarGas('hw', e.target.value)} data-prefill={gasPrefill('hw')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={hw} onChange={(e) => editarGas('hw', e.target.value)} data-prefill={gasPrefill('hw')} data-nivel={critico('hw')} className={claseCampo(critico('hw'))} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Temp. gas (°F)</label>
@@ -570,11 +587,11 @@ export default function RegistroPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">P. Cabezal (psig)</label>
-              <input type="number" value={pCab} onChange={(e) => editarPresion('pCab', e.target.value)} data-prefill={presionPrefill('pCab')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pCab} onChange={(e) => editarPresion('pCab', e.target.value)} data-prefill={presionPrefill('pCab')} data-nivel={critico('pCab')} className={claseCampo(critico('pCab'))} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">P. Separador (psig)</label>
-              <input type="number" value={pSep} onChange={(e) => editarPresion('pSep', e.target.value)} data-prefill={presionPrefill('pSep')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pSep} onChange={(e) => editarPresion('pSep', e.target.value)} data-prefill={presionPrefill('pSep')} data-nivel={critico('pSep')} className={claseCampo(critico('pSep'))} />
             </div>
             {zonaCaps.casing && (
               <div>
@@ -614,6 +631,21 @@ export default function RegistroPage() {
             {ultimasAlertas.map((a) => (
               <p key={a} className="flex items-center gap-1"><FiAlertTriangle aria-hidden="true" /> {a}</p>
             ))}
+          </div>
+        )}
+
+        {avisoVacia.campos.length > 0 && (
+          <div role="status" data-nivel="ROJA" className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-lg px-3 py-2 space-y-1">
+            <p className="flex items-center gap-1 font-medium">
+              <FiAlertTriangle aria-hidden="true" /> {avisoVacia.vacia ? 'Lectura vacía: todos los datos críticos están en 0' : 'Datos críticos en 0'}
+            </p>
+            <p>{avisoVacia.campos.map((c) => c.etiqueta).join(' · ')}</p>
+            <p className="text-xs text-red-300/80">
+              Si se guarda así, la lectura entra a la base de datos con esos ceros: distorsiona los promedios y el cálculo de
+              producción, y la Medida Final en 0 pasa a ser la medida inicial de la próxima lectura del tanque. Completa o
+              verifica los campos marcados en rojo. Si el 0 es real (por ejemplo, un pozo sin gas), puedes guardar igual; quedará
+              constancia en la lectura.
+            </p>
           </div>
         )}
 

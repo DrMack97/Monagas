@@ -157,6 +157,8 @@ export interface IReporteOperativo {
   supervisorPDVSA?: string
   /** Supervisor de Producción PDVSA del turno nocturno. */
   supervisorPDVSANocturno?: string
+  /** Supervisor de Área (aparece en el Excel de Evaluación diaria). Se autocompleta con el del reporte anterior. */
+  supervisorArea?: string
   /** Supervisores de Well Testing (DSI): turno diurno / nocturno. */
   cuadrillaDiurno?: string
   cuadrillaNocturno?: string

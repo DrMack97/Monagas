@@ -63,7 +63,9 @@ describe('Registro — balance de masas', () => {
     const { t2, panel } = renderPage(subiendo(3))
     expect(panel).toHaveAttribute('data-nivel', 'OK')
     expect(within(panel).getByText('Cuadra')).toBeInTheDocument()
-    expect(campo(t2, 'Medida Final (pulg)')).toHaveAttribute('data-nivel', 'OK')
+    // El balance no resalta nada ni escribe avisos en el tanque. (La Medida Final sí sale en rojo, pero por OTRA regla:
+    // el aviso de "datos críticos en 0", que cubre RegistroLecturaVacia.test.tsx.)
+    expect(campo(t2, 'Trasegado (Bls)')).toHaveAttribute('data-nivel', 'OK')
     expect(within(t2).queryByRole('status')).not.toBeInTheDocument()
   })
 
@@ -91,7 +93,9 @@ describe('Registro — balance de masas', () => {
     expect(campo(t2, 'Trasegado (Bls)')).toHaveAttribute('data-nivel', 'ROJA')
     expect(campo(t2, 'Medida Final (pulg)').className).toMatch(/border-red-500/)
     expect(within(t2).getByRole('status')).toHaveTextContent(/alerta roja: discrepancia crítica en el balance de masas/i)
-    expect(campo(t1, 'Medida Final (pulg)')).toHaveAttribute('data-nivel', 'OK') // el otro tanque no se ve afectado
+    // el otro tanque no se ve afectado por el balance (su Medida Final en 0 es el aviso de datos críticos, otra regla)
+    expect(campo(t1, 'Trasegado (Bls)')).toHaveAttribute('data-nivel', 'OK')
+    expect(within(t1).queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('al declarar el trasegado correcto el balance vuelve a cuadrar y el resaltado desaparece', async () => {
