@@ -612,9 +612,6 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
               <FiFileText aria-hidden="true" /> {exportando === 'historico' ? 'Exportando...' : 'Excel · Histórico del equipo'}
             </button>
           </div>
-          <p className="text-xs text-slate-500">
-            Evaluación diaria: solo esta prueba, con su desplazado propio. Histórico del equipo: todo lo acumulado del equipo en el pozo.
-          </p>
         </>
       )}
     </div>

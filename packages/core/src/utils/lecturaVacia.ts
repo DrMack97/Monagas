@@ -60,6 +60,11 @@ export function datosCriticosEnCero(d: DatosCriticos): AvisoLecturaVacia {
   }
 }
 
+/** ¿Esta alerta de una lectura es la constancia de "guardada con datos críticos en 0"? */
+export function esConstanciaLecturaVacia(alerta: string): boolean {
+  return /^Lectura guardada (VACÍA|con datos críticos en 0)/.test(alerta)
+}
+
 /** Texto de la constancia interna (lectura.alertas) cuando se guardó con campos críticos en 0. */
 export function textoConstanciaLecturaVacia(aviso: AvisoLecturaVacia): string {
   const lista = aviso.campos.map((c) => c.etiqueta).join(', ')

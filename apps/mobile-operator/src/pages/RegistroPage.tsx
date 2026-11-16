@@ -27,7 +27,7 @@ import { calcTanque, calcAGA3 } from '@monagas/core/calculos'
 import { capacidadesZona } from '@core/constants/zonas'
 import { resumenTrasegado } from '@core/utils/trasegado'
 import { balanceMasas, detectarSalto, peorNivel, type NivelAlerta } from '@core/utils/balanceMasas'
-import { datosCriticosEnCero, textoConstanciaLecturaVacia } from '@core/utils/lecturaVacia'
+import { datosCriticosEnCero, esConstanciaLecturaVacia, textoConstanciaLecturaVacia } from '@core/utils/lecturaVacia'
 import BalanceMasasPanel, { ETIQUETA_NIVEL } from '../components/BalanceMasasPanel'
 import LoadingSpinner from '../components/LoadingSpinner'
 import type { ILecturaTanque, ILecturaGas } from '@core/types'
@@ -125,6 +125,7 @@ export default function RegistroPage() {
   const [guardadoOk, setGuardadoOk] = useState(false)
   const [guardadoOffline, setGuardadoOffline] = useState(false)
   const [ultimasAlertas, setUltimasAlertas] = useState<string[]>([])
+  const guardadaConCeros = ultimasAlertas.some(esConstanciaLecturaVacia)
 
   // mi de cada tanque = mf de la última lectura guardada, o el mi de
   // configuración del pozo si todavía no hay lecturas en este ciclo.
@@ -621,14 +622,24 @@ export default function RegistroPage() {
             Lectura #{lecturas.length} guardada localmente — se enviará cuando vuelva la conexión.
           </div>
         )}
-        {guardadoOk && !guardadoOffline && (
+        {guardadoOk && !guardadoOffline && !guardadaConCeros && (
           <div className="text-sm text-emerald-400 bg-emerald-950/40 border border-emerald-900 rounded-lg px-3 py-2">
             Lectura #{lecturas.length} guardada.
           </div>
         )}
-        {guardadoOk && ultimasAlertas.length > 0 && (
+        {/* Guardada con datos críticos en 0: aviso en ROJO al guardar (no bloquea, pero no se confunde con un guardado normal) */}
+        {guardadoOk && guardadaConCeros && (
+          <div role="alert" data-nivel="ROJA" className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-lg px-3 py-2 space-y-1">
+            <p className="font-medium">Lectura #{lecturas.length} guardada, pero con datos críticos en 0.</p>
+            {ultimasAlertas.filter(esConstanciaLecturaVacia).map((a) => (
+              <p key={a} className="flex items-center gap-1"><FiAlertTriangle aria-hidden="true" /> {a}</p>
+            ))}
+            <p className="text-xs text-red-300/80">Revisa esa lectura: los ceros entraron a la base de datos y afectan los promedios.</p>
+          </div>
+        )}
+        {guardadoOk && ultimasAlertas.some((a) => !esConstanciaLecturaVacia(a)) && (
           <div className="text-sm text-amber-400 bg-amber-950/40 border border-amber-900 rounded-lg px-3 py-2 space-y-1">
-            {ultimasAlertas.map((a) => (
+            {ultimasAlertas.filter((a) => !esConstanciaLecturaVacia(a)).map((a) => (
               <p key={a} className="flex items-center gap-1"><FiAlertTriangle aria-hidden="true" /> {a}</p>
             ))}
           </div>

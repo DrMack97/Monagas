@@ -92,6 +92,30 @@ describe('Registro — aviso rojo de lectura vacía', () => {
     expect(lectura.alertas.some((t: string) => /^Lectura guardada VACÍA/.test(t))).toBe(true)
   })
 
+  it('AL GUARDAR con datos críticos en 0 sale un aviso en ROJO (no la confirmación verde normal)', async () => {
+    renderPage()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Guardar Lectura' }))
+    const rojo = await screen.findByRole('alert')
+    expect(rojo).toHaveAttribute('data-nivel', 'ROJA')
+    expect(rojo).toHaveTextContent(/Lectura #0 guardada, pero con datos críticos en 0/)
+    expect(rojo).toHaveTextContent(/Lectura guardada VACÍA/)
+    expect(rojo.className).toMatch(/text-red-400.*bg-red-950\/40.*border-red-900/)
+    expect(screen.queryByText(/^Lectura #\d+ guardada\.$/)).not.toBeInTheDocument()
+  })
+
+  it('una lectura completa se guarda con la confirmación verde normal y sin aviso rojo', async () => {
+    renderPage()
+    await escribe('Medida Final (pulg)', '1', 0)
+    await escribe('Medida Final (pulg)', '2', 1)
+    await escribe('Presión Estática (psig)', '300')
+    await escribe('Diferencial (inH₂O)', '40')
+    await escribe('P. Cabezal (psig)', '540')
+    await escribe('P. Separador (psig)', '120')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Guardar Lectura' }))
+    expect(await screen.findByText(/^Lectura #\d+ guardada\.$/)).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('una lectura completa se guarda SIN esa constancia', async () => {
     renderPage()
     await escribe('Medida Final (pulg)', '1', 0)

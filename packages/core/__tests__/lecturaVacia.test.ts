@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { datosCriticosEnCero, esCeroOVacio, textoConstanciaLecturaVacia } from '../src/utils/lecturaVacia.js'
+import { datosCriticosEnCero, esCeroOVacio, esConstanciaLecturaVacia, textoConstanciaLecturaVacia } from '../src/utils/lecturaVacia.js'
 
 const tanques = [{ id: 't1', nombre: 'Tanque 1', mf: '0' }, { id: 't2', nombre: 'Tanque 2', mf: '0' }]
 const lleno = { tanques: [{ id: 't1', nombre: 'Tanque 1', mf: '12.5' }, { id: 't2', nombre: 'Tanque 2', mf: '3' }], pf: '300', hw: '43.5', pCab: '540', pSep: '120', gasConfigurado: true }
@@ -57,5 +57,16 @@ describe('textoConstanciaLecturaVacia', () => {
     expect(textoConstanciaLecturaVacia(vacia)).toMatch(/^Lectura guardada VACÍA/)
     const parcial = datosCriticosEnCero({ ...lleno, pf: '0' })
     expect(textoConstanciaLecturaVacia(parcial)).toBe('Lectura guardada con datos críticos en 0: Presión Estática.')
+  })
+})
+
+describe('esConstanciaLecturaVacia', () => {
+  it('reconoce las dos constancias que genera textoConstanciaLecturaVacia y nada más', () => {
+    const vacia = datosCriticosEnCero({ tanques, pf: '0', hw: '0', pCab: '0', pSep: '0', gasConfigurado: true })
+    const parcial = datosCriticosEnCero({ ...lleno, pf: '0' })
+    expect(esConstanciaLecturaVacia(textoConstanciaLecturaVacia(vacia))).toBe(true)
+    expect(esConstanciaLecturaVacia(textoConstanciaLecturaVacia(parcial))).toBe(true)
+    expect(esConstanciaLecturaVacia('Alerta roja (Tanque 2): Discrepancia crítica en el balance de masas')).toBe(false)
+    expect(esConstanciaLecturaVacia('Presión estática (350 psig) excede el resorte configurado (300 psi)')).toBe(false)
   })
 })
