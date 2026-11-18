@@ -53,7 +53,7 @@ const lectura = (hora: number, netos: number) => ({
 beforeAll(async () => {
   await pozoRef.set({ nombre: 'Pozo trigger', zona: 'MONAGAS', estado: 'EN_CURSO', evalEnCursoId: EVAL })
   await evalRef.set({ pozoId: POZO, operadorId: 'op-x', zona: 'MONAGAS', estado: 'EN_CURSO', horasEvaluadas: 3 })
-})
+}, 30000) // primeras escrituras en frío contra los emuladores: 5000 ms (default de Jest) no siempre alcanza
 
 afterAll(async () => {
   const lecturas = await evalRef.collection('lecturas').get()
@@ -76,6 +76,19 @@ describe('máquina de estados de evaluaciones (triggers reales)', () => {
     const e = await esperar(evaluacion, (v) => v.resultados?.netosPromedio === 210)
     expect(e.resultados?.netosPromedio).toBe(210)
     expect(e.resultados?.horasTotales).toBe(3)
+  }, 60000)
+
+  it('onLecturaEdit: conserva quién recalculó (recalculadoPor) y NO cuenta las lecturas anuladas por el Operador', async () => {
+    // El panel escribe recalculadoPor junto con la corrección; antes el trigger reemplazaba todo el mapa y lo borraba.
+    await evalRef.update({ 'resultados.recalculadoPor': 'sup-1' })
+    const lecturas = await evalRef.collection('lecturas').orderBy('hora', 'asc').get()
+    // Se anula la tercera lectura (netos 300): el promedio pasa a ser el de 100 y 230 = 165, con 2 horas.
+    await lecturas.docs[2].ref.update({ anulada: true, anuladaPor: 'op-x', anuladaMotivo: 'prueba de anulación' })
+    const e = await esperar(evaluacion, (v) => v.resultados?.netosPromedio === 165)
+    expect(e.resultados?.netosPromedio).toBe(165)
+    expect(e.resultados?.horasTotales).toBe(2)
+    expect(e.resultados?.recalculadoPor).toBe('sup-1')
+    expect(e.resultados?.tipoCalculo).toBe('FINAL_24H')
   }, 60000)
 
   it('onReject: al rechazar (→ EN_CURSO) el pozo vuelve a EN_CURSO y el candado apunta a ESTA evaluación', async () => {

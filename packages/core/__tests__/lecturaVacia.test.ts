@@ -30,9 +30,22 @@ describe('datosCriticosEnCero', () => {
     expect(r.vacia).toBe(false)
   })
 
-  it('identifica el tanque cuya Medida Final está en 0', () => {
-    const r = datosCriticosEnCero({ ...lleno, tanques: [{ id: 't1', nombre: 'Tanque 1', mf: '12.5' }, { id: 't2', nombre: 'Tanque 2', mf: '0' }] })
+  it('identifica el tanque cuya Medida Final está en 0 cuando ese tanque tenía fluido (medida inicial > 0)', () => {
+    const r = datosCriticosEnCero({ ...lleno, tanques: [{ id: 't1', nombre: 'Tanque 1', mf: '12.5', mi: 11 }, { id: 't2', nombre: 'Tanque 2', mf: '0', mi: 7 }] })
     expect(r.campos).toEqual([{ tipo: 'medidaFinal', tanqueId: 't2', etiqueta: 'Medida Final (Tanque 2)' }])
+  })
+
+  it('un tanque SIN USO (medida inicial 0) en 0 no dispara el aviso mientras otro tanque tenga medida', () => {
+    const r = datosCriticosEnCero({ ...lleno, tanques: [{ id: 't1', nombre: 'Tanque 1', mf: '0', mi: 0 }, { id: 't2', nombre: 'Tanque 2', mf: '3', mi: 2 }] })
+    expect(r).toEqual({ campos: [], vacia: false })
+    // y si no se indica la medida inicial se asume 0 (sin uso)
+    expect(datosCriticosEnCero({ ...lleno, tanques: [{ id: 't1', nombre: 'Tanque 1', mf: '0' }, { id: 't2', nombre: 'Tanque 2', mf: '3' }] }).campos).toEqual([])
+  })
+
+  it('si NINGÚN tanque tiene medida, todos cuentan aunque su medida inicial sea 0 (no se midió nada)', () => {
+    const r = datosCriticosEnCero({ ...lleno, tanques: [{ id: 't1', nombre: 'Tanque 1', mf: '0', mi: 0 }, { id: 't2', nombre: 'Tanque 2', mf: '0', mi: 0 }] })
+    expect(r.campos.map((c) => c.etiqueta)).toEqual(['Medida Final (Tanque 1)', 'Medida Final (Tanque 2)'])
+    expect(r.vacia).toBe(false) // hay otros datos críticos llenos
   })
 
   it('un campo vacío (el operador borró el 0) se trata igual que 0', () => {

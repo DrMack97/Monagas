@@ -128,9 +128,42 @@ service cloud.firestore {
     // lectura, no valores medidos — no se "corrigen", son un hecho.
     function canEditLectura(evalId) {
       let evaluacion = get(/databases/$(database)/documents/evaluaciones/$(evalId)).data;
+      let nuevo = request.resource.data;
+      let previas = resource.data.get('correcciones', []);
       return canManagePozoEnZona(evaluacion.zona) &&
         evaluacion.estado == 'PENDIENTE_SUPERVISOR' &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tanques', 'operativos', 'gas']);
+        nuevo.diff(resource.data).affectedKeys().hasOnly(['tanques', 'operativos', 'gas', 'correcciones']) &&
+        // Cada corrección deja SU HISTORIAL (nunca se pierde un dato medido): se añade exactamente una entrada al final,
+        // sin tocar las anteriores, firmada con el uid de quien corrige y con lo que había ANTES (que debe coincidir
+        // con lo guardado ahora en la lectura: no se puede "inventar" un original distinto).
+        nuevo.correcciones.size() == previas.size() + 1 &&
+        (previas.size() == 0 || nuevo.correcciones[0:previas.size()] == previas) &&
+        nuevo.correcciones[previas.size()].por == request.auth.uid &&
+        nuevo.correcciones[previas.size()].en is timestamp &&
+        nuevo.correcciones[previas.size()].antes.tanques == resource.data.tanques &&
+        nuevo.correcciones[previas.size()].antes.pCab == resource.data.operativos.pCab &&
+        nuevo.correcciones[previas.size()].antes.pSep == resource.data.operativos.pSep;
+    }
+
+    // Anulación de una lectura por el Operador dueño mientras su evaluación sigue EN_CURSO (RegistroPage.tsx). La lectura
+    // NO se borra (delete sigue siendo solo de ROOT): se marca como anulada, con quién, cuándo y por qué, y deja de contar
+    // en todos los cálculos. Solo se pueden escribir esos cuatro campos y una lectura ya anulada no se vuelve a tocar.
+    // Los valores medidos (tanques, gas, operativos) quedan intactos como constancia.
+    function canAnularLecturaPropia(evalId) {
+      let evaluacion = get(/databases/$(database)/documents/evaluaciones/$(evalId)).data;
+      let nuevo = request.resource.data;
+      return isOperador() &&
+        evaluacion.operadorId == request.auth.uid &&
+        evaluacion.estado == 'EN_CURSO' &&
+        resource.data.get('anulada', false) == false &&
+        nuevo.diff(resource.data).affectedKeys().hasOnly(['anulada', 'anuladaEn', 'anuladaPor', 'anuladaMotivo']) &&
+        nuevo.keys().hasAll(['anulada', 'anuladaEn', 'anuladaPor', 'anuladaMotivo']) &&
+        nuevo.anulada == true &&
+        nuevo.anuladaEn is timestamp &&
+        nuevo.anuladaPor == request.auth.uid &&
+        nuevo.anuladaMotivo is string &&
+        nuevo.anuladaMotivo.size() >= 3 &&
+        nuevo.anuladaMotivo.size() <= 200;
     }
 
     // Mismo criterio de lectura que /evaluaciones/{evalId}, reutilizable
@@ -211,7 +244,7 @@ service cloud.firestore {
           (isOperador() &&
            get(/databases/$(database)/documents/evaluaciones/$(evalId)).data.operadorId == request.auth.uid &&
            get(/databases/$(database)/documents/evaluaciones/$(evalId)).data.estado == 'EN_CURSO');
-        allow update: if isRoot() || canEditLectura(evalId);
+        allow update: if isRoot() || canEditLectura(evalId) || canAnularLecturaPropia(evalId);
         allow delete: if isRoot();
       }
     }

@@ -23,6 +23,7 @@ const LECTURAS = [
 let zonaEval = 'MONAGAS'
 let conResultados = true
 let recalculado = false
+let anuladas: any[] = []
 const lote = { update: jest.fn(), commit: jest.fn().mockResolvedValue(undefined) }
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn((_db: unknown, ...ruta: string[]) => ruta.join('/')),
@@ -39,7 +40,7 @@ jest.mock('../../hooks/useApprovals', () => ({
   }),
 }))
 jest.mock('../../hooks/usePozosVisibles', () => ({ usePozosVisibles: () => ({ pozos: [{ id: 'p1', nombre: 'SBC-61L', campo: 'Bare' }] }) }))
-jest.mock('../../hooks/useLecturasEvaluacion', () => ({ useLecturasEvaluacion: () => ({ loading: false, error: null, lecturas: LECTURAS }) }))
+jest.mock('../../hooks/useLecturasEvaluacion', () => ({ useLecturasEvaluacion: () => ({ loading: false, error: null, lecturas: LECTURAS, anuladas }) }))
 jest.mock('../../components/common/Header', () => ({ __esModule: true, default: () => null }))
 jest.mock('../../components/common/Sidebar', () => ({ __esModule: true, default: () => null }))
 
@@ -74,6 +75,8 @@ beforeEach(() => {
   zonaEval = 'MONAGAS'
   conResultados = true
   recalculado = false
+  anuladas = []
+  delete (LECTURAS[0] as any).correcciones
 })
 
 describe('corregir una lectura', () => {
@@ -193,5 +196,59 @@ describe('tabla de lecturas', () => {
   it('las alertas siguen visibles para el supervisor (control interno)', async () => {
     await abrirDetalle()
     expect(screen.getByText(/excede el resorte/i)).toBeInTheDocument()
+  })
+})
+
+describe('conservar el valor original al corregir (historial de correcciones)', () => {
+  it('cada corrección añade al historial lo que había ANTES (tanques y presiones), quién la hizo y cuándo', async () => {
+    const user = await abrirDetalle()
+    await corregirPrimera(user, 'P. Cabezal', '600')
+    await user.click(screen.getByRole('button', { name: /guardar corrección/i }))
+
+    const upd = actualizacionDe('evaluaciones/ev1/lecturas/l1')!
+    expect(upd.correcciones).toHaveLength(1)
+    expect(upd.correcciones[0].por).toBe('sup1')
+    expect(upd.correcciones[0].en).toBeInstanceOf(Date)
+    // el original: tal cual estaba guardado (las reglas de Firestore exigen que coincida)
+    expect(upd.correcciones[0].antes).toEqual({ tanques: LECTURAS[0].tanques, pCab: 540, pSep: 300 })
+    // y el valor nuevo sí se escribe
+    expect(upd['operativos.pCab']).toBe(600)
+  })
+
+  it('una segunda corrección CONSERVA las anteriores y añade la nueva al final', async () => {
+    const previa = { en: new Date(2026, 10, 9), por: 'sup0', antes: { tanques: [tanque(100, 100)], pCab: 500, pSep: 290 } }
+    ;(LECTURAS[0] as any).correcciones = [previa]
+    const user = await abrirDetalle()
+    await corregirPrimera(user, 'P. Separador', '350')
+    await user.click(screen.getByRole('button', { name: /guardar corrección/i }))
+
+    const hist = actualizacionDe('evaluaciones/ev1/lecturas/l1')!.correcciones
+    expect(hist).toHaveLength(2)
+    expect(hist[0]).toEqual(previa)
+    expect(hist[1].por).toBe('sup1')
+    expect(hist[1].antes.pSep).toBe(300)
+  })
+
+  it('una lectura ya corregida lo indica en la tabla', async () => {
+    ;(LECTURAS[0] as any).correcciones = [{ en: new Date(), por: 'sup0', antes: { tanques: [], pCab: 1, pSep: 1 } }]
+    await abrirDetalle()
+    expect(screen.getByText(/Corregida una vez \(el valor original se conserva\)/)).toBeInTheDocument()
+  })
+})
+
+describe('lecturas anuladas por el Operador', () => {
+  it('se listan aparte, con su motivo, como constancia (no están en la tabla de lecturas)', async () => {
+    anuladas = [{ id: 'x1', hora: 4, timestamp: new Date(), anulada: true, anuladaMotivo: 'Medí mal el tanque 2', anuladaEn: new Date(2026, 10, 9, 10, 0), tanques: [], operativos: { pCab: 0, pSep: 0 } }]
+    await abrirDetalle()
+    const bloque = screen.getByLabelText('Lecturas anuladas por el Operador')
+    expect(within(bloque).getByText(/El Operador anuló 1 lectura \(no cuentan en los cálculos/)).toBeInTheDocument()
+    expect(within(bloque).getByText(/#4 · Medí mal el tanque 2/)).toBeInTheDocument()
+    // la tabla sigue mostrando solo las 3 lecturas que cuentan
+    expect(screen.getAllByRole('button', { name: /corregir lectura/i })).toHaveLength(3)
+  })
+
+  it('sin anuladas no aparece el bloque', async () => {
+    await abrirDetalle()
+    expect(screen.queryByLabelText('Lecturas anuladas por el Operador')).toBeNull()
   })
 })

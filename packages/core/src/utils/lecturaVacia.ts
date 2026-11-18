@@ -8,7 +8,9 @@
 // de guardar. El aviso NO bloquea: un 0 puede ser real (un pozo sin gas, un tanque recién vaciado) y el operador decide.
 //
 // Qué se considera crítico:
-//   · Medida Final de cada tanque.
+//   · Medida Final de los tanques, con una excepción para los tanques SIN USO: un tanque que siempre está en 0 no puede
+//     disparar el aviso en cada lectura. Su Medida Final en 0 cuenta solo si (a) el tanque tenía fluido (medida inicial
+//     > 0: se vació o se capturó mal) o (b) NINGÚN tanque tiene medida (no se midió nada).
 //   · Presión Estática y Diferencial (solo si el pozo tiene Placa y Meter Run: sin ellos el gas no se guarda).
 //   · P. Cabezal y P. Separador.
 // No se consideran: Temp. gas y Gravedad específica (tienen valores de partida distintos de 0), AyS, Trasegado y Casing
@@ -21,7 +23,8 @@ export type CampoCritico =
 
 export interface DatosCriticos {
   /** Medida final de cada tanque, tal como está escrita (texto del campo). */
-  tanques: { id: string; nombre: string; mf: string }[]
+  /** `mi`: medida inicial del tanque en esta lectura (la final de la anterior); sin ella se asume 0 (tanque sin uso). */
+  tanques: { id: string; nombre: string; mf: string; mi?: number }[]
   pf: string
   hw: string
   pCab: string
@@ -44,9 +47,12 @@ export function esCeroOVacio(valor: string): boolean {
 }
 
 export function datosCriticosEnCero(d: DatosCriticos): AvisoLecturaVacia {
+  const ningunaMedida = d.tanques.length > 0 && d.tanques.every((t) => esCeroOVacio(t.mf))
   const evaluados: { campo: CampoCritico; cero: boolean }[] = []
   for (const t of d.tanques) {
-    evaluados.push({ campo: { tipo: 'medidaFinal', tanqueId: t.id, etiqueta: `Medida Final (${t.nombre})` }, cero: esCeroOVacio(t.mf) })
+    // Un tanque sin uso (medida inicial 0) en 0 es normal mientras otro tanque sí tenga medida.
+    const critico = ningunaMedida || (t.mi ?? 0) > 0
+    if (critico) evaluados.push({ campo: { tipo: 'medidaFinal', tanqueId: t.id, etiqueta: `Medida Final (${t.nombre})` }, cero: esCeroOVacio(t.mf) })
   }
   if (d.gasConfigurado) {
     evaluados.push({ campo: { tipo: 'pf', etiqueta: 'Presión Estática' }, cero: esCeroOVacio(d.pf) })
@@ -56,7 +62,8 @@ export function datosCriticosEnCero(d: DatosCriticos): AvisoLecturaVacia {
   evaluados.push({ campo: { tipo: 'pSep', etiqueta: 'P. Separador' }, cero: esCeroOVacio(d.pSep) })
   return {
     campos: evaluados.filter((e) => e.cero).map((e) => e.campo),
-    vacia: evaluados.length > 0 && evaluados.every((e) => e.cero),
+    // "Vacía": no se midió ningún tanque y todo lo demás crítico también está en 0.
+    vacia: ningunaMedida && evaluados.every((e) => e.cero),
   }
 }
 

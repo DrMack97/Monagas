@@ -25,6 +25,7 @@
 import type { ILectura, IPozo } from '../types/database.js'
 import { redondearAHoraEntera } from './hora.js'
 import { capacidadesZona } from '../constants/zonas.js'
+import { lecturasActivas } from './lecturasActivas.js'
 
 export type Celda = string | number
 export interface HojaExcel {
@@ -83,7 +84,8 @@ export function viajesDeLectura(l: ILectura): number {
 }
 
 function ordenadas(lecturas: ILectura[]): ILectura[] {
-  return [...lecturas].sort((a, b) => num(a.hora) - num(b.hora) || momento(a).getTime() - momento(b).getTime())
+  // Las lecturas anuladas por el Operador no cuentan en ningún Excel (ver utils/lecturasActivas.ts).
+  return lecturasActivas(lecturas).sort((a, b) => num(a.hora) - num(b.hora) || momento(a).getTime() - momento(b).getTime())
 }
 
 // --- tabla de lecturas (común a los dos formatos) ----------------------------------------------------------------

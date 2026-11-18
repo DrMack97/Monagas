@@ -8,6 +8,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import RegistroPage from '../RegistroPage'
+import { guardarLectura } from '../../testing/guardarLectura'
 
 const addDocMock = jest.fn().mockResolvedValue({ id: 'l' })
 jest.mock('firebase/firestore', () => ({
@@ -117,7 +118,7 @@ describe('Registro — prefill de Presiones Operativas', () => {
 
   it('al guardar sin tocar nada se escriben las presiones prefilladas junto con el Reductor del pozo', async () => {
     renderPage({ lecturas: [lectura(1, { pCab: 540, pSep: 300 })] })
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
     const { operativos } = addDocMock.mock.calls[0][1]
     expect(operativos).toMatchObject({ pCab: 540, pSep: 300, reductorPulgadas: '1"' })
@@ -127,7 +128,7 @@ describe('Registro — prefill de Presiones Operativas', () => {
   it('Faja: al guardar sin tocar nada se escribe también el Casing prefillado', async () => {
     zonaPozo = 'FAJA'
     renderPage({ lecturas: [lectura(1, { pCab: 540, pSep: 300, pCsg: 12 })] })
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
     expect(addDocMock.mock.calls[0][1].operativos).toMatchObject({ pCab: 540, pSep: 300, pCsg: 12 })
   })

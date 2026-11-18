@@ -8,6 +8,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import RegistroPage from '../RegistroPage'
+import { guardarLectura } from '../../testing/guardarLectura'
 
 const addDocMock = jest.fn().mockResolvedValue({ id: 'l' })
 jest.mock('firebase/firestore', () => ({
@@ -120,7 +121,7 @@ describe('Registro — prefill de la ventana AGA-3', () => {
 
   it('al guardar sin tocar nada se escribe el gas prefillado', async () => {
     renderPage({ lecturas: [lectura(1, GAS_300)] })
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
     expect(addDocMock.mock.calls[0][1].gas).toMatchObject({ pf: 300, hw: 43.56, tGas: 130, gg: 0.72 })
   })

@@ -13,6 +13,7 @@
 // (ver ReportePage.tsx).
 
 import type { ILectura } from '../types/database.js'
+import { lecturasActivas } from '../utils/lecturasActivas.js'
 
 export interface PromedioEvaluacion {
   bpdPromedio: number
@@ -23,7 +24,9 @@ export interface PromedioEvaluacion {
   proyeccion24H: number
 }
 
-export function calcularPromedioEvaluacion(lecturas: ILectura[]): PromedioEvaluacion {
+export function calcularPromedioEvaluacion(todas: ILectura[]): PromedioEvaluacion {
+  // Las lecturas anuladas por el Operador no cuentan (ver utils/lecturasActivas.ts).
+  const lecturas = lecturasActivas(todas)
   if (lecturas.length === 0) {
     return { bpdPromedio: 0, netosPromedio: 0, qgPromedio: 0, aysBls: 0, horasTotales: 0, proyeccion24H: 0 }
   }

@@ -11,6 +11,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import RegistroPage from '../RegistroPage'
+import { guardarLectura } from '../../testing/guardarLectura'
 
 const addDocMock = jest.fn().mockResolvedValue({ id: 'lectura-1' })
 jest.mock('firebase/firestore', () => ({
@@ -98,7 +99,7 @@ describe('RegistroPage — Reductor (pulg) y campos retirados', () => {
 
   it('al guardar copia el Reductor del pozo a la lectura y deja reductor/dilDia en 0 (sin efecto en barriles)', async () => {
     renderPage({ reductorPulgadas: '1/2"' })
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
 
     await waitFor(() => expect(addDocMock).toHaveBeenCalled())
     const lectura = addDocMock.mock.calls[0][1]
@@ -112,7 +113,7 @@ describe('RegistroPage — Reductor (pulg) y campos retirados', () => {
     expect(screen.getByText(/1\.23 MMSCFD/)).toBeInTheDocument()
     expect(screen.queryByText(/MPCGD/)).not.toBeInTheDocument()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalled())
     expect(addDocMock.mock.calls[0][1].gas).toMatchObject({ qg: 1.234, Fpv: 1.03, Y: 0.995, Cd: 0.6, Z: 0.94 })
   })
@@ -130,7 +131,7 @@ describe('RegistroPage — Reductor (pulg) y campos retirados', () => {
     expect(screen.queryByText(/MMSCFD/)).not.toBeInTheDocument()
     expect(calcAGAMock).not.toHaveBeenCalled()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalled())
     expect(addDocMock.mock.calls[0][1]).not.toHaveProperty('gas')
   })
@@ -141,7 +142,7 @@ describe('RegistroPage — Reductor (pulg) y campos retirados', () => {
     expect(screen.queryByText(/netos/i)).not.toBeInTheDocument()
     expect(screen.getByText(/bpd/i)).toBeInTheDocument() // lo demás sigue
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalled())
     expect(addDocMock.mock.calls[0][1].operativos).not.toHaveProperty('pCsg')
     // el cálculo de barriles no cambia: los netos se siguen calculando y guardando
@@ -153,14 +154,14 @@ describe('RegistroPage — Reductor (pulg) y campos retirados', () => {
     expect(screen.getByText(/p\. casing/i)).toBeInTheDocument()
     expect(screen.getByText(/netos/i)).toBeInTheDocument()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalled())
     expect(addDocMock.mock.calls[0][1].operativos).toHaveProperty('pCsg', 0)
   })
 
   it('no escribe reductorPulgadas en la lectura si el pozo no lo tiene', async () => {
     renderPage({})
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
 
     await waitFor(() => expect(addDocMock).toHaveBeenCalled())
     expect(addDocMock.mock.calls[0][1].operativos).not.toHaveProperty('reductorPulgadas')

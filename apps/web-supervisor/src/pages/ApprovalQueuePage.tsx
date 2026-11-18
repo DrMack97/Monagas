@@ -30,7 +30,7 @@ import Button from '../components/common/Button'
 import { calcularPromedioEvaluacion } from '@core/calculos/promedio'
 import { redondearAHoraEntera, horaEnteraTexto } from '@core/utils/hora'
 import { capacidadesZona } from '@core/constants/zonas'
-import type { IEvaluacion, ILectura, ILecturaTanque } from '@core/types'
+import type { IEvaluacion, ILectura, ILecturaTanque, ICorreccionLectura } from '@core/types'
 
 function fmt(n: number | undefined, decimales = 1): string {
   return typeof n === 'number' ? n.toFixed(decimales) : '—'
@@ -98,11 +98,20 @@ function FilaLecturaEditable({
 
       // Lectura y promedios se escriben JUNTOS (un solo lote: o se guardan los dos o ninguno), para que
       // lo que el supervisor aprueba siempre corresponda a las lecturas ya corregidas.
+      // La corrección SOBRESCRIBE la lectura, pero el valor original no se pierde: se añade al historial de la lectura
+      // (`correcciones`) lo que había ANTES, quién y cuándo. Las reglas de Firestore exigen este historial y que su "antes"
+      // coincida con lo guardado, así que no hay forma de corregir sin dejar el original.
+      if (!uid) throw new Error('Sin sesión')
+      const historial: ICorreccionLectura[] = [
+        ...(lectura.correcciones ?? []),
+        { en: new Date(), por: uid, antes: { tanques: lectura.tanques, pCab: lectura.operativos.pCab, pSep: lectura.operativos.pSep } },
+      ]
       const lote = writeBatch(db)
       lote.update(doc(db, 'evaluaciones', evalId, 'lecturas', lectura.id), {
         tanques,
         'operativos.pCab': nuevaPCab,
         'operativos.pSep': nuevaPSep,
+        correcciones: historial,
       })
       if (recalcularPromedios && uid) {
         const corregida: ILectura = { ...lectura, tanques, operativos: { ...lectura.operativos, pCab: nuevaPCab, pSep: nuevaPSep } }
@@ -142,6 +151,9 @@ function FilaLecturaEditable({
             <span className="text-amber-400">{lectura.alertas.join(', ')}</span>
           ) : (
             '—'
+          )}
+          {lectura.correcciones && lectura.correcciones.length > 0 && (
+            <span className="block text-slate-400">Corregida {lectura.correcciones.length > 1 ? `${lectura.correcciones.length} veces` : 'una vez'} (el valor original se conserva)</span>
           )}
         </td>
         <td className="py-2 px-1">
@@ -224,7 +236,7 @@ function LecturasDrilldown({
   uid: string | null
   recalcularPromedios: boolean
 }) {
-  const { lecturas, loading, error } = useLecturasEvaluacion(evalId)
+  const { lecturas, anuladas = [], loading, error } = useLecturasEvaluacion(evalId)
   // Norte de Monagas no muestra la columna Netos en la tabla de lecturas (Informe Técnico 04/11/2026).
   // El promedio de Netos de la tarjeta y el campo Netos del formulario de corrección se mantienen.
   const { netosEnLecturas } = capacidadesZona(zona)
@@ -236,7 +248,7 @@ function LecturasDrilldown({
   if (error) {
     return <p className="text-xs text-red-400 py-3">{error}</p>
   }
-  if (lecturas.length === 0) {
+  if (lecturas.length === 0 && anuladas.length === 0) {
     return <p className="text-xs text-slate-500 py-3">Esta evaluación no tiene lecturas registradas.</p>
   }
 
@@ -284,6 +296,19 @@ function LecturasDrilldown({
           })}
         </tbody>
       </table>
+      {anuladas.length > 0 && (
+        <div className="mt-3 border-t border-slate-800 pt-2 text-xs text-slate-400 space-y-1" aria-label="Lecturas anuladas por el Operador">
+          <p className="text-slate-300">
+            El Operador anuló {anuladas.length} {anuladas.length === 1 ? 'lectura' : 'lecturas'} (no cuentan en los cálculos; quedan como constancia):
+          </p>
+          {anuladas.map((a) => (
+            <p key={a.id}>
+              #{a.hora} · {a.anuladaMotivo ?? 'sin motivo'}
+              {a.anuladaEn && ` · ${fecha((a.anuladaEn as any)?.toDate ? (a.anuladaEn as any).toDate() : a.anuladaEn)}`}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

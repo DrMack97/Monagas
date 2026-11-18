@@ -19,7 +19,7 @@ import {
   assertFails,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, getDocs, setDoc, updateDoc, addDoc, collection, query, where } from 'firebase/firestore'
+import { doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc, collection, query, where } from 'firebase/firestore'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
@@ -185,24 +185,122 @@ describe('/evaluaciones/{id}/lecturas — create', () => {
 
 describe('/evaluaciones/{id}/lecturas — corrección por el Supervisor (drill-down de aprobaciones)', () => {
   const ruta = 'evaluaciones/evPendiente/lecturas/l1'
+  // Lo que hay guardado en la lectura sembrada (ver beforeEach): el "antes" de la corrección debe coincidir.
+  const ANTES = { tanques: [{ tanqueId: 't1', bph: 1, bpd: 24, netos: 24 }], pCab: 540, pSep: 300 }
+  const corr = (over: Record<string, unknown> = {}) => ({ en: new Date(), por: 'sup', antes: ANTES, ...over })
 
-  it('permite corregir P. Cabezal con ruta anidada (operativos.pCab) sin tocar el resto de operativos', async () => {
-    await assertSucceeds(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 600, 'operativos.pSep': 310 }))
+  it('permite corregir P. Cabezal con ruta anidada (operativos.pCab) sin tocar el resto de operativos, dejando el historial', async () => {
+    await assertSucceeds(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 600, 'operativos.pSep': 310, correcciones: [corr()] }))
     await env.withSecurityRulesDisabled(async (ctx) => {
-      const { operativos } = (await getDoc(doc(ctx.firestore(), ruta))).data() as any
-      expect(operativos).toEqual({ pCab: 600, pSep: 310, pCsg: 12, reductorPulgadas: '1"' })
+      const d = (await getDoc(doc(ctx.firestore(), ruta))).data() as any
+      expect(d.operativos).toEqual({ pCab: 600, pSep: 310, pCsg: 12, reductorPulgadas: '1"' })
+      // el valor original NO se pierde: queda en el historial
+      expect(d.correcciones).toHaveLength(1)
+      expect(d.correcciones[0].antes).toEqual(ANTES)
+      expect(d.correcciones[0].por).toBe('sup')
+    })
+  })
+
+  it('DENIEGA corregir SIN dejar historial (el valor original se perdería)', async () => {
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 600 }))
+  })
+
+  it('DENIEGA un historial cuyo "antes" no coincide con lo guardado (no se puede inventar un original)', async () => {
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 600, correcciones: [corr({ antes: { ...ANTES, pCab: 999 } })] }))
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 600, correcciones: [corr({ antes: { ...ANTES, tanques: [] } })] }))
+  })
+
+  it('DENIEGA firmar la corrección con el uid de otra persona', async () => {
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 600, correcciones: [corr({ por: 'otro' })] }))
+  })
+
+  it('permite una segunda corrección que AÑADE al historial; DENIEGA reescribir o borrar entradas anteriores', async () => {
+    await assertSucceeds(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 600, correcciones: [corr()] }))
+    let primera: any
+    await env.withSecurityRulesDisabled(async (ctx) => { primera = ((await getDoc(doc(ctx.firestore(), ruta))).data() as any).correcciones[0] })
+    const anteSegunda = { tanques: ANTES.tanques, pCab: 600, pSep: 300 }
+    // reescribir la primera entrada
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 650, correcciones: [{ ...primera, antes: { ...ANTES, pCab: 1 } }, corr({ antes: anteSegunda })] }))
+    // borrar la primera entrada
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 650, correcciones: [corr({ antes: anteSegunda })] }))
+    // añadir correctamente
+    await assertSucceeds(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 650, correcciones: [primera, corr({ antes: anteSegunda })] }))
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      expect(((await getDoc(doc(ctx.firestore(), ruta))).data() as any).correcciones).toHaveLength(2)
     })
   })
 
   it('DENIEGA cambiar la hora (es un hecho, no un valor medido)', async () => {
-    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { hora: 9 }))
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { hora: 9, correcciones: [corr()] }))
   })
 
   it('DENIEGA corregir lecturas de una evaluación ya aprobada (congeladas)', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'evaluaciones/evPendiente'), evalNueva({ estado: 'APROBADA_SUPERVISOR' }))
     })
-    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 1 }))
+    await assertFails(updateDoc(doc(as('sup', SUP_MONAGAS), ruta), { 'operativos.pCab': 1, correcciones: [corr()] }))
+  })
+})
+
+describe('/evaluaciones/{id}/lecturas — anulación por el Operador (control de errores de captura)', () => {
+  const ruta = 'evaluaciones/evEnCurso/lecturas/l1'
+  const anulacion = (over: Record<string, unknown> = {}) => ({
+    anulada: true, anuladaEn: new Date(), anuladaPor: 'op1', anuladaMotivo: 'Medí mal el tanque 2', ...over,
+  })
+
+  it('permite al Operador dueño anular SU lectura de un ciclo EN_CURSO, con motivo; la lectura no se borra ni pierde sus valores', async () => {
+    await assertSucceeds(updateDoc(doc(as('op1', OPERADOR), ruta), anulacion()))
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const d = (await getDoc(doc(ctx.firestore(), ruta))).data() as any
+      expect(d.anulada).toBe(true)
+      expect(d.anuladaPor).toBe('op1')
+      expect(d.anuladaMotivo).toBe('Medí mal el tanque 2')
+      expect(d.hora).toBe(1) // intacta
+    })
+  })
+
+  it('DENIEGA anular sin motivo, con motivo demasiado corto o demasiado largo', async () => {
+    const { anuladaMotivo: _omitido, ...sinMotivo } = anulacion()
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), ruta), sinMotivo))
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), ruta), anulacion({ anuladaMotivo: 'ok' })))
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), ruta), anulacion({ anuladaMotivo: 'x'.repeat(201) })))
+  })
+
+  it('DENIEGA firmar la anulación con el uid de otra persona', async () => {
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), ruta), anulacion({ anuladaPor: 'otro' })))
+  })
+
+  it('DENIEGA a otro Operador anular una lectura ajena', async () => {
+    await assertFails(updateDoc(doc(as('op2', OPERADOR_OTRO_POZO), ruta), anulacion({ anuladaPor: 'op2' })))
+  })
+
+  it('DENIEGA anular lecturas de una evaluación ya enviada a supervisión', async () => {
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), 'evaluaciones/evPendiente/lecturas/l1'), anulacion()))
+  })
+
+  it('DENIEGA aprovechar la anulación para cambiar valores medidos u otros campos', async () => {
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), ruta), anulacion({ tanques: [{ tanqueId: 't1', bph: 0 }] })))
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), ruta), anulacion({ hora: 99 })))
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), ruta), anulacion({ alertas: [] })))
+  })
+
+  it('DENIEGA editar los valores de una lectura sin anularla (el Operador no corrige en el lugar)', async () => {
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), ruta), { tanques: [{ tanqueId: 't1', bph: 50 }] }))
+  })
+
+  it('DENIEGA volver a anular una ya anulada y DENIEGA "desanular"', async () => {
+    await assertSucceeds(updateDoc(doc(as('op1', OPERADOR), ruta), anulacion()))
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), ruta), anulacion({ anuladaMotivo: 'otro motivo' })))
+    await assertFails(updateDoc(doc(as('op1', OPERADOR), ruta), { anulada: false }))
+  })
+
+  it('DENIEGA borrar la lectura (delete sigue siendo solo de ROOT)', async () => {
+    await assertFails(deleteDoc(doc(as('op1', OPERADOR), ruta)))
+  })
+
+  it('el Operador puede restar la hora anulada a horasEvaluadas de su evaluación (RegistroPage)', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'evaluaciones/evEnCurso'), evalNueva({ horasEvaluadas: 3 })) })
+    await assertSucceeds(updateDoc(doc(as('op1', OPERADOR), 'evaluaciones/evEnCurso'), { horasEvaluadas: 2 }))
   })
 })
 

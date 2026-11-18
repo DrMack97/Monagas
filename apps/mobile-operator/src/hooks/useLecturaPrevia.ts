@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react'
 import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import type { ILectura } from '@core/types'
+import { lecturasActivas } from '@core/utils/lecturasActivas'
 
 /** Cuántos ciclos anteriores se revisan buscando uno que tenga lecturas. */
 const MAX_CICLOS_ATRAS = 3
@@ -54,8 +55,11 @@ export function useLecturaPrevia(pozoId: string | undefined, evalId: string | nu
             query(collection(db, 'evaluaciones', ciclo.id, 'lecturas'), orderBy('hora', 'desc'), limit(LECTURAS_POR_CICLO))
           )
           if (!lecturas.empty) {
-            if (!cancelado) setPrevias(lecturas.docs.map((d) => ({ id: d.id, ...d.data() }) as ILectura))
-            return
+            const activas = lecturasActivas(lecturas.docs.map((d) => ({ id: d.id, ...d.data() }) as ILectura))
+            if (activas.length > 0) {
+              if (!cancelado) setPrevias(activas)
+              return
+            }
           }
         }
         if (!cancelado) setPrevias([])

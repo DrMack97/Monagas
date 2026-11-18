@@ -8,6 +8,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import RegistroPage from '../RegistroPage'
+import { guardarLectura } from '../../testing/guardarLectura'
 
 const addDocMock = jest.fn().mockResolvedValue({ id: 'l' })
 jest.mock('firebase/firestore', () => ({
@@ -84,9 +85,9 @@ describe('Registro — aviso rojo de lectura vacía', () => {
     expect(aviso()).toBeFalsy()
   })
 
-  it('NO bloquea: se puede guardar y la lectura lleva la constancia de que se guardó vacía', async () => {
+  it('NO bloquea: se puede guardar (tras confirmar) y la lectura lleva la constancia de que se guardó vacía', async () => {
     renderPage()
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Guardar Lectura' }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
     const lectura = addDocMock.mock.calls[0][1]
     expect(lectura.alertas.some((t: string) => /^Lectura guardada VACÍA/.test(t))).toBe(true)
@@ -94,7 +95,7 @@ describe('Registro — aviso rojo de lectura vacía', () => {
 
   it('AL GUARDAR con datos críticos en 0 sale un aviso en ROJO (no la confirmación verde normal)', async () => {
     renderPage()
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Guardar Lectura' }))
+    await guardarLectura()
     const rojo = await screen.findByRole('alert')
     expect(rojo).toHaveAttribute('data-nivel', 'ROJA')
     expect(rojo).toHaveTextContent(/Lectura #0 guardada, pero con datos críticos en 0/)
@@ -111,7 +112,7 @@ describe('Registro — aviso rojo de lectura vacía', () => {
     await escribe('Diferencial (inH₂O)', '40')
     await escribe('P. Cabezal (psig)', '540')
     await escribe('P. Separador (psig)', '120')
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Guardar Lectura' }))
+    await guardarLectura()
     expect(await screen.findByText(/^Lectura #\d+ guardada\.$/)).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
@@ -124,7 +125,7 @@ describe('Registro — aviso rojo de lectura vacía', () => {
     await escribe('Diferencial (inH₂O)', '40')
     await escribe('P. Cabezal (psig)', '540')
     await escribe('P. Separador (psig)', '120')
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Guardar Lectura' }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
     expect(addDocMock.mock.calls[0][1].alertas.some((t: string) => /en 0|VACÍA/.test(t))).toBe(false)
   })

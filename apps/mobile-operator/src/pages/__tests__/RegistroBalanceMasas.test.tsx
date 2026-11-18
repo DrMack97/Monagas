@@ -8,6 +8,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import RegistroPage from '../RegistroPage'
+import { guardarLectura } from '../../testing/guardarLectura'
 
 const addDocMock = jest.fn().mockResolvedValue({ id: 'l' })
 jest.mock('firebase/firestore', () => ({
@@ -144,13 +145,12 @@ describe('Registro — balance de masas', () => {
     expect(aviso).not.toHaveTextContent(/decimal/i)
   })
 
-  it('NO BLOQUEA: con alerta roja se puede guardar, y la alerta queda como constancia interna en la lectura', async () => {
+  it('NO BLOQUEA: con alerta roja se puede guardar (tras confirmar), y la alerta queda como constancia interna en la lectura', async () => {
     const { t2 } = renderPage([lectura(1, 0, 14, 72.8)])
     await escribe(t2, 'Medida Final (pulg)', '1')
-    const guardar = screen.getByRole('button', { name: /guardar lectura/i })
-    expect(guardar).toBeEnabled()
+    expect(screen.getByRole('button', { name: /guardar lectura/i })).toBeEnabled()
 
-    await userEvent.setup().click(guardar)
+    await guardarLectura() // la alerta roja del balance pide confirmar; la confirmación NO impide guardar
     await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
     const { alertas } = addDocMock.mock.calls[0][1]
     expect(alertas.some((a: string) => /Alerta roja \(Tanque 2\).*balance de masas/i.test(a))).toBe(true)
@@ -159,7 +159,7 @@ describe('Registro — balance de masas', () => {
   it('una captura correcta se guarda sin alertas de balance', async () => {
     const { t2 } = renderPage(subiendo(3))
     await escribe(t2, 'Medida Final (pulg)', '4')
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
     expect(addDocMock.mock.calls[0][1].alertas.filter((a: string) => /balance|producción por hora/i.test(a))).toEqual([])
   })
