@@ -99,6 +99,14 @@ describe('Registro — balance de masas', () => {
     expect(within(t1).queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('los mensajes de alerta (panel y por tanque) piden revisar, SIN decir que se puede guardar sin problema', async () => {
+    const { t2, panel } = renderPage([lectura(1, 0, 14, 72.8)])
+    await escribe(t2, 'Medida Final (pulg)', '1')
+    expect(panel).toHaveTextContent('Discrepancia crítica: más de una pulgada de nivel en algún tanque. Revisa Medida Final y Trasegado.')
+    expect(panel.textContent).not.toMatch(/guardar|seguir/i)
+    expect(within(t2).getByRole('status').textContent).not.toMatch(/guardar|seguir/i)
+  })
+
   it('al declarar el trasegado correcto el balance vuelve a cuadrar y el resaltado desaparece', async () => {
     const { t2, panel } = renderPage([lectura(1, 0, 14, 72.8)])
     await escribe(t2, 'Medida Final (pulg)', '1')

@@ -138,9 +138,9 @@ describe('Registro — aviso rojo de lectura vacía', () => {
     expect(a).toHaveTextContent('P. Cabezal')
   })
 
-  it('el aviso explica por qué importa y que se puede guardar si el 0 es real', () => {
+  it('el aviso explica por qué importa y NO invita a guardar sin problema', () => {
     renderPage()
     expect(within(aviso()!).getByText(/medida inicial de la próxima lectura/i)).toBeInTheDocument()
-    expect(within(aviso()!).getByText(/si el 0 es real/i)).toBeInTheDocument()
+    expect(aviso()!.textContent).not.toMatch(/puedes guardar|puedes seguir/i)
   })
 })

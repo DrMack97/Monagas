@@ -57,7 +57,7 @@ Se resaltan los campos **Existencia (Bls)** y **Total Trasegado Acumulado (Bls)*
 ## Cómo se ve
 - El campo afectado se enmarca en **amarillo** o **rojo**.
 - Bajo el tanque aparece el motivo en una frase, por ejemplo: *"Alerta roja: Discrepancia crítica en el balance de
-  masas: no cuadran 67,60 Bls (más de una pulgada de nivel). Puedes seguir y guardar."*
+  masas: no cuadran 67,60 Bls (más de una pulgada de nivel)."*
 - Un panel **"Balance de masas"** muestra la ecuación con sus tres cifras y el nivel
   (Cuadra / Alerta amarilla / Alerta roja).
 - Al corregir el dato el aviso **desaparece solo**.

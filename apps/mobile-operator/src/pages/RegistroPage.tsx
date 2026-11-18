@@ -653,7 +653,7 @@ export default function RegistroPage() {
                   )}
                   {avisos.mensajes.map((m) => (
                     <p key={m.texto}>
-                      <strong>{ETIQUETA_NIVEL[m.nivel]}:</strong> {m.texto} Puedes seguir y guardar.
+                      <strong>{ETIQUETA_NIVEL[m.nivel]}:</strong> {m.texto}
                     </p>
                   ))}
                 </div>
@@ -800,8 +800,7 @@ export default function RegistroPage() {
             <p className="text-xs text-red-300/80">
               Si se guarda así, la lectura entra a la base de datos con esos ceros: distorsiona los promedios y el cálculo de
               producción, y la Medida Final en 0 pasa a ser la medida inicial de la próxima lectura del tanque. Completa o
-              verifica los campos marcados en rojo. Si el 0 es real (por ejemplo, un pozo sin gas), puedes guardar igual; quedará
-              constancia en la lectura.
+              verifica los campos marcados en rojo.
             </p>
           </div>
         )}
