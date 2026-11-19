@@ -157,6 +157,8 @@ export interface IReporteOperativo {
   supervisorPDVSA?: string
   /** Supervisor de Producción PDVSA del turno nocturno. */
   supervisorPDVSANocturno?: string
+  /** Supervisor de Área (aparece en el Excel de Evaluación diaria). Se autocompleta con el del reporte anterior. */
+  supervisorArea?: string
   /** Supervisores de Well Testing (DSI): turno diurno / nocturno. */
   cuadrillaDiurno?: string
   cuadrillaNocturno?: string
@@ -221,6 +223,8 @@ export interface ILecturaTanque {
   reductor: number
   /** Bls retirados por vacuum en este intervalo; solo se guarda si fue mayor que 0 (ver calcTanque). */
   trasegado?: number
+  /** AyS (%) con que se calculó la lectura. Las lecturas anteriores a la 1.0.9 no lo guardaron (se deduce de aysBls/bpd). */
+  aysPct?: number
   bph: number
   bpd: number
   aysBls: number
@@ -281,6 +285,21 @@ export interface ILecturaOp {
   reductorPulgadas?: string
 }
 
+/**
+ * Una corrección hecha por un Supervisor sobre una lectura: guarda lo que había ANTES, quién y cuándo. La lectura se
+ * sobrescribe con el valor corregido; este registro conserva el original (nunca se pierde un dato medido).
+ */
+export interface ICorreccionLectura {
+  en: Date
+  /** uid de quien corrigió. */
+  por: string
+  antes: {
+    tanques: ILecturaTanque[]
+    pCab: number
+    pSep: number
+  }
+}
+
 export interface ILectura {
   id: string
   hora: number
@@ -290,6 +309,20 @@ export interface ILectura {
   operativos: ILecturaOp
   alertas?: string[]
   syncLocal?: boolean
+  /**
+   * Anulada por el Operador mientras la evaluación seguía EN_CURSO. Una lectura anulada NO se borra (queda como
+   * constancia con sus valores originales) pero no cuenta en ningún cálculo, tabla, reporte ni Excel.
+   */
+  anulada?: boolean
+  anuladaEn?: Date
+  /** uid del Operador que la anuló. */
+  anuladaPor?: string
+  /** Motivo escrito por el Operador (obligatorio al anular). */
+  anuladaMotivo?: string
+  /** Si esta lectura se capturó para CORREGIR otra (anulada), el id de esa otra. */
+  corrigeA?: string
+  /** Correcciones del Supervisor, de la más antigua a la más reciente. */
+  correcciones?: ICorreccionLectura[]
 }
 
 export interface IUsuario {

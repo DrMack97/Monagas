@@ -8,6 +8,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import RegistroPage from '../RegistroPage'
+import { guardarLectura } from '../../testing/guardarLectura'
 
 const addDocMock = jest.fn().mockResolvedValue({ id: 'l' })
 jest.mock('firebase/firestore', () => ({
@@ -63,7 +64,9 @@ describe('Registro — balance de masas', () => {
     const { t2, panel } = renderPage(subiendo(3))
     expect(panel).toHaveAttribute('data-nivel', 'OK')
     expect(within(panel).getByText('Cuadra')).toBeInTheDocument()
-    expect(campo(t2, 'Medida Final (pulg)')).toHaveAttribute('data-nivel', 'OK')
+    // El balance no resalta nada ni escribe avisos en el tanque. (La Medida Final sí sale en rojo, pero por OTRA regla:
+    // el aviso de "datos críticos en 0", que cubre RegistroLecturaVacia.test.tsx.)
+    expect(campo(t2, 'Trasegado (Bls)')).toHaveAttribute('data-nivel', 'OK')
     expect(within(t2).queryByRole('status')).not.toBeInTheDocument()
   })
 
@@ -91,7 +94,17 @@ describe('Registro — balance de masas', () => {
     expect(campo(t2, 'Trasegado (Bls)')).toHaveAttribute('data-nivel', 'ROJA')
     expect(campo(t2, 'Medida Final (pulg)').className).toMatch(/border-red-500/)
     expect(within(t2).getByRole('status')).toHaveTextContent(/alerta roja: discrepancia crítica en el balance de masas/i)
-    expect(campo(t1, 'Medida Final (pulg)')).toHaveAttribute('data-nivel', 'OK') // el otro tanque no se ve afectado
+    // el otro tanque no se ve afectado por el balance (su Medida Final en 0 es el aviso de datos críticos, otra regla)
+    expect(campo(t1, 'Trasegado (Bls)')).toHaveAttribute('data-nivel', 'OK')
+    expect(within(t1).queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('los mensajes de alerta (panel y por tanque) piden revisar, SIN decir que se puede guardar sin problema', async () => {
+    const { t2, panel } = renderPage([lectura(1, 0, 14, 72.8)])
+    await escribe(t2, 'Medida Final (pulg)', '1')
+    expect(panel).toHaveTextContent('Discrepancia crítica: más de una pulgada de nivel en algún tanque. Revisa Medida Final y Trasegado.')
+    expect(panel.textContent).not.toMatch(/guardar|seguir/i)
+    expect(within(t2).getByRole('status').textContent).not.toMatch(/guardar|seguir/i)
   })
 
   it('al declarar el trasegado correcto el balance vuelve a cuadrar y el resaltado desaparece', async () => {
@@ -140,13 +153,12 @@ describe('Registro — balance de masas', () => {
     expect(aviso).not.toHaveTextContent(/decimal/i)
   })
 
-  it('NO BLOQUEA: con alerta roja se puede guardar, y la alerta queda como constancia interna en la lectura', async () => {
+  it('NO BLOQUEA: con alerta roja se puede guardar (tras confirmar), y la alerta queda como constancia interna en la lectura', async () => {
     const { t2 } = renderPage([lectura(1, 0, 14, 72.8)])
     await escribe(t2, 'Medida Final (pulg)', '1')
-    const guardar = screen.getByRole('button', { name: /guardar lectura/i })
-    expect(guardar).toBeEnabled()
+    expect(screen.getByRole('button', { name: /guardar lectura/i })).toBeEnabled()
 
-    await userEvent.setup().click(guardar)
+    await guardarLectura() // la alerta roja del balance pide confirmar; la confirmación NO impide guardar
     await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
     const { alertas } = addDocMock.mock.calls[0][1]
     expect(alertas.some((a: string) => /Alerta roja \(Tanque 2\).*balance de masas/i.test(a))).toBe(true)
@@ -155,7 +167,7 @@ describe('Registro — balance de masas', () => {
   it('una captura correcta se guarda sin alertas de balance', async () => {
     const { t2 } = renderPage(subiendo(3))
     await escribe(t2, 'Medida Final (pulg)', '4')
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalledTimes(1))
     expect(addDocMock.mock.calls[0][1].alertas.filter((a: string) => /balance|producción por hora/i.test(a))).toEqual([])
   })

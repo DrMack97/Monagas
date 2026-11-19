@@ -10,19 +10,21 @@
 // ya es abierta a cualquier usuario autenticado — no hace falta
 // tocar firestore.rules para esto (a diferencia de editarlas).
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import type { ILectura } from '@core/types'
+import { lecturasActivas, lecturasAnuladas } from '@core/utils/lecturasActivas'
 
 export function useLecturasEvaluacion(evalId: string | undefined) {
-  const [lecturas, setLecturas] = useState<ILectura[]>([])
+  // Todas las lecturas del documento, incluidas las anuladas por el Operador; se separan al devolverlas.
+  const [todas, setTodas] = useState<ILectura[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!evalId) {
-      setLecturas([])
+      setTodas([])
       setLoading(false)
       return
     }
@@ -34,7 +36,7 @@ export function useLecturasEvaluacion(evalId: string | undefined) {
     const unsubscribe = onSnapshot(
       q,
       (snap) => {
-        setLecturas(
+        setTodas(
           snap.docs.map((d) => {
             const data = d.data()
             const timestamp =
@@ -55,5 +57,8 @@ export function useLecturasEvaluacion(evalId: string | undefined) {
     return () => unsubscribe()
   }, [evalId])
 
-  return { lecturas, loading, error }
+  // `lecturas` son solo las que CUENTAN (no anuladas); las anuladas se devuelven aparte, como constancia.
+  const lecturas = useMemo(() => lecturasActivas(todas), [todas])
+  const anuladas = useMemo(() => lecturasAnuladas(todas), [todas])
+  return { lecturas, anuladas, loading, error }
 }

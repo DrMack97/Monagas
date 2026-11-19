@@ -35,13 +35,10 @@ export default function BalanceMasasPanel({ balance }: { balance: BalanceMasas }
         {bls(balance.existenteTotal)} = {bls(balance.residuoTotal)} Bls
       </p>
       {balance.nivel === 'AMARILLA' && (
-        <p className="text-xs">Desviación menor: menos de una pulgada de nivel. Revisa las medidas; puedes seguir y guardar.</p>
+        <p className="text-xs">Desviación menor: menos de una pulgada de nivel. Revisa las medidas.</p>
       )}
       {balance.nivel === 'ROJA' && (
-        <p className="text-xs">
-          Discrepancia crítica: más de una pulgada de nivel en algún tanque. Revisa Medida Final y Trasegado; puedes seguir y
-          guardar, queda registrada como alerta.
-        </p>
+        <p className="text-xs">Discrepancia crítica: más de una pulgada de nivel en algún tanque. Revisa Medida Final y Trasegado.</p>
       )}
     </section>
   )

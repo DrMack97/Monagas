@@ -38,14 +38,26 @@ export const onLecturaEdit = onDocumentUpdated('evaluaciones/{evalId}/lecturas/{
     const lecturasSnap = await evalRef.collection('lecturas').orderBy('hora', 'asc').get()
     const lecturas = lecturasSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as ILectura)
 
+    // calcularPromedioEvaluacion ignora las lecturas anuladas por el Operador (ver utils/lecturasActivas.ts).
     const promedio = calcularPromedioEvaluacion(lecturas)
-    const nuevosResultados: IResultadosEval = {
-      ...promedio,
-      tipoCalculo: evaluacion.resultados?.tipoCalculo ?? 'FINAL_24H',
-      calculadoEn: new Date(),
-    }
 
-    await evalRef.update({ resultados: nuevosResultados })
+    if (evaluacion.resultados) {
+      // Rutas anidadas, NO resultados: {...}: reemplazar el mapa completo borraba lo que el panel escribe junto con la
+      // corrección (recalculadoEn / recalculadoPor: quién y cuándo recalculó) y el tipoCalculo. Solo se actualizan los
+      // promedios y la marca de cálculo.
+      await evalRef.update({
+        'resultados.bpdPromedio': promedio.bpdPromedio,
+        'resultados.netosPromedio': promedio.netosPromedio,
+        'resultados.qgPromedio': promedio.qgPromedio,
+        'resultados.aysBls': promedio.aysBls,
+        'resultados.horasTotales': promedio.horasTotales,
+        'resultados.proyeccion24H': promedio.proyeccion24H,
+        'resultados.calculadoEn': new Date(),
+      })
+    } else {
+      const nuevosResultados: IResultadosEval = { ...promedio, tipoCalculo: 'FINAL_24H', calculadoEn: new Date() }
+      await evalRef.update({ resultados: nuevosResultados })
+    }
     console.log(`Resultados recalculados para evaluación ${evalId} tras editar lectura ${lecturaId}.`)
   } catch (error) {
     console.error(`Error recalculando resultados de ${evalId} tras editar lectura ${lecturaId}:`, error)

@@ -37,7 +37,7 @@ trasegado el BPD de ese tanque sale 0 y la pantalla te avisa; con el trasegado e
 tanque + barriles trasegados.
 **Alerta de balance de masas (no bloquea):** mientras escribes, la app comprueba que Desplazamiento − Trasegado − Existente = 0
 en cada tanque. Si no cuadra, resalta en **amarillo** (desviación menor) o **rojo** (discrepancia crítica) la Medida Final y el
-Trasegado del tanque y te dice qué revisar; **puedes seguir y guardar igual**. Un decimal omitido suele caer en rojo. Detalle
+Trasegado del tanque y te dice qué revisar (la alerta no bloquea el guardado, pero hay que revisarla). Un decimal omitido suele caer en rojo. Detalle
 completo: docs/manuals/alerta-balance-masas.md.
 El **caudal de gas (Qg)** sale en **MMSCFD** y se calcula con la **Placa de orificio** y el **Meter Run** del pozo, que
 fija el Supervisor de Campo y tú ves de solo lectura: si faltan, la app te avisa y no calcula Qg (avisa a tu Supervisor de Campo).

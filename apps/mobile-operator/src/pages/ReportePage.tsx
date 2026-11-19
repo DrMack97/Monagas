@@ -43,7 +43,7 @@ import { cargarEvaluacionesDelPozo } from '../utils/historicoPozo'
 import type { IResultadosEval, IReporteOperativo, IViajeVacuum } from '@core/types'
 
 type CampoTesting = 'fechaAlineacion' | 'fechaCulminacion' | 'estadoActual' | 'asunto' | 'plan' | 'api'
-type CampoSupervisor = 'supervisorPDVSA' | 'supervisorPDVSANocturno' | 'cuadrillaDiurno' | 'cuadrillaNocturno'
+type CampoSupervisor = 'supervisorArea' | 'supervisorPDVSA' | 'supervisorPDVSANocturno' | 'cuadrillaDiurno' | 'cuadrillaNocturno'
 
 interface ViajeForm {
   fechaHora: string // datetime-local
@@ -69,7 +69,6 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
   const [enviado, setEnviado] = useState(false)
   // Qué Excel se está generando ahora (los dos formatos son independientes: Evaluación diaria / Histórico del equipo).
   const [exportando, setExportando] = useState<'diaria' | 'historico' | null>(null)
-  const [supervisorArea, setSupervisorArea] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   // Campos de cierre del "REPORTE OPERACIONES DE WT" estándar (Gerencia de
@@ -88,6 +87,7 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
   const valorSup = (campo: CampoSupervisor): string => supEditado[campo] ?? supAnterior(campo) ?? ''
   const supPrefill = (campo: CampoSupervisor): boolean => supEditado[campo] === undefined && supAnterior(campo) !== undefined
   const editarSup = (campo: CampoSupervisor) => (valor: string) => setSupEditado((prev) => ({ ...prev, [campo]: valor }))
+  const supervisorArea = valorSup('supervisorArea')                         // Supervisor de Área (tarjeta de arriba y Excel)
   const supervisorPDVSA = valorSup('supervisorPDVSA')                       // Supv. Producción PDVSA — diurno
   const supervisorPDVSANocturno = valorSup('supervisorPDVSANocturno')
   const cuadrillaDiurno = valorSup('cuadrillaDiurno')                       // Supv. Well Testing (DSI)
@@ -162,6 +162,7 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
         destino: v.destino.trim(),
       }))
     return {
+      ...(supervisorArea.trim() && { supervisorArea: supervisorArea.trim() }),
       ...(supervisorPDVSA.trim() && { supervisorPDVSA: supervisorPDVSA.trim() }),
       ...(supervisorPDVSANocturno.trim() && { supervisorPDVSANocturno: supervisorPDVSANocturno.trim() }),
       ...(cuadrillaDiurno.trim() && { cuadrillaDiurno: cuadrillaDiurno.trim() }),
@@ -386,13 +387,16 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
         </div>
 
         <div className="mt-3">
-          <label className="block text-xs text-slate-500 mb-1">Supervisor de Área</label>
-          <input
+          <CampoTexto
+            label="Supervisor de Área"
             value={supervisorArea}
-            onChange={(e) => setSupervisorArea(e.target.value)}
+            onChange={editarSup('supervisorArea')}
             placeholder="Nombre del supervisor"
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white text-sm"
+            prefill={supPrefill('supervisorArea')}
           />
+          {supPrefill('supervisorArea') && (
+            <p className="text-xs text-slate-500 mt-1">Nombre tomado del reporte anterior; edítalo si cambió.</p>
+          )}
         </div>
       </div>
 
@@ -608,9 +612,6 @@ export default function ReportePage({ pozoId, evalId, onVolver }: ReportePagePro
               <FiFileText aria-hidden="true" /> {exportando === 'historico' ? 'Exportando...' : 'Excel · Histórico del equipo'}
             </button>
           </div>
-          <p className="text-xs text-slate-500">
-            Evaluación diaria: solo esta prueba, con su desplazado propio. Histórico del equipo: todo lo acumulado del equipo en el pozo.
-          </p>
         </>
       )}
     </div>
@@ -666,11 +667,13 @@ function CampoTexto({
   nivel = 'OK',
   aviso,
   prefill = false,
+  placeholder,
 }: {
   label: string
   value: string
   onChange: (v: string) => void
   type?: string
+  placeholder?: string
   /** Alerta preventiva (no bloquea): resalta el borde del campo. */
   nivel?: NivelAlerta
   aviso?: string
@@ -687,6 +690,7 @@ function CampoTexto({
         id={id}
         type={type}
         value={value}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         data-nivel={nivel}
         data-prefill={prefill}

@@ -12,10 +12,10 @@
 // pozo se acumula — el operador puede seguir registrando lecturas
 // hasta cerrar el ciclo desde ReportePage.
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { FiArrowLeft, FiLock, FiAlertTriangle } from 'react-icons/fi'
-import { doc, updateDoc, increment, collection, addDoc } from 'firebase/firestore'
+import { doc, updateDoc, increment, collection, addDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../services/firebase'
 import { useAuth } from '../hooks/useAuth'
 import { usePozoInfo } from '../hooks/usePozoInfo'
@@ -27,9 +27,13 @@ import { calcTanque, calcAGA3 } from '@monagas/core/calculos'
 import { capacidadesZona } from '@core/constants/zonas'
 import { resumenTrasegado } from '@core/utils/trasegado'
 import { balanceMasas, detectarSalto, peorNivel, type NivelAlerta } from '@core/utils/balanceMasas'
+import { datosCriticosEnCero, esConstanciaLecturaVacia, textoConstanciaLecturaVacia } from '@core/utils/lecturaVacia'
+import { evaluarRangos } from '@core/utils/rangos'
+import { motivosDeConfirmacion } from '@core/utils/confirmacionGuardado'
 import BalanceMasasPanel, { ETIQUETA_NIVEL } from '../components/BalanceMasasPanel'
+import UltimaLecturaPanel from '../components/UltimaLecturaPanel'
 import LoadingSpinner from '../components/LoadingSpinner'
-import type { ILecturaTanque, ILecturaGas } from '@core/types'
+import type { ILecturaTanque, ILecturaGas, ILectura } from '@core/types'
 
 // reductor y dilDia ya no tienen campo en pantalla: el Reductor es una medida de
 // tubería (pulgadas) fijada en el pozo y no afecta los barriles, y el Diluyente no se
@@ -124,6 +128,14 @@ export default function RegistroPage() {
   const [guardadoOk, setGuardadoOk] = useState(false)
   const [guardadoOffline, setGuardadoOffline] = useState(false)
   const [ultimasAlertas, setUltimasAlertas] = useState<string[]>([])
+  const guardadaConCeros = ultimasAlertas.some(esConstanciaLecturaVacia)
+  // Confirmación antes de guardar (cuando hay algo que parece un error de captura) y anulación/corrección de la última lectura.
+  const [confirmando, setConfirmando] = useState(false)
+  const [anulando, setAnulando] = useState(false)
+  const [avisoAnulacion, setAvisoAnulacion] = useState<string | null>(null)
+  const [errorAnulacion, setErrorAnulacion] = useState<string | null>(null)
+  /** Si la lectura que se está capturando CORRIGE a otra ya anulada: su id y número. */
+  const [corrigeA, setCorrigeA] = useState<{ id: string; hora: number } | null>(null)
 
   // mi de cada tanque = mf de la última lectura guardada, o el mi de
   // configuración del pozo si todavía no hay lecturas en este ciclo.
@@ -253,6 +265,112 @@ export default function RegistroPage() {
   const meterRun = pozo?.meterRun ?? 0
   const gasConfigurado = diamPlaca > 0 && meterRun > 0
 
+  // Aviso en ROJO de "lectura vacía": datos críticos en 0 (Medida Final, Presión Estática, Diferencial, P. Cabezal,
+  // P. Separador). No bloquea el guardado (un 0 puede ser real), pero resalta los campos y deja constancia en la lectura.
+  const avisoVacia = datosCriticosEnCero({
+    tanques: (pozo?.tanques ?? []).map((t) => ({ id: t.id, nombre: t.nombre, mf: formDeTank(t.id).mf, mi: miPorTanque[t.id] ?? t.mi })),
+    pf, hw, pCab, pSep, gasConfigurado,
+  })
+  // Rangos plausibles por pozo (utils/rangos.ts): valores fuera de lo razonable o de lo habitual de ESTE pozo (se compara
+  // con las últimas lecturas que cuentan: las de este ciclo o, si aún no hay, las del ciclo anterior).
+  const historialRango = {
+    pf: cargasAnteriores.slice(0, 10).map((l) => l.gas?.pf ?? 0),
+    hw: cargasAnteriores.slice(0, 10).map((l) => l.gas?.hw ?? 0),
+    pCab: cargasAnteriores.slice(0, 10).map((l) => l.operativos?.pCab ?? 0),
+    pSep: cargasAnteriores.slice(0, 10).map((l) => l.operativos?.pSep ?? 0),
+  }
+  const rangos = evaluarRangos({
+    gasConfigurado, pf, hw, tGas, gg, pCab, pSep,
+    tanques: (pozo?.tanques ?? []).map((t) => ({ id: t.id, nombre: t.nombre, mf: formDeTank(t.id).mf })),
+    limResorte: pozo?.limResorte, limGamma: pozo?.limGamma, historial: historialRango,
+  })
+  const critico = (tipo: 'pf' | 'hw' | 'tGas' | 'gg' | 'pCab' | 'pSep'): NivelAlerta =>
+    peorNivel(
+      avisoVacia.campos.some((c) => c.tipo === tipo) ? 'ROJA' : 'OK',
+      ...rangos.filter((r) => r.campo === tipo).map((r): NivelAlerta => r.nivel)
+    )
+  const criticoMedida = (tankId: string): NivelAlerta =>
+    peorNivel(
+      avisoVacia.campos.some((c) => c.tipo === 'medidaFinal' && c.tanqueId === tankId) ? 'ROJA' : 'OK',
+      ...rangos.filter((r) => r.campo === 'medidaFinal' && r.tanqueId === tankId).map((r): NivelAlerta => r.nivel)
+    )
+
+  // Confirmación antes de guardar: datos críticos en 0, valores fuera de rango o discrepancia ROJA del balance de masas.
+  // No impide guardar: pide una segunda pulsación consciente ("Guardar de todos modos"). Las amarillas del balance y los
+  // saltos de producción siguen siendo solo avisos.
+  const motivos = motivosDeConfirmacion({
+    camposEnCero: avisoVacia.campos.map((c) => c.etiqueta),
+    rangos: rangos.map((r) => r.texto),
+    balanceRojo: (pozo?.tanques ?? []).flatMap((t) =>
+      avisosDeTanque(t.id).mensajes.filter((m) => m.nivel === 'ROJA').map((m) => `${t.nombre}: ${m.texto}`)
+    ),
+  })
+  const claveMotivos = motivos.join('|')
+  // Si el operador cambia algo y los motivos cambian, la confirmación pendiente ya no corresponde: se vuelve a pedir.
+  useEffect(() => { setConfirmando(false) }, [claveMotivos])
+  function pedirGuardar() {
+    if (motivos.length > 0 && !confirmando) { setConfirmando(true); return }
+    void handleGuardar()
+  }
+
+  // --- Última lectura: anular o corregir (control de errores de captura) ---
+  const ultimaLectura: ILectura | undefined = lecturas[lecturas.length - 1]
+  const nombresTanque = Object.fromEntries((pozo?.tanques ?? []).map((t) => [t.id, t.nombre]))
+  /** AyS (%) de una lectura: el guardado; las anteriores a la 1.0.9 no lo guardaron y se deduce de aysBls/bpd. */
+  const aysPctDe = (t: ILecturaTanque): number =>
+    Number.isFinite(t.aysPct) ? (t.aysPct as number) : t.bpd > 0 ? Math.round((t.aysBls / t.bpd) * 10000) / 100 : 0
+
+  /** Carga el contenido de una lectura en el formulario, para corregirla. */
+  function cargarEnFormulario(l: ILectura) {
+    setTh(String(l.tanques[0]?.th ?? 1))
+    setTankForms(
+      Object.fromEntries(
+        l.tanques.map((t) => [t.tanqueId, { mf: String(t.mf), reductor: '0', aysPct: String(aysPctDe(t)), dilDia: '0', trasegado: String(t.trasegado ?? 0) }])
+      )
+    )
+    if (l.gas) setGasEditado({ pf: String(l.gas.pf), hw: String(l.gas.hw), tGas: String(l.gas.tGas), gg: String(l.gas.gg) })
+    setPresionEditada({
+      pCab: String(l.operativos?.pCab ?? 0),
+      pSep: String(l.operativos?.pSep ?? 0),
+      ...(l.operativos?.pCsg !== undefined && { pCsg: String(l.operativos.pCsg) }),
+    })
+  }
+
+  async function anularUltima(motivo: string, corregir: boolean) {
+    if (!ultimaLectura || !evalId || !user) return
+    const l = ultimaLectura
+    setAnulando(true)
+    setErrorAnulacion(null)
+    setAvisoAnulacion(null)
+    try {
+      // La lectura NO se borra: se marca como anulada (quién, cuándo, por qué) y se resta su hora a horasEvaluadas. Las dos
+      // escrituras van en un lote: o se hacen las dos o ninguna.
+      const lote = writeBatch(db)
+      lote.update(doc(db, 'evaluaciones', evalId, 'lecturas', l.id), {
+        anulada: true, anuladaEn: new Date(), anuladaPor: user.uid, anuladaMotivo: motivo,
+      })
+      lote.update(doc(db, 'evaluaciones', evalId), { horasEvaluadas: increment(-(l.tanques[0]?.th ?? 1)) })
+      const escritura = lote.commit()
+      if (isOnline) await escritura
+      else escritura.catch((err) => console.error('Error sincronizando la anulación pendiente:', err)) // se reenvía al volver la red
+      setGuardadoOk(false)
+      setUltimasAlertas([])
+      if (corregir) {
+        cargarEnFormulario(l)
+        setCorrigeA({ id: l.id, hora: l.hora })
+        setAvisoAnulacion(`Lectura #${l.hora} anulada. Sus datos están cargados abajo: corrige lo que estaba mal y guarda.`)
+      } else {
+        setAvisoAnulacion(`Lectura #${l.hora} anulada. Ya no cuenta en el promedio, la tabla, el reporte ni el Excel (queda como constancia).`)
+      }
+    } catch (err: any) {
+      setErrorAnulacion(
+        err.code === 'permission-denied' ? 'No tienes permiso para anular esta lectura.' : 'No se pudo anular la lectura. Intenta de nuevo.'
+      )
+    } finally {
+      setAnulando(false)
+    }
+  }
+
   const gasResult = useMemo(() => {
     if (!gasConfigurado) return null
     try {
@@ -271,6 +389,7 @@ export default function RegistroPage() {
 
   async function handleGuardar() {
     if (!evalId || !pozo) return
+    setConfirmando(false)
     setGuardando(true)
     setError(null)
     try {
@@ -283,6 +402,7 @@ export default function RegistroPage() {
           dif: resultado!.dif,
           th: parseFloat(th) || 1,
           reductor: parseFloat(formDeTank(tank.id).reductor) || 0,
+          aysPct: parseFloat(formDeTank(tank.id).aysPct) || 0,
           bph: resultado!.bph,
           bpd: resultado!.bpd,
           aysBls: resultado!.aysBls,
@@ -328,6 +448,9 @@ export default function RegistroPage() {
         )
       }
 
+      // Constancia de datos críticos en 0 (alerta interna, no sale en exportables)
+      if (avisoVacia.campos.length > 0) alertas.push(textoConstanciaLecturaVacia(avisoVacia))
+
       // Constancia del balance de masas / incongruencias de captura (alertas internas, no salen en exportables)
       for (const t of pozo.tanques) {
         const av = avisosDeTanque(t.id)
@@ -348,6 +471,7 @@ export default function RegistroPage() {
             ...(pozo.reductorPulgadas?.trim() && { reductorPulgadas: pozo.reductorPulgadas.trim() }),
           },
           alertas,
+          ...(corrigeA && { corrigeA: corrigeA.id }),
         }),
         updateDoc(doc(db, 'evaluaciones', evalId), {
           horasEvaluadas: increment(parseFloat(th) || 1),
@@ -372,6 +496,8 @@ export default function RegistroPage() {
       }
 
       setTankForms({})
+      setCorrigeA(null)
+      setAvisoAnulacion(null)
       setUltimasAlertas(alertas)
       setGuardadoOk(true)
       setGuardadoOffline(!isOnline)
@@ -427,6 +553,28 @@ export default function RegistroPage() {
           </section>
         </div>
 
+        {ultimaLectura && (
+          <UltimaLecturaPanel
+            key={ultimaLectura.id}
+            lectura={ultimaLectura}
+            nombresTanque={nombresTanque}
+            ocupado={anulando}
+            onAnular={(m) => anularUltima(m, false)}
+            onCorregir={(m) => anularUltima(m, true)}
+          />
+        )}
+        {errorAnulacion && (
+          <div role="alert" className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-lg px-3 py-2">{errorAnulacion}</div>
+        )}
+        {avisoAnulacion && (
+          <div role="status" className="text-sm text-amber-400 bg-amber-950/40 border border-amber-900 rounded-lg px-3 py-2">{avisoAnulacion}</div>
+        )}
+        {corrigeA && (
+          <div role="status" className="text-xs text-slate-400">
+            Estás corrigiendo la lectura anulada #{corrigeA.hora}: al guardar se registra como lectura #{lecturas.length + 1} y queda enlazada a la anulada.
+          </div>
+        )}
+
         <div>
           <label className="block text-sm text-slate-300 mb-1.5">Horas desde última lectura</label>
           <input
@@ -444,7 +592,10 @@ export default function RegistroPage() {
           const nivelBalance = balance.tanques.find((t) => t.tanqueId === tank.id)?.nivel ?? 'OK'
           // Resaltado directo de los campos de entrada: rojo/amarillo según el balance; un salto desproporcionado
           // marca la Medida Final en amarillo.
-          const nivelMedida = tocado(tank.id) ? peorNivel(nivelBalance, avisos.mensajes.some((m) => m.texto.includes('por hora')) ? 'AMARILLA' : 'OK') : 'OK'
+          const nivelMedida = peorNivel(
+            tocado(tank.id) ? peorNivel(nivelBalance, avisos.mensajes.some((m) => m.texto.includes('por hora')) ? 'AMARILLA' : 'OK') : 'OK',
+            criticoMedida(tank.id),
+          )
           const nivelTrasegado = tocado(tank.id) ? nivelBalance : 'OK'
           return (
             <section key={tank.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
@@ -502,7 +653,7 @@ export default function RegistroPage() {
                   )}
                   {avisos.mensajes.map((m) => (
                     <p key={m.texto}>
-                      <strong>{ETIQUETA_NIVEL[m.nivel]}:</strong> {m.texto} Puedes seguir y guardar.
+                      <strong>{ETIQUETA_NIVEL[m.nivel]}:</strong> {m.texto}
                     </p>
                   ))}
                 </div>
@@ -527,19 +678,19 @@ export default function RegistroPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">Presión Estática (psig)</label>
-              <input type="number" value={pf} onChange={(e) => editarGas('pf', e.target.value)} data-prefill={gasPrefill('pf')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pf} onChange={(e) => editarGas('pf', e.target.value)} data-prefill={gasPrefill('pf')} data-nivel={critico('pf')} className={claseCampo(critico('pf'))} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Diferencial (inH₂O)</label>
-              <input type="number" value={hw} onChange={(e) => editarGas('hw', e.target.value)} data-prefill={gasPrefill('hw')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={hw} onChange={(e) => editarGas('hw', e.target.value)} data-prefill={gasPrefill('hw')} data-nivel={critico('hw')} className={claseCampo(critico('hw'))} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Temp. gas (°F)</label>
-              <input type="number" value={tGas} onChange={(e) => editarGas('tGas', e.target.value)} data-prefill={gasPrefill('tGas')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={tGas} onChange={(e) => editarGas('tGas', e.target.value)} data-prefill={gasPrefill('tGas')} data-nivel={critico('tGas')} className={claseCampo(critico('tGas'))} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">Gravedad específica</label>
-              <input type="number" step="0.01" value={gg} onChange={(e) => editarGas('gg', e.target.value)} data-prefill={gasPrefill('gg')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" step="0.01" value={gg} onChange={(e) => editarGas('gg', e.target.value)} data-prefill={gasPrefill('gg')} data-nivel={critico('gg')} className={claseCampo(critico('gg'))} />
             </div>
           </div>
           {gasAnterior && (
@@ -570,11 +721,11 @@ export default function RegistroPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-slate-500 mb-1">P. Cabezal (psig)</label>
-              <input type="number" value={pCab} onChange={(e) => editarPresion('pCab', e.target.value)} data-prefill={presionPrefill('pCab')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pCab} onChange={(e) => editarPresion('pCab', e.target.value)} data-prefill={presionPrefill('pCab')} data-nivel={critico('pCab')} className={claseCampo(critico('pCab'))} />
             </div>
             <div>
               <label className="block text-xs text-slate-500 mb-1">P. Separador (psig)</label>
-              <input type="number" value={pSep} onChange={(e) => editarPresion('pSep', e.target.value)} data-prefill={presionPrefill('pSep')} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-white" />
+              <input type="number" value={pSep} onChange={(e) => editarPresion('pSep', e.target.value)} data-prefill={presionPrefill('pSep')} data-nivel={critico('pSep')} className={claseCampo(critico('pSep'))} />
             </div>
             {zonaCaps.casing && (
               <div>
@@ -604,26 +755,81 @@ export default function RegistroPage() {
             Lectura #{lecturas.length} guardada localmente — se enviará cuando vuelva la conexión.
           </div>
         )}
-        {guardadoOk && !guardadoOffline && (
+        {guardadoOk && !guardadoOffline && !guardadaConCeros && (
           <div className="text-sm text-emerald-400 bg-emerald-950/40 border border-emerald-900 rounded-lg px-3 py-2">
             Lectura #{lecturas.length} guardada.
           </div>
         )}
-        {guardadoOk && ultimasAlertas.length > 0 && (
+        {/* Guardada con datos críticos en 0: aviso en ROJO al guardar (no bloquea, pero no se confunde con un guardado normal) */}
+        {guardadoOk && guardadaConCeros && (
+          <div role="alert" data-nivel="ROJA" className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-lg px-3 py-2 space-y-1">
+            <p className="font-medium">Lectura #{lecturas.length} guardada, pero con datos críticos en 0.</p>
+            {ultimasAlertas.filter(esConstanciaLecturaVacia).map((a) => (
+              <p key={a} className="flex items-center gap-1"><FiAlertTriangle aria-hidden="true" /> {a}</p>
+            ))}
+            <p className="text-xs text-red-300/80">Revisa esa lectura: los ceros entraron a la base de datos y afectan los promedios.</p>
+          </div>
+        )}
+        {guardadoOk && ultimasAlertas.some((a) => !esConstanciaLecturaVacia(a)) && (
           <div className="text-sm text-amber-400 bg-amber-950/40 border border-amber-900 rounded-lg px-3 py-2 space-y-1">
-            {ultimasAlertas.map((a) => (
+            {ultimasAlertas.filter((a) => !esConstanciaLecturaVacia(a)).map((a) => (
               <p key={a} className="flex items-center gap-1"><FiAlertTriangle aria-hidden="true" /> {a}</p>
             ))}
           </div>
         )}
 
-        <button
-          onClick={handleGuardar}
-          disabled={guardando || !evalId}
-          className="w-full bg-amber-500 text-slate-950 font-medium rounded-lg py-3 disabled:opacity-50"
-        >
-          {guardando ? 'Guardando...' : 'Guardar Lectura'}
-        </button>
+        {rangos.length > 0 && !confirmando && (
+          <div
+            role="status"
+            data-nivel={rangos.some((r) => r.nivel === 'ROJA') ? 'ROJA' : 'AMARILLA'}
+            className={`text-sm rounded-lg px-3 py-2 space-y-1 border ${
+              rangos.some((r) => r.nivel === 'ROJA') ? 'text-red-400 bg-red-950/40 border-red-900' : 'text-amber-400 bg-amber-950/40 border-amber-900'
+            }`}
+          >
+            <p className="flex items-center gap-1 font-medium"><FiAlertTriangle aria-hidden="true" /> Valores fuera de lo esperado</p>
+            {rangos.map((r) => <p key={r.texto}>{r.texto}</p>)}
+          </div>
+        )}
+
+        {avisoVacia.campos.length > 0 && (
+          <div role="status" data-nivel="ROJA" className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-lg px-3 py-2 space-y-1">
+            <p className="flex items-center gap-1 font-medium">
+              <FiAlertTriangle aria-hidden="true" /> {avisoVacia.vacia ? 'Lectura vacía: todos los datos críticos están en 0' : 'Datos críticos en 0'}
+            </p>
+            <p>{avisoVacia.campos.map((c) => c.etiqueta).join(' · ')}</p>
+            <p className="text-xs text-red-300/80">
+              Si se guarda así, la lectura entra a la base de datos con esos ceros: distorsiona los promedios y el cálculo de
+              producción, y la Medida Final en 0 pasa a ser la medida inicial de la próxima lectura del tanque. Completa o
+              verifica los campos marcados en rojo.
+            </p>
+          </div>
+        )}
+
+        {confirmando ? (
+          <div role="alertdialog" aria-label="Confirmar guardado" className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-lg px-3 py-3 space-y-2">
+            <p className="font-medium flex items-center gap-1"><FiAlertTriangle aria-hidden="true" /> ¿Guardar de todos modos?</p>
+            <ul className="list-disc pl-5 space-y-1">
+              {motivos.map((m) => <li key={m}>{m}</li>)}
+            </ul>
+            <p className="text-xs text-red-300/80">Si guardas, esta lectura entra a la base de datos tal cual. Si te equivocas, puedes anularla o corregirla con "Última lectura".</p>
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <button onClick={() => setConfirmando(false)} className="bg-slate-800 border border-slate-700 text-white rounded-lg py-3">
+                Revisar
+              </button>
+              <button onClick={() => void handleGuardar()} disabled={guardando || !evalId} className="bg-red-600 text-white font-medium rounded-lg py-3 disabled:opacity-50">
+                {guardando ? 'Guardando...' : 'Guardar de todos modos'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={pedirGuardar}
+            disabled={guardando || !evalId}
+            className="w-full bg-amber-500 text-slate-950 font-medium rounded-lg py-3 disabled:opacity-50"
+          >
+            {guardando ? 'Guardando...' : 'Guardar Lectura'}
+          </button>
+        )}
 
         {evalId && (
           <button

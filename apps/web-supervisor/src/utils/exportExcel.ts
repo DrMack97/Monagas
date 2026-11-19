@@ -14,6 +14,7 @@ import type { IPozo, IEvaluacion, ILectura } from '@core/types'
 import { redondearAHoraEntera, horaEnteraTexto } from '@core/utils/hora'
 import { construirReporteEstandar, reporteAFilasExcel } from '@core/utils/reporteEstandar'
 import { capacidadesZona } from '@core/constants/zonas'
+import { lecturasActivas } from '@core/utils/lecturasActivas'
 
 function dateFormat(d: Date | undefined): string {
   if (!d) return '—'
@@ -31,7 +32,9 @@ interface ExportarInformeOficialParams {
   lecturas: ILectura[]
 }
 
-export function exportarInformeOficialExcel({ pozo, evaluacion, lecturas }: ExportarInformeOficialParams) {
+export function exportarInformeOficialExcel({ pozo, evaluacion, lecturas: todasLasLecturas }: ExportarInformeOficialParams) {
+  // Las lecturas anuladas por el Operador no cuentan en ningún informe (ver @core/utils/lecturasActivas).
+  const lecturas = lecturasActivas(todasLasLecturas)
   const resultados = evaluacion.resultados
   const reporte = evaluacion.reporteOperativo ?? {}
   const ultimaAprobacion = evaluacion.aprobaciones?.[evaluacion.aprobaciones.length - 1]

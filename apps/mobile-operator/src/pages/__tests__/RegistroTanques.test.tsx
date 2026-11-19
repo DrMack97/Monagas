@@ -9,6 +9,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import RegistroPage from '../RegistroPage'
+import { guardarLectura } from '../../testing/guardarLectura'
 
 const addDocMock = jest.fn().mockResolvedValue({ id: 'l' })
 jest.mock('firebase/firestore', () => ({
@@ -87,7 +88,7 @@ describe('Registro — calculadora por tanque', () => {
     const [, s2] = renderConLecturas([lectura(0, 14)])
     await escribe(s2, 'Medida Final (pulg)', '1')
     await escribe(s2, 'Trasegado (Bls)', '70')
-    await userEvent.setup().click(screen.getByRole('button', { name: /guardar lectura/i }))
+    await guardarLectura()
     await waitFor(() => expect(addDocMock).toHaveBeenCalled())
     const [t1, t2] = addDocMock.mock.calls[0][1].tanques
     expect(t2).toMatchObject({ tanqueId: 't2', mi: 14, mf: 1, trasegado: 70 })

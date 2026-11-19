@@ -15,7 +15,7 @@ jest.mock('firebase/firestore', () => ({
 
 const ts = (ms: number) => ({ toMillis: () => ms })
 const evalDoc = (id: string, creadoMs: number) => ({ id, data: () => ({ creadoEn: ts(creadoMs) }) })
-const lecturaDoc = (id: string, hora: number) => ({ id, data: () => ({ hora, gas: { pf: hora } }) })
+const lecturaDoc = (id: string, hora: number, anulada = false) => ({ id, data: () => ({ hora, gas: { pf: hora }, ...(anulada && { anulada: true }) }) })
 
 /** getDocs de la consulta de evaluaciones y de las lecturas de cada ciclo. */
 function configurar(evaluaciones: ReturnType<typeof evalDoc>[], lecturasPorCiclo: Record<string, ReturnType<typeof lecturaDoc>[]>) {
@@ -51,6 +51,20 @@ describe('useLecturaPrevia', () => {
     expect(consultaLecturas.ref.ruta).toBe('evaluaciones/anterior/lecturas')
     expect(consultaLecturas.restricciones).toContainEqual({ tipo: 'orderBy', campo: 'hora', dir: 'desc' })
     expect(consultaLecturas.restricciones.some((r: any) => r.tipo === 'limit')).toBe(true)
+  })
+
+  it('IGNORA las lecturas anuladas por el Operador (no deben alimentar el prefill)', async () => {
+    configurar([evalDoc('actual', 2), evalDoc('anterior', 1)], { anterior: [lecturaDoc('a9', 9, true), lecturaDoc('a8', 8)] })
+    const { result } = renderHook(() => useLecturaPrevia('p1', 'actual', true))
+    await waitFor(() => expect(result.current.previas).toHaveLength(1))
+    expect(result.current.previas[0].id).toBe('a8')
+  })
+
+  it('si TODAS las lecturas de un ciclo están anuladas, sigue buscando en un ciclo anterior', async () => {
+    configurar([evalDoc('actual', 3), evalDoc('todoAnulado', 2), evalDoc('viejo', 1)], { todoAnulado: [lecturaDoc('x1', 1, true)], viejo: [lecturaDoc('v1', 1)] })
+    const { result } = renderHook(() => useLecturaPrevia('p1', 'actual', true))
+    await waitFor(() => expect(result.current.previas).toHaveLength(1))
+    expect(result.current.previas[0].id).toBe('v1')
   })
 
   it('salta ciclos anteriores sin lecturas hasta encontrar uno con datos', async () => {
